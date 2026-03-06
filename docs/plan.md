@@ -19,7 +19,7 @@ Admin interface for the BengoBox Subscription Service. Serves two audiences:
 | Language | TypeScript | Type safety across API contracts |
 | UI Library | shadcn/ui + Tailwind CSS | Consistent design system, accessible components |
 | State | TanStack Query (React Query) | Server-state caching, optimistic updates |
-| Auth | `shared-auth-client` (JS SDK) + useMe (TanStack Query) | SSO integration; GET /me from auth-api with 5 min TTL for roles/permissions, nav, route protection, `/unauthorized` |
+| Auth | `shared-auth-client` (JS SDK) + useMe (TanStack Query) | SSO integration; GET /me from auth-api with 5 min TTL; `hasRole`/`hasPermission` for permission-based nav and route protection; 403 → `/[orgSlug]/unauthorized`, 404 → `not-found.tsx`; data fetches via TanStack Query |
 | HTTP Client | Fetch API + typed wrappers | No extra dependency; typed request/response |
 | Package Manager | pnpm | Monorepo friendly, fast installs |
 | Testing | Vitest + Playwright | Unit + E2E |
@@ -112,3 +112,13 @@ NEXT_PUBLIC_APP_URL=https://subscriptions.codevertexitsolutions.com
 | 2 | Admin panels, usage dashboard, product management | Mar 14–17 (overlap/polish) |
 
 See `docs/sprints/` for detailed sprint plans.
+
+---
+
+## Auth & RBAC (verified)
+
+- **useMe** (`src/hooks/useMe.ts`): TanStack Query with 5 min `staleTime`/`gcTime`; fetches auth-api GET /me; exposes `user`, `hasRole(role)`, `hasPermission(permission)`.
+- **Permission-based nav:** Sidebar uses `hasRole('admin'|'super_admin')` for Platform section (Plans Management, All Subscriptions). Use `hasPermission` for resource-scoped nav when auth-api permissions are wired (e.g. `subscription.read`, `plan.manage`).
+- **Route protection:** `AuthProvider` redirects unauthenticated users to SSO; on 403 from /me redirects to `/[orgSlug]/unauthorized`. Platform pages (e.g. platform/plans) redirect non–platform-admin to dashboard.
+- **Error pages:** 403-style → `src/app/[orgSlug]/unauthorized/page.tsx`; 404 → `src/app/not-found.tsx`.
+- **Data:** All list/detail fetches use TanStack Query (`useQuery`/`useMutation`) via `lib/api/client.ts`; no direct fetch in views.

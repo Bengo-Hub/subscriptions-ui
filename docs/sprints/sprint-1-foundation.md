@@ -5,7 +5,7 @@
 **Goal**: Scaffold the Next.js project, integrate auth, build plan catalog and tenant subscription dashboard
 **MVP Deadline**: March 17, 2026
 
-**Progress (March 6, 2026):** Full Next.js 16 app scaffold complete. SSO/PKCE, [orgSlug] routes, dashboard, plans (comparison matrix), usage, billing, settings, platform admin (plans CRUD, all subscriptions table). devops-k8s values.yaml created for subscription-ui (subscriptions.codevertexitsolutions.com). **Tenant/brand:** TenantBrandingProvider in [orgSlug] layout; fetches tenant from auth-api GET /api/v1/tenants/by-slug/{slug} (NEXT_PUBLIC_SSO_URL); applies theme; Settings page has "Tenant & Branding" section. **Remaining:** Wire to pricingapi; deploy.
+**Progress (March 7, 2026):** Full Next.js 16 app scaffold complete. SSO/PKCE, [orgSlug] routes, dashboard, plans (comparison matrix), usage, billing, settings, platform admin (plans CRUD, all subscriptions table). devops-k8s values.yaml created for subscription-ui (subscriptions.codevertexitsolutions.com). **RBAC:** useMe with 5 min TTL and gcTime; hasRole/hasPermission; sidebar uses useMe().hasRole for platform section; AuthProvider redirects 403 from /me to `/[orgSlug]/unauthorized`; 404 not-found page added. **Tenant/brand:** TenantBrandingProvider in [orgSlug] layout; fetches tenant from auth-api GET /api/v1/tenants/by-slug/{slug} (NEXT_PUBLIC_SSO_URL); applies theme; Settings page has "Tenant & Branding" section. **Remaining:** Wire to pricingapi; deploy.
 
 ---
 
