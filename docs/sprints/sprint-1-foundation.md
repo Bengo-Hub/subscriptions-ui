@@ -5,7 +5,7 @@
 **Goal**: Scaffold the Next.js project, integrate auth, build plan catalog and tenant subscription dashboard
 **MVP Deadline**: March 17, 2026
 
-**Progress (March 6, 2026):** Full Next.js 16 app scaffold complete. SSO/PKCE, [orgSlug] routes, dashboard, plans (comparison matrix), usage, billing, settings, platform admin (plans CRUD, all subscriptions table). devops-k8s values.yaml created for subscription-ui (subscriptions.codevertexitsolutions.com). **Remaining:** Wire to pricingapi; deploy.
+**Progress (March 6, 2026):** Full Next.js 16 app scaffold complete. SSO/PKCE, [orgSlug] routes, dashboard, plans (comparison matrix), usage, billing, settings, platform admin (plans CRUD, all subscriptions table). devops-k8s values.yaml created for subscription-ui (subscriptions.codevertexitsolutions.com). **Tenant/brand:** TenantBrandingProvider in [orgSlug] layout; fetches tenant from auth-api GET /api/v1/tenants/by-slug/{slug} (NEXT_PUBLIC_SSO_URL); applies theme; Settings page has "Tenant & Branding" section. **Remaining:** Wire to pricingapi; deploy.
 
 ---
 

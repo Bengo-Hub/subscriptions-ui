@@ -1,9 +1,10 @@
 'use client';
 
 import { Badge, Button, Card, CardContent, CardHeader, Input } from '@/components/ui/base';
+import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { apiClient } from '@/lib/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Shield, Settings as SettingsIcon } from 'lucide-react';
+import { Bell, Palette, Shield, Settings as SettingsIcon } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const params = useParams();
   const orgSlug = params?.orgSlug as string;
   const queryClient = useQueryClient();
+  const { tenant, logoUrl, primaryColor, isLoading: brandingLoading } = useTenantBranding();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['sub-settings', orgSlug],
@@ -53,6 +55,31 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Subscription Settings</h1>
         <p className="text-muted-foreground mt-1">Configure renewal, notifications, and billing preferences.</p>
       </div>
+
+      {/* Tenant & branding (from auth-api) */}
+      {!brandingLoading && (tenant || logoUrl || primaryColor) && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Palette className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Tenant & Branding</h2>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {tenant && (
+              <p className="text-sm text-muted-foreground">
+                <strong>{tenant.name}</strong> ({tenant.slug}). Branding is loaded from auth-api tenant metadata. Update tenant in auth portal to change logo/colors.
+              </p>
+            )}
+            {(logoUrl || primaryColor) && (
+              <div className="flex items-center gap-4">
+                {logoUrl && <img src={logoUrl} alt="Logo" className="h-10 object-contain" />}
+                {primaryColor && <div className="h-8 w-24 rounded border" style={{ backgroundColor: primaryColor }} title="Primary" />}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="space-y-4">

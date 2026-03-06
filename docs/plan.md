@@ -19,7 +19,7 @@ Admin interface for the BengoBox Subscription Service. Serves two audiences:
 | Language | TypeScript | Type safety across API contracts |
 | UI Library | shadcn/ui + Tailwind CSS | Consistent design system, accessible components |
 | State | TanStack Query (React Query) | Server-state caching, optimistic updates |
-| Auth | `shared-auth-client` (JS SDK) | SSO integration with auth-service |
+| Auth | `shared-auth-client` (JS SDK) + useMe (TanStack Query) | SSO integration; GET /me from auth-api with 5 min TTL for roles/permissions, nav, route protection, `/unauthorized` |
 | HTTP Client | Fetch API + typed wrappers | No extra dependency; typed request/response |
 | Package Manager | pnpm | Monorepo friendly, fast installs |
 | Testing | Vitest + Playwright | Unit + E2E |
