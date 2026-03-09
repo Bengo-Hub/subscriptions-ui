@@ -20,8 +20,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const params = useParams();
   const orgSlug = params?.orgSlug as string;
-  const session = useAuthStore((s) => s.session);
-  const { hasRole } = useMe(!!session);
+  const { hasRole } = useMe();
 
   const isAdmin = hasRole('admin') || hasRole('super_admin');
 
