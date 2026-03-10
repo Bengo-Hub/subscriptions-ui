@@ -167,7 +167,7 @@ export default function BillingPage() {
                   <TableHead>Description</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-12" />
+                  <TableHead className="w-12">{" "}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

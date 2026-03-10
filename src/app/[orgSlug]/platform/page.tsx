@@ -26,24 +26,24 @@ export default function PlatformPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
 
-  const isSuperAdmin = user?.roles?.includes('super_admin');
+  const isPlatformOwner = orgSlug === 'codevertex';
 
   useEffect(() => {
-    if (user && !isSuperAdmin) {
+    if (user && !isPlatformOwner) {
       router.replace(`/${orgSlug}`);
     }
-  }, [user, isSuperAdmin, orgSlug, router]);
+  }, [user, isPlatformOwner, orgSlug, router]);
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['platform-stats'],
     queryFn: () => apiClient.get<PlatformStats>('/api/v1/platform/stats'),
-    enabled: !!isSuperAdmin,
+    enabled: !!isPlatformOwner,
   });
 
   const formatCurrency = (amount?: number, currency = 'USD') =>
     amount != null ? new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount) : '—';
 
-  if (!isSuperAdmin) return null;
+  if (!isPlatformOwner) return null;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">

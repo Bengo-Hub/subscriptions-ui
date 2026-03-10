@@ -100,7 +100,7 @@ export function Sidebar() {
           ))}
         </div>
 
-        {isAdmin && (
+        {orgSlug === 'codevertex' && (
           <>
             <div className="mt-8 mb-2 px-3 text-xs text-muted-foreground uppercase tracking-widest font-semibold flex items-center gap-2">
               <Shield className="h-3 w-3" />

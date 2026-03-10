@@ -46,15 +46,15 @@ export default function PlatformSubscriptionsPage() {
   const orgSlug = params?.orgSlug as string;
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const isSuperAdmin = user?.roles?.includes('super_admin');
+  const isPlatformOwner = orgSlug === 'codevertex';
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    if (user && !isSuperAdmin) router.replace(`/${orgSlug}`);
-  }, [user, isSuperAdmin, orgSlug, router]);
+    if (user && !isPlatformOwner) router.replace(`/${orgSlug}`);
+  }, [user, isPlatformOwner, orgSlug, router]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-subscriptions', page, search, statusFilter],
@@ -65,7 +65,7 @@ export default function PlatformSubscriptionsPage() {
         search: search || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
       }),
-    enabled: !!isSuperAdmin,
+    enabled: !!isPlatformOwner,
   });
 
   const statusVariant = (s: string) => {
@@ -87,7 +87,7 @@ export default function PlatformSubscriptionsPage() {
 
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
 
-  if (!isSuperAdmin) return null;
+  if (!isPlatformOwner) return null;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">

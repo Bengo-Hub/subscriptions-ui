@@ -73,7 +73,7 @@ export default function PlatformPlansPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
-  const isSuperAdmin = user?.roles?.includes('super_admin');
+  const isPlatformOwner = orgSlug === 'codevertex';
 
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -86,13 +86,13 @@ export default function PlatformPlansPage() {
   });
 
   useEffect(() => {
-    if (user && !isSuperAdmin) router.replace(`/${orgSlug}`);
-  }, [user, isSuperAdmin, orgSlug, router]);
+    if (user && !isPlatformOwner) router.replace(`/${orgSlug}`);
+  }, [user, isPlatformOwner, orgSlug, router]);
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ['platform-plans'],
     queryFn: () => apiClient.get<Plan[]>('/api/v1/platform/plans'),
-    enabled: !!isSuperAdmin,
+    enabled: !!isPlatformOwner,
   });
 
   const createMutation = useMutation({
@@ -151,7 +151,7 @@ export default function PlatformPlansPage() {
     }
   };
 
-  if (!isSuperAdmin) return null;
+  if (!isPlatformOwner) return null;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
