@@ -23,20 +23,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initialize]);
 
   useEffect(() => {
-    if (status === 'idle' && !pathname?.includes('/auth') && orgSlug) {
-      useAuthStore.getState().redirectToSSO(orgSlug, window.location.href);
+    if (status === 'idle' && !pathname?.includes('/auth')) {
+      initialize();
+      if (status === 'idle') {
+        useAuthStore.getState().redirectToSSO(window.location.href);
+      }
     }
-  }, [status, pathname, orgSlug]);
+  }, [status, pathname]);
 
   useEffect(() => {
     if (!session || isUnauthorizedPage || meLoading) return;
     const statusCode =
       (error as { response?: { status?: number }; status?: number })?.response?.status ??
       (error as { status?: number })?.status;
-    if (isError && statusCode === 403 && orgSlug) {
-      router.replace(`/${orgSlug}/unauthorized`);
+    if (isError && statusCode === 403) {
+      router.replace('/unauthorized');
     }
-  }, [session, isError, error, isUnauthorizedPage, meLoading, orgSlug, router]);
+  }, [session, isError, error, isUnauthorizedPage, meLoading, router]);
 
   const loading = status === 'loading' || (!!session && meLoading);
   if (loading && !isAuthCallback) {

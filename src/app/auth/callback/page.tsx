@@ -1,7 +1,7 @@
 'use client';
 
-import { useAuthStore } from '@/store/auth';
 import { consumeState } from '@/lib/auth/pkce';
+import { useAuthStore } from '@/store/auth';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef } from 'react';
 
@@ -29,7 +29,7 @@ function CallbackHandler() {
 
     const callbackUrl = `${window.location.origin}/${orgSlug}/auth/callback`;
 
-    handleSSOCallback(orgSlug, code, callbackUrl).then(() => {
+    handleSSOCallback(code, callbackUrl).then(() => {
       const returnTo = sessionStorage.getItem('sso_return_to');
       sessionStorage.removeItem('sso_return_to');
 

@@ -5,7 +5,7 @@ import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { apiClient } from '@/lib/api/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Palette, Shield, Settings as SettingsIcon } from 'lucide-react';
-import { useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -19,14 +19,12 @@ interface SubscriptionSettings {
 }
 
 export default function SettingsPage() {
-  const params = useParams();
-  const orgSlug = params?.orgSlug as string;
   const queryClient = useQueryClient();
   const { tenant, logoUrl, primaryColor, isLoading: brandingLoading } = useTenantBranding();
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ['sub-settings', orgSlug],
-    queryFn: () => apiClient.get<SubscriptionSettings>(`/api/v1/tenants/${orgSlug}/subscription/settings`),
+    queryKey: ['sub-settings'],
+    queryFn: () => apiClient.get<SubscriptionSettings>('/api/v1/subscription/settings'),
   });
 
   const [form, setForm] = useState<Partial<SubscriptionSettings>>({});
@@ -34,9 +32,9 @@ export default function SettingsPage() {
 
   const mutation = useMutation({
     mutationFn: (data: Partial<SubscriptionSettings>) =>
-      apiClient.put(`/api/v1/tenants/${orgSlug}/subscription/settings`, data),
+      apiClient.put('/api/v1/subscription/settings', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sub-settings', orgSlug] });
+      queryClient.invalidateQueries({ queryKey: ['sub-settings'] });
       toast.success('Settings saved');
       setForm({});
     },

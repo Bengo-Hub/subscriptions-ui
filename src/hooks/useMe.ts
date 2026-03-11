@@ -12,7 +12,9 @@ export interface MeProfile {
   fullName?: string;
   roles: string[];
   permissions?: string[];
-  organizationId?: string;
+  tenant_id?: string;
+  tenant_slug?: string;
+  is_platform_owner?: boolean;
 }
 
 export function useMe() {

@@ -18,7 +18,7 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Users } from 'lucide-react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface TenantSubscription {
@@ -42,24 +42,22 @@ interface PaginatedResponse {
 }
 
 export default function PlatformSubscriptionsPage() {
-  const params = useParams();
-  const orgSlug = params?.orgSlug as string;
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = orgSlug === 'codevertex';
+  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    if (user && !isPlatformOwner) router.replace(`/${orgSlug}`);
-  }, [user, isPlatformOwner, orgSlug, router]);
+    if (user && !isPlatformOwner) router.replace('/');
+  }, [user, isPlatformOwner, router]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-subscriptions', page, search, statusFilter],
     queryFn: () =>
-      apiClient.get<PaginatedResponse>('/api/v1/platform/subscriptions', {
+      apiClient.get<PaginatedResponse>('/api/v1/admin/subscriptions', {
         page,
         pageSize: 20,
         search: search || undefined,

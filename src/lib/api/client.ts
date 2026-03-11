@@ -19,10 +19,24 @@ class ApiClient {
     this.instance.interceptors.response.use(this.handleResponse, this.handleError);
   }
 
-  private handleRequest = (config: InternalAxiosRequestConfig) => {
+    private handleRequest = (config: InternalAxiosRequestConfig) => {
     if (this.accessToken) {
       config.headers.Authorization = `Bearer ${this.accessToken}`;
     }
+
+    // Tenant Identification Headers
+    const tenantId = localStorage.getItem('tenant_id');
+    const tenantSlug = localStorage.getItem('tenant_slug');
+    const isPlatformOwner = localStorage.getItem('is_platform_owner') === 'true';
+
+    // Only inject headers if not a platform owner
+    if (tenantId && !isPlatformOwner) {
+      config.headers['X-Tenant-ID'] = tenantId;
+    }
+    if (tenantSlug && !isPlatformOwner) {
+      config.headers['X-Tenant-Slug'] = tenantSlug;
+    }
+
     return config;
   };
 

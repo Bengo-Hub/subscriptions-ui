@@ -16,7 +16,9 @@ interface UserProfile {
   email: string;
   fullName: string;
   roles: string[];
-  organizationId: string;
+  tenant_id?: string;
+  tenant_slug?: string;
+  is_platform_owner?: boolean;
 }
 
 interface Session {
@@ -30,10 +32,11 @@ interface AuthState {
   user: UserProfile | null;
   session: Session | null;
   error: string | null;
+  isAuthenticated?: boolean;
 
   initialize: () => Promise<void>;
-  redirectToSSO: (orgSlug: string, returnTo?: string) => Promise<void>;
-  handleSSOCallback: (orgSlug: string, code: string, callbackUrl: string) => Promise<void>;
+  redirectToSSO: (returnTo?: string) => Promise<void>;
+  handleSSOCallback: (code: string, callbackUrl: string) => Promise<void>;
   logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
   setUser: (user: UserProfile | null) => void;
@@ -41,11 +44,12 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set: any, get: any) => ({
       status: 'idle',
       user: null,
       session: null,
       error: null,
+      isAuthenticated: false,
 
       initialize: async () => {
         const { session } = get();
@@ -59,13 +63,13 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const user = await fetchProfile(session.accessToken);
-          set({ user, status: 'authenticated' });
+          set({ user, status: 'authenticated', isAuthenticated: true });
         } catch {
-          set({ status: 'idle', session: null, user: null });
+          set({ status: 'idle', session: null, user: null, isAuthenticated: false });
         }
       },
 
-      redirectToSSO: async (orgSlug: string, returnTo?: string) => {
+      redirectToSSO: async (returnTo?: string) => {
         set({ status: 'loading', error: null });
         try {
           const verifier = generateCodeVerifier();
@@ -79,7 +83,7 @@ export const useAuthStore = create<AuthState>()(
             sessionStorage.setItem('sso_return_to', returnTo);
           }
 
-          const callbackUrl = `${window.location.origin}/${orgSlug}/auth/callback`;
+          const callbackUrl = `${window.location.origin}/auth/callback`;
           const authorizeUrl = buildAuthorizeUrl({
             codeChallenge: challenge,
             state,
@@ -92,7 +96,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      handleSSOCallback: async (orgSlug: string, code: string, callbackUrl: string) => {
+      handleSSOCallback: async (code: string, callbackUrl: string) => {
         set({ status: 'syncing', error: null });
         const verifier = consumeVerifier();
 
@@ -121,7 +125,7 @@ export const useAuthStore = create<AuthState>()(
           while (attempts < 5) {
             try {
               const user = await fetchProfile(session.accessToken);
-              set({ user, status: 'authenticated' });
+              set({ user, status: 'authenticated', isAuthenticated: true });
               return;
             } catch {
               attempts++;
@@ -136,7 +140,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        set({ status: 'idle', user: null, session: null });
+        set({ status: 'idle', user: null, session: null, isAuthenticated: false });
         apiClient.setAccessToken(null);
         window.location.href = buildLogoutUrl(window.location.origin);
       },
@@ -146,21 +150,38 @@ export const useAuthStore = create<AuthState>()(
         if (!session) return;
         try {
           const user = await fetchProfile(session.accessToken);
-          set({ user });
+          set({ user, isAuthenticated: true });
         } catch {
           console.error('Fetch user failed');
         }
       },
 
-      setUser: (user) => set({ user }),
+      setUser: (user: UserProfile | null) => {
+        set({ user, isAuthenticated: !!user });
+        if (user) {
+          localStorage.setItem('tenant_id', user.tenant_id || '');
+          localStorage.setItem('tenant_slug', user.tenant_slug || '');
+          localStorage.setItem('is_platform_owner', (user.is_platform_owner || user.tenant_slug === 'codevertex').toString());
+        } else {
+          localStorage.removeItem('tenant_id');
+          localStorage.removeItem('tenant_slug');
+          localStorage.removeItem('is_platform_owner');
+        }
+      },
     }),
     {
       name: 'subscriptions-auth-storage',
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
+      partialize: (state: AuthState) => ({
         session: state.session,
         user: state.user,
+        isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state: AuthState | undefined) => {
+        if (state?.session?.accessToken) {
+          apiClient.setAccessToken(state.session.accessToken);
+        }
+      },
     }
   )
 );

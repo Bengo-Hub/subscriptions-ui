@@ -45,12 +45,9 @@ interface BillingInfo {
 }
 
 export default function BillingPage() {
-  const params = useParams();
-  const orgSlug = params?.orgSlug as string;
-
   const { data, isLoading } = useQuery({
-    queryKey: ['billing', orgSlug],
-    queryFn: () => apiClient.get<BillingInfo>(`/api/v1/tenants/${orgSlug}/billing`),
+    queryKey: ['billing'],
+    queryFn: () => apiClient.get<BillingInfo>('/api/v1/billing'),
   });
 
   const formatDate = (d?: string) =>

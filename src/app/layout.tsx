@@ -1,54 +1,39 @@
-import { PWARegistration } from "@/components/pwa-registration";
-import { ThemeProvider } from "@/components/theme-provider";
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from "sonner";
-import "./globals.css";
+'use client';
 
-const geistSans = Geist({
-  subsets: ["latin"],
-});
+import { Header } from '@/components/header';
+import { Sidebar } from '@/components/sidebar';
+import { AuthProvider } from '@/providers/auth-provider';
+import { TenantBrandingProvider } from '@/providers/tenant-branding-provider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactNode, useState } from 'react';
 
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
-});
+export default function OrgLayout({ children }: { children: ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            retry: 1,
+            refetchOnWindowFocus: false,
+          },
+        },
+      })
+  );
 
-export const metadata: Metadata = {
-  title: "BengoBox Subscriptions",
-  description: "Subscription management for the BengoBox ecosystem",
-  manifest: "/manifest.json",
-  icons: {
-    icon: "/logo.svg",
-    apple: "/logo.svg",
-  },
-  themeColor: "#8b5cf6",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "BengoBox Subscriptions",
-  },
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.className} ${geistMono.className} antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-          <PWARegistration />
-          <Toaster richColors position="top-right" />
-        </ThemeProvider>
-      </body>
-    </html>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TenantBrandingProvider>
+          <div className="flex h-screen overflow-hidden bg-background">
+            <Sidebar />
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+              <Header />
+              <main className="flex-1 overflow-y-auto bg-accent/5">{children}</main>
+            </div>
+          </div>
+        </TenantBrandingProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

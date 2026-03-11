@@ -42,12 +42,9 @@ const METRIC_ICONS: Record<string, any> = {
 };
 
 export default function UsagePage() {
-  const params = useParams();
-  const orgSlug = params?.orgSlug as string;
-
   const { data, isLoading } = useQuery({
-    queryKey: ['usage', orgSlug],
-    queryFn: () => apiClient.get<UsageResponse>(`/api/v1/tenants/${orgSlug}/usage`),
+    queryKey: ['usage'],
+    queryFn: () => apiClient.get<UsageResponse>('/api/v1/usage'),
   });
 
   const pct = (used: number, limit: number) => (limit > 0 ? Math.round((used / limit) * 100) : 0);
