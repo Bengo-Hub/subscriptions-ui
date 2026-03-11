@@ -19,8 +19,8 @@ warn()    { echo -e "\033[1;33m[WARN]\033[0m $1"; }
 error()   { echo -e "\033[0;31m[ERROR]\033[0m $1"; }
 
 # Configuration (APP_NAME must match devops-k8s apps/subscription-ui)
-APP_NAME=${APP_NAME:-"subscription-ui"}
-NAMESPACE=${NAMESPACE:-"subscription"}
+APP_NAME=${APP_NAME:-"subscriptions-ui"}
+NAMESPACE=${NAMESPACE:-"subscriptions"}
 DEPLOY=${DEPLOY:-false}
 
 # Registry configuration
@@ -33,7 +33,7 @@ DEVOPS_REPO=${DEVOPS_REPO:-"Bengo-Hub/devops-k8s"}
 DEVOPS_DIR=${DEVOPS_DIR:-"$HOME/devops-k8s"}
 
 GIT_EMAIL=${GIT_EMAIL:-"dev@bengobox.com"}
-GIT_USER=${GIT_USER:-"Subscription UI Bot"}
+GIT_USER=${GIT_USER:-"Subscriptions UI Bot"}
 
 # Determine Git commit ID
 if [[ -z ${GITHUB_SHA:-} ]]; then

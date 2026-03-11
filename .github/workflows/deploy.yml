@@ -1,4 +1,4 @@
-name: Build and Deploy Subscription UI
+name: Build and Deploy Subscriptions UI
 
 on:
   push:
@@ -127,11 +127,11 @@ jobs:
         run: |
           echo "DEPLOY=true" >> $GITHUB_ENV
           echo "NAMESPACE=subscription" >> $GITHUB_ENV
-          echo "ENV_SECRET_NAME=subscription-ui-secrets" >> $GITHUB_ENV
+          echo "ENV_SECRET_NAME=subscriptions-ui-secrets" >> $GITHUB_ENV
           echo "REGISTRY_SERVER=docker.io" >> $GITHUB_ENV
           echo "REGISTRY_NAMESPACE=codevertex" >> $GITHUB_ENV
-          echo "VALUES_FILE_PATH=apps/subscription-ui/values.yaml" >> $GITHUB_ENV
-          echo "APP_NAME=subscription-ui" >> $GITHUB_ENV
+          echo "VALUES_FILE_PATH=apps/subscriptions-ui/values.yaml" >> $GITHUB_ENV
+          echo "APP_NAME=subscriptions-ui" >> $GITHUB_ENV
 
       - name: Run production deployment
         if: needs.sync-secrets.outputs.result != 'synced'
@@ -142,8 +142,8 @@ jobs:
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
           GITHUB_SHA: ${{ github.sha }}
           DEPLOY: true
-          NAMESPACE: subscription
-          APP_NAME: subscription-ui
+          NAMESPACE: subscriptions
+          APP_NAME: subscriptions-ui
           GIT_USER: "Subscription UI Bot"
           GIT_EMAIL: "dev@bengobox.com"
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
@@ -162,7 +162,7 @@ jobs:
           REGISTRY_NAMESPACE: codevertex
         run: |
           set -e
-          IMAGE_REPO="${REGISTRY_SERVER}/${REGISTRY_NAMESPACE}/subscription-ui"
+          IMAGE_REPO="${REGISTRY_SERVER}/${REGISTRY_NAMESPACE}/subscriptions-ui"
           SHORT_SHA=${GITHUB_SHA::8}
           echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY_SERVER" -u "$REGISTRY_USERNAME" --password-stdin
           docker pull "${IMAGE_REPO}:${SHORT_SHA}" || true
@@ -173,8 +173,8 @@ jobs:
         if: success() && needs.sync-secrets.outputs.result != 'synced'
         env:
           KUBE_CONFIG_B64: ${{ secrets.KUBE_CONFIG }}
-          NS: subscription
-          APP_NAME: subscription-ui
+          NAMESPACE: subscriptions
+          APP_NAME: subscriptions-ui
         run: |
           if [ -z "${KUBE_CONFIG_B64}" ]; then
             echo "⏭️ Skipping ArgoCD check - no KUBE_CONFIG available"
