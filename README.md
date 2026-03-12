@@ -11,7 +11,7 @@ pnpm dev
 
 ## Deploy
 
-Deployed at `https://subscriptions.codevertexitsolutions.com`. CI on push to `main`. Image: `subscription-ui` (devops naming).
+Deployed at `https://pricing.codevertexitsolutions.com` (devops-k8s values.yaml). CI on push to `main`. Image: `subscription-ui` (devops naming).
 
 ## Push from this folder (own repo)
 

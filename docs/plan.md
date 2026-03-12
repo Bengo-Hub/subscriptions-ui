@@ -99,7 +99,7 @@ All data comes from `subscriptions-api` at `https://pricingapi.codevertexitsolut
 ```env
 NEXT_PUBLIC_SUBSCRIPTION_API_URL=https://pricingapi.codevertexitsolutions.com/api/v1
 NEXT_PUBLIC_AUTH_URL=https://sso.codevertexitsolutions.com
-NEXT_PUBLIC_APP_URL=https://subscriptions.codevertexitsolutions.com
+NEXT_PUBLIC_APP_URL=https://pricing.codevertexitsolutions.com
 ```
 
 ---
