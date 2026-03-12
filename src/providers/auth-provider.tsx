@@ -41,7 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session, isError, error, isUnauthorizedPage, meLoading, router]);
 
-  const loading = status === 'loading' || (!!session && meLoading);
+  // Show loading until auth state is known so dashboard never flashes before SSO redirect
+  const loading =
+    status === 'loading' ||
+    status === 'idle' ||
+    (!!session && meLoading);
   if (loading && !isAuthCallback) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

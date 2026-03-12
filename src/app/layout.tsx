@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/globals.css';
 import { Header } from '@/components/header';
 import { Sidebar } from '@/components/sidebar';
 import { AuthProvider } from '@/providers/auth-provider';
