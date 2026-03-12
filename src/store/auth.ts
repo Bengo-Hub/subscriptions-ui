@@ -1,12 +1,12 @@
 import { apiClient } from '@/lib/api/client';
 import { buildAuthorizeUrl, buildLogoutUrl, exchangeCodeForTokens, fetchProfile } from '@/lib/auth/api';
 import {
-  consumeVerifier,
-  generateCodeChallenge,
-  generateCodeVerifier,
-  generateState,
-  storeState,
-  storeVerifier,
+    consumeVerifier,
+    generateCodeChallenge,
+    generateCodeVerifier,
+    generateState,
+    storeState,
+    storeVerifier,
 } from '@/lib/auth/pkce';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
@@ -35,7 +35,8 @@ interface AuthState {
   isAuthenticated?: boolean;
 
   initialize: () => Promise<void>;
-  redirectToSSO: (returnTo?: string) => Promise<void>;
+  /** When in tenant context (e.g. route or selection), pass tenant so token is minted for that org. */
+  redirectToSSO: (returnTo?: string, tenant?: string) => Promise<void>;
   handleSSOCallback: (code: string, callbackUrl: string) => Promise<void>;
   logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
@@ -69,7 +70,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      redirectToSSO: async (returnTo?: string) => {
+      redirectToSSO: async (returnTo?: string, tenant?: string) => {
         set({ status: 'loading', error: null });
         try {
           const verifier = generateCodeVerifier();
@@ -83,11 +84,14 @@ export const useAuthStore = create<AuthState>()(
             sessionStorage.setItem('sso_return_to', returnTo);
           }
 
-          const callbackUrl = `${window.location.origin}/auth/callback`;
+          const callbackUrl = tenant
+            ? `${window.location.origin}/${tenant}/auth/callback`
+            : `${window.location.origin}/auth/callback`;
           const authorizeUrl = buildAuthorizeUrl({
             codeChallenge: challenge,
             state,
             redirectUri: callbackUrl,
+            tenant,
           });
 
           window.location.href = authorizeUrl;
