@@ -1,20 +1,36 @@
 'use client';
 
 import { useAuthStore } from '@/store/auth';
-import { ChevronDown, LogOut, Search, Settings, User } from 'lucide-react';
+import { ChevronDown, LogOut, Menu, Search, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { ThemeToggle } from './theme-toggle';
 
-export function Header() {
+function displayName(user: { fullName?: string; name?: string; email?: string } | null): string {
+  if (!user) return 'Account';
+  return user.fullName ?? user.name ?? user.email?.split('@')[0] ?? 'Account';
+}
+
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const logout = useAuthStore((state) => state.logout);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const showProfile = !!user && isAuthenticated;
+  const name = displayName(user);
+  const role = user?.roles?.[0];
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-50 flex items-center justify-between px-6">
       <div className="flex items-center gap-4 flex-1">
+        <button type="button" onClick={onMenuClick} className="md:hidden p-2 rounded-lg hover:bg-accent transition" aria-label="Open menu">
+          <Menu className="h-5 w-5 text-muted-foreground" />
+        </button>
         <div className="relative max-w-sm w-full group hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <input
@@ -30,6 +46,7 @@ export function Header() {
         <div className="h-8 w-[1px] bg-border mx-1" />
 
         <div className="relative flex items-center gap-3 pl-2" ref={profileRef}>
+          {showProfile ? (
           <button
             type="button"
             onClick={() => setProfileOpen((v) => !v)}
@@ -39,15 +56,16 @@ export function Header() {
             aria-label="Open profile menu"
           >
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold leading-none">{user?.fullName || 'User'}</p>
-              <p className="text-xs text-muted-foreground mt-1 capitalize">{user?.roles?.[0] || 'Member'}</p>
+              <p className="text-sm font-semibold leading-none">{name}</p>
+              {role ? <p className="text-xs text-muted-foreground mt-1 capitalize">{role}</p> : null}
             </div>
             <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold border border-border shadow-sm">
-              {user?.fullName?.[0] || <User className="h-5 w-5" />}
+              {name[0]?.toUpperCase() ?? <User className="h-5 w-5" />}
             </div>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
           </button>
-          {profileOpen && (
+          ) : null}
+          {showProfile && profileOpen && (
             <>
               <div className="fixed inset-0 z-40" aria-hidden="true" onClick={() => setProfileOpen(false)} />
               <div className="absolute right-0 top-full mt-2 z-50 min-w-[180px] py-1 rounded-lg border border-border bg-card shadow-lg">
