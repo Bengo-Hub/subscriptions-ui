@@ -20,7 +20,9 @@ interface SubscriptionSettings {
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const { tenant, logoUrl, primaryColor, isLoading: brandingLoading } = useTenantBranding();
+  const { tenant, isLoading: brandingLoading } = useTenantBranding();
+  const logoUrl = tenant?.logoUrl;
+  const primaryColor = tenant?.primaryColor;
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['sub-settings'],

@@ -1,6 +1,7 @@
 'use client';
 
 import '@/app/globals.css';
+import { Footer } from '@/components/footer';
 import { Header } from '@/components/header';
 import { Sidebar } from '@/components/sidebar';
 import { AuthProvider } from '@/providers/auth-provider';
@@ -31,7 +32,12 @@ export default function OrgLayout({ children }: { children: ReactNode }) {
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               <Header onMenuClick={() => setSidebarOpen(true)} />
-              <main className="flex-1 overflow-y-auto bg-accent/5">{children}</main>
+              <main className="flex-1 overflow-y-auto bg-accent/5">
+                <div className="min-h-full flex flex-col">
+                  <div className="flex-1">{children}</div>
+                  <Footer />
+                </div>
+              </main>
             </div>
           </div>
         </TenantBrandingProvider>
