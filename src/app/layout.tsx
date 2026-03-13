@@ -7,6 +7,8 @@ import { Sidebar } from '@/components/sidebar';
 import { AuthProvider } from '@/providers/auth-provider';
 import { TenantBrandingProvider } from '@/providers/tenant-branding-provider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from 'sonner';
 import { ReactNode, useState } from 'react';
 
 export default function OrgLayout({ children }: { children: ReactNode }) {
@@ -26,22 +28,30 @@ export default function OrgLayout({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TenantBrandingProvider>
-          <div className="flex h-screen overflow-hidden bg-background">
-            <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              <Header onMenuClick={() => setSidebarOpen(true)} />
-              <main className="flex-1 overflow-y-auto bg-accent/5">
-                <div className="min-h-full flex flex-col">
-                  <div className="flex-1">{children}</div>
-                  <Footer />
-                </div>
-              </main>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <AuthProvider>
+          <TenantBrandingProvider>
+            <div className="flex h-screen overflow-hidden bg-background">
+              <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+              <div className="flex-1 flex flex-col min-w-0 overflow-hidden text-slate-900 dark:text-slate-100">
+                <Header onMenuClick={() => setSidebarOpen(true)} />
+                <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
+                  <div className="min-h-full flex flex-col">
+                    <div className="flex-1">{children}</div>
+                    <Footer />
+                  </div>
+                </main>
+              </div>
             </div>
-          </div>
-        </TenantBrandingProvider>
-      </AuthProvider>
+          </TenantBrandingProvider>
+        </AuthProvider>
+        <Toaster richColors position="top-right" />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
