@@ -41,6 +41,7 @@ interface AuthState {
   logout: () => Promise<void>;
   fetchUser: () => Promise<void>;
   setUser: (user: UserProfile | null) => void;
+  syncTenantToStorage: (user: UserProfile | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -51,6 +52,18 @@ export const useAuthStore = create<AuthState>()(
       session: null,
       error: null,
       isAuthenticated: false,
+      
+      syncTenantToStorage: (user: UserProfile | null) => {
+        if (user) {
+          localStorage.setItem('tenant_id', user.tenant_id || '');
+          localStorage.setItem('tenant_slug', user.tenant_slug || '');
+          localStorage.setItem('is_platform_owner', (user.is_platform_owner || user.tenant_slug === 'codevertex').toString());
+        } else {
+          localStorage.removeItem('tenant_id');
+          localStorage.removeItem('tenant_slug');
+          localStorage.removeItem('is_platform_owner');
+        }
+      },
 
       initialize: async () => {
         const { session } = get();
@@ -64,8 +77,10 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const user = await fetchProfile(session.accessToken);
+          get().syncTenantToStorage(user);
           set({ user, status: 'authenticated', isAuthenticated: true });
         } catch {
+          get().syncTenantToStorage(null);
           set({ status: 'idle', session: null, user: null, isAuthenticated: false });
         }
       },
@@ -129,6 +144,7 @@ export const useAuthStore = create<AuthState>()(
           while (attempts < 5) {
             try {
               const user = await fetchProfile(session.accessToken);
+              get().syncTenantToStorage(user);
               set({ user, status: 'authenticated', isAuthenticated: true });
               return;
             } catch {
@@ -144,6 +160,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        get().syncTenantToStorage(null);
         set({ status: 'idle', user: null, session: null, isAuthenticated: false });
         apiClient.setAccessToken(null);
         window.location.href = buildLogoutUrl(window.location.origin);
@@ -162,15 +179,7 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: (user: UserProfile | null) => {
         set({ user, isAuthenticated: !!user });
-        if (user) {
-          localStorage.setItem('tenant_id', user.tenant_id || '');
-          localStorage.setItem('tenant_slug', user.tenant_slug || '');
-          localStorage.setItem('is_platform_owner', (user.is_platform_owner || user.tenant_slug === 'codevertex').toString());
-        } else {
-          localStorage.removeItem('tenant_id');
-          localStorage.removeItem('tenant_slug');
-          localStorage.removeItem('is_platform_owner');
-        }
+        get().syncTenantToStorage(user);
       },
     }),
     {
@@ -184,6 +193,9 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state: AuthState | undefined) => {
         if (state?.session?.accessToken) {
           apiClient.setAccessToken(state.session.accessToken);
+        }
+        if (state?.user) {
+          state.syncTenantToStorage(state.user);
         }
       },
     }

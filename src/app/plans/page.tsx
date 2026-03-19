@@ -251,9 +251,34 @@ export default function PlansPage() {
                         !isGrowth && "border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-800"
                       )}
                       disabled={isCurrent}
-                      onClick={() => !isCurrent && (plan.planCode === 'PROFESSIONAL' ? window.location.href = 'mailto:sales@codevertex.com' : router.push(`/subscribe?plan=${plan.planCode}`))}
+                      onClick={() => {
+                        if (isCurrent) return;
+                        if (plan.planCode === 'PROFESSIONAL') {
+                          window.location.href = 'mailto:sales@codevertex.com';
+                          return;
+                        }
+                        if (!currentSub) {
+                          router.push(`/subscribe?plan=${plan.planCode}`);
+                          return;
+                        }
+                        const currentPlanData = monthlyPlans.find((p: Plan) => p.planCode === currentSub.planCode);
+                        if (!currentPlanData) {
+                          router.push(`/subscribe?plan=${plan.planCode}`);
+                          return;
+                        }
+                        if (plan.tierOrder > currentPlanData.tierOrder) {
+                          router.push(`/upgrade?plan=${plan.planCode}`);
+                        } else {
+                          router.push(`/downgrade?plan=${plan.planCode}`);
+                        }
+                      }}
                     >
-                      {isCurrent ? 'Current Plan' : plan.planCode === 'PROFESSIONAL' ? 'Contact Sales' : 'Get Started'}
+                      {isCurrent ? 'Current Plan' : plan.planCode === 'PROFESSIONAL' ? 'Contact Sales' : (() => {
+                        if (!currentSub) return 'Get Started';
+                        const currentPlanData = monthlyPlans.find((p: Plan) => p.planCode === currentSub.planCode);
+                        if (!currentPlanData) return 'Get Started';
+                        return plan.tierOrder > currentPlanData.tierOrder ? 'Upgrade' : 'Downgrade';
+                      })()}
                     </Button>
                     
                     {plan.planCode === 'STARTER' && (

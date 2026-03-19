@@ -6,6 +6,7 @@ import {
     CreditCard,
     Gauge,
     LayoutDashboard,
+    LogOut,
     Package,
     Settings,
     Shield,
@@ -16,6 +17,7 @@ import {
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
+import { useAuthStore } from '@/store/auth';
 
 interface SidebarProps {
   open?: boolean;
@@ -28,6 +30,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
   const tenantSlug = user?.tenant_slug || '';
   const { tenant } = useTenantBranding();
+  const logout = useAuthStore((s) => s.logout);
 
   const isAdmin = hasRole('admin') || hasRole('super_admin');
 
@@ -146,12 +149,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <div className="p-6 border-t border-white/10 mt-auto">
             <div className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/5 text-white/70">
                 <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xs font-black text-primary uppercase shadow-inner">
-                    CV
+                    {tenant?.name?.[0] || 'C'}
                 </div>
                 <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-black text-[10px] uppercase tracking-widest truncate">Codevertex</span>
+                    <span className="font-black text-[10px] uppercase tracking-widest truncate">{tenant?.name || 'Codevertex'}</span>
                     <span className="text-[9px] font-bold opacity-50 uppercase tracking-tighter">Unified Billing</span>
                 </div>
+                <button
+                    onClick={() => logout()}
+                    className="p-2 rounded-xl hover:bg-white/5 transition-colors text-white/50 hover:text-rose-400"
+                    title="Sign out"
+                >
+                    <LogOut className="h-5 w-5" />
+                </button>
             </div>
         </div>
     </div>
