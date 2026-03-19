@@ -30,13 +30,21 @@ function CallbackHandler() {
     const callbackUrl = `${window.location.origin}/${orgSlug}/auth/callback`;
 
     handleSSOCallback(code, callbackUrl).then(() => {
+      const { status } = useAuthStore.getState();
+
+      // Subscription required — redirect to subscribe page within this app
+      if (status === 'subscription_required') {
+        router.replace(orgSlug ? `/${orgSlug}/subscribe` : '/subscribe');
+        return;
+      }
+
       const returnTo = sessionStorage.getItem('sso_return_to');
       sessionStorage.removeItem('sso_return_to');
 
       if (returnTo && returnTo.startsWith(window.location.origin)) {
         router.replace(returnTo.replace(window.location.origin, ''));
       } else {
-        router.replace(`/${orgSlug}`);
+        router.replace(orgSlug ? `/${orgSlug}` : '/');
       }
     });
   }, [orgSlug, searchParams, handleSSOCallback, router]);

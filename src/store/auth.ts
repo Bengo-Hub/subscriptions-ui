@@ -28,7 +28,7 @@ interface Session {
 }
 
 interface AuthState {
-  status: 'idle' | 'loading' | 'authenticated' | 'error' | 'syncing';
+  status: 'idle' | 'loading' | 'authenticated' | 'error' | 'syncing' | 'subscription_required';
   user: UserProfile | null;
   session: Session | null;
   error: string | null;
