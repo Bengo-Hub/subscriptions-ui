@@ -4,7 +4,8 @@ import { Badge, Button, Card, CardContent, CardHeader } from '@/components/ui/ba
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { Check, X, ShieldCheck, Zap, Building2, Sparkles, MessageCircle, BarChart3, Globe, Users, ShoppingCart, Truck, CreditCard, Layout, Smartphone, MapPin, Receipt, Layers, Headphones } from 'lucide-react';
+import { useState } from 'react';
+import { Check, X, ShieldCheck, Zap, Building2, Sparkles, MessageCircle, BarChart3, Globe, Users, ShoppingCart, Truck, CreditCard, Layout, Smartphone, MapPin, Receipt, Layers, Headphones, Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
 
@@ -89,20 +90,29 @@ const FEATURE_CATEGORIES = [
 
 export default function PlansPage() {
   const router = useRouter();
+  const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY');
+
   const { data: currentSub } = useQuery({
     queryKey: ['current-subscription'],
-    queryFn: () => apiClient.get<CurrentSubscription>('/api/v1/subscription'),
+    queryFn: () => apiClient.get<CurrentSubscription>('/api/v1/subscription').catch(() => null),
+    staleTime: 60_000,
+    retry: 1,
   });
 
-  const { data: plansData } = useQuery({
+  const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ['plans'],
     queryFn: () => apiClient.get<Plan[]>('/api/v1/plans'),
+    staleTime: 300_000,
   });
 
-  // Filter only monthly plans for the main cards display
-  const monthlyPlans = (plansData || [])
-    .filter((p: Plan) => !p.planCode.includes('YEARLY'))
+  // Filter plans by selected billing cycle
+  const isAnnual = billingCycle === 'ANNUAL';
+  const displayPlans = (plansData || [])
+    .filter((p: Plan) => isAnnual ? p.planCode.includes('YEARLY') : !p.planCode.includes('YEARLY'))
     .sort((a: Plan, b: Plan) => a.tierOrder - b.tierOrder);
+
+  // Alias for backward compat in feature table
+  const monthlyPlans = displayPlans;
 
   const getTierClass = (code: string) => {
     switch (code) {
@@ -152,7 +162,45 @@ export default function PlansPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4">
+        {/* Billing Cycle Toggle */}
+        <div className="flex justify-center mb-12">
+          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setBillingCycle('MONTHLY')}
+              className={cn(
+                "px-6 py-3 rounded-xl text-sm font-black transition-all",
+                billingCycle === 'MONTHLY'
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('ANNUAL')}
+              className={cn(
+                "px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2",
+                billingCycle === 'ANNUAL'
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              )}
+            >
+              Annual
+              <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[10px] font-black">SAVE 17%</span>
+            </button>
+          </div>
+        </div>
+
         {/* Plan Cards */}
+        {plansLoading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : displayPlans.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-slate-500">No plans available. Please try again later.</p>
+          </div>
+        ) : null}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
           {monthlyPlans.map((plan, idx) => {
             const isCurrent = currentSub?.planCode === plan.planCode;
@@ -183,10 +231,15 @@ export default function PlansPage() {
                       <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2">{plan.name}</h3>
                       <div className="flex items-baseline gap-1 mb-4">
                         <span className="text-5xl font-black text-slate-900 dark:text-white">
-                          KES {plan.basePrice.toLocaleString()}
+                          KES {isAnnual ? Math.round(plan.basePrice / 12).toLocaleString() : plan.basePrice.toLocaleString()}
                         </span>
                         <span className="text-slate-500 font-bold">/mo</span>
                       </div>
+                      {isAnnual && (
+                        <p className="text-xs text-slate-400 font-bold -mt-2 mb-2">
+                          Billed KES {plan.basePrice.toLocaleString()} / year
+                        </p>
+                      )}
                       <p className="text-slate-500 dark:text-slate-400 font-medium text-sm leading-relaxed min-h-[4rem]">
                         {plan.description}
                       </p>
