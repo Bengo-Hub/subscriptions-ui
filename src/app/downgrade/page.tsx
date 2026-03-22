@@ -177,11 +177,11 @@ function DowngradeContent() {
           </div>
 
           {/* Plan transition */}
-          <Card className="rounded-[2.5rem] border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+          <Card className="rounded-[2.5rem] border-border overflow-hidden shadow-sm">
+            <div className="p-8 border-b border-border bg-accent/30">
               <h3 className="text-lg font-black mb-4">Plan Change</h3>
               <div className="flex items-center gap-4">
-                <div className="flex-1 text-center p-4 rounded-2xl bg-slate-100 dark:bg-slate-800">
+                <div className="flex-1 text-center p-4 rounded-2xl bg-accent">
                   <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">From</p>
                   <p className="text-xl font-black">{currentPlan?.name ?? 'Current'}</p>
                   {currentPlan && (
@@ -223,7 +223,7 @@ function DowngradeContent() {
                   {lostFeatures.map((feature) => (
                     <div key={feature} className="flex items-center gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
                       <X className="h-4 w-4 text-red-400 flex-shrink-0" />
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{feature}</span>
+                      <span className="text-sm font-semibold text-foreground">{feature}</span>
                     </div>
                   ))}
                 </div>
@@ -233,11 +233,11 @@ function DowngradeContent() {
 
           {/* Capacity reduction */}
           {currentPlan && (
-            <Card className="rounded-[2.5rem] border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <Card className="rounded-[2.5rem] border-border overflow-hidden shadow-sm">
               <CardContent className="p-8">
                 <h4 className="font-black text-sm uppercase tracking-widest text-muted-foreground mb-5">Capacity Changes</h4>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-accent/50">
                     <span className="text-sm font-semibold">Orders / Day</span>
                     <div className="flex items-center gap-3 text-sm font-black">
                       <span className="text-muted-foreground">{currentPlan.tierLimits.max_orders_per_day}</span>
@@ -245,7 +245,7 @@ function DowngradeContent() {
                       <span className="text-amber-600">{targetPlan.tierLimits.max_orders_per_day}</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-accent/50">
                     <span className="text-sm font-semibold">Rider Seats</span>
                     <div className="flex items-center gap-3 text-sm font-black">
                       <span className="text-muted-foreground">{currentPlan.tierLimits.max_riders}</span>
@@ -253,7 +253,7 @@ function DowngradeContent() {
                       <span className="text-amber-600">{targetPlan.tierLimits.max_riders}</span>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-accent/50">
                     <span className="text-sm font-semibold">Admin Seats</span>
                     <div className="flex items-center gap-3 text-sm font-black">
                       <span className="text-muted-foreground">
@@ -273,7 +273,7 @@ function DowngradeContent() {
 
         {/* Right: Confirmation */}
         <div className="lg:col-span-2">
-          <Card className="rounded-[2.5rem] border-amber-500/20 bg-slate-50/50 dark:bg-slate-900 shadow-xl shadow-amber-500/5 sticky top-8">
+          <Card className="rounded-[2.5rem] border-amber-500/20 bg-accent/30 shadow-xl shadow-amber-500/5 sticky top-8">
             <CardHeader className="p-8 pb-0">
               <Badge className="w-fit mb-4 bg-amber-500 text-white font-black text-[10px] tracking-widest px-3">DOWNGRADE</Badge>
               <h3 className="text-2xl font-black">Confirm Downgrade</h3>
@@ -290,11 +290,11 @@ function DowngradeContent() {
                     className={`w-full flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
                       periodEnd
                         ? 'border-primary bg-primary/5'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                        : 'border-border hover:border-border'
                     }`}
                   >
                     <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                      periodEnd ? 'border-primary bg-primary' : 'border-slate-300'
+                      periodEnd ? 'border-primary bg-primary' : 'border-muted-foreground/30'
                     }`}>
                       {periodEnd && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </div>
@@ -314,11 +314,11 @@ function DowngradeContent() {
                     className={`w-full flex items-start gap-4 p-4 rounded-2xl border-2 transition-all text-left ${
                       !periodEnd
                         ? 'border-amber-500 bg-amber-500/5'
-                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                        : 'border-border hover:border-border'
                     }`}
                   >
                     <div className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                      !periodEnd ? 'border-amber-500 bg-amber-500' : 'border-slate-300'
+                      !periodEnd ? 'border-amber-500 bg-amber-500' : 'border-muted-foreground/30'
                     }`}>
                       {!periodEnd && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </div>
@@ -335,10 +335,10 @@ function DowngradeContent() {
                 <button
                   type="button"
                   onClick={() => setConfirmed((c) => !c)}
-                  className="w-full flex items-start gap-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
+                  className="w-full flex items-start gap-3 p-4 rounded-2xl border border-border hover:bg-accent dark:hover:bg-accent transition-colors text-left"
                 >
                   <div className={`mt-0.5 h-4 w-4 rounded flex-shrink-0 border-2 flex items-center justify-center ${
-                    confirmed ? 'bg-primary border-primary' : 'border-slate-300'
+                    confirmed ? 'bg-primary border-primary' : 'border-muted-foreground/30'
                   }`}>
                     {confirmed && <Check className="h-2.5 w-2.5 text-white" />}
                   </div>
@@ -387,7 +387,7 @@ function DowngradeContent() {
       </div>
 
       <div className="fixed top-0 right-0 w-[40%] h-[40%] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-0 left-0 w-[40%] h-[40%] bg-slate-500/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-0 left-0 w-[40%] h-[40%] bg-muted/30 rounded-full blur-[120px] pointer-events-none -z-10" />
     </div>
   );
 }

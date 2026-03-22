@@ -9,10 +9,8 @@ import {
     LogOut,
     Package,
     Settings,
-    Shield,
     Sparkles,
     Users,
-    X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -20,172 +18,116 @@ import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useAuthStore } from '@/store/auth';
 
 interface SidebarProps {
-  open?: boolean;
-  onClose?: () => void;
+    open?: boolean;
+    onClose?: () => void;
 }
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
-  const pathname = usePathname();
-  const { user, hasRole } = useMe();
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
-  const tenantSlug = user?.tenant_slug || '';
-  const { tenant } = useTenantBranding();
-  const logout = useAuthStore((s) => s.logout);
+    const pathname = usePathname();
+    const { user, hasRole } = useMe();
+    const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+    const { tenant } = useTenantBranding();
+    const logout = useAuthStore((s) => s.logout);
 
-  const isAdmin = hasRole('admin') || hasRole('super_admin');
+    const routes = [
+        { label: 'Dashboard', icon: LayoutDashboard, href: '/', active: pathname === '/' },
+        { label: 'Plans', icon: Sparkles, href: '/plans', active: pathname.startsWith('/plans') },
+        { label: 'Usage', icon: Gauge, href: '/usage', active: pathname.startsWith('/usage') },
+        { label: 'Billing', icon: CreditCard, href: '/billing', active: pathname.startsWith('/billing') },
+        { label: 'Settings', icon: Settings, href: '/settings', active: pathname.startsWith('/settings') },
+    ];
 
-  const routes = [
-    {
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      href: '/',
-      active: pathname === '/',
-    },
-    {
-      label: 'Plans',
-      icon: Sparkles,
-      href: '/plans',
-      active: pathname.startsWith('/plans'),
-    },
-    {
-      label: 'Usage',
-      icon: Gauge,
-      href: '/usage',
-      active: pathname.startsWith('/usage'),
-    },
-    {
-      label: 'Billing',
-      icon: CreditCard,
-      href: '/billing',
-      active: pathname.startsWith('/billing'),
-    },
-    {
-      label: 'Settings',
-      icon: Settings,
-      href: '/settings',
-      active: pathname.startsWith('/settings'),
-    },
-  ];
+    const platformRoutes = [
+        { label: 'Plans Management', icon: Package, href: '/platform/plans', active: pathname.startsWith('/platform/plans') },
+        { label: 'All Subscriptions', icon: Users, href: '/platform/subscriptions', active: pathname.startsWith('/platform/subscriptions') },
+    ];
 
-  const platformRoutes = [
-    {
-      label: 'Plans Management',
-      icon: Package,
-      href: '/platform/plans',
-      active: pathname.startsWith('/platform/plans'),
-    },
-    {
-      label: 'All Subscriptions',
-      icon: Users,
-      href: '/platform/subscriptions',
-      active: pathname.startsWith('/platform/subscriptions'),
-    },
-  ];
-
-  const content = (
-    <div className="space-y-4 py-6 flex flex-col h-full bg-brand-dark text-white border-r border-white/10 min-w-[280px]">
-        <div className="px-6 py-4 flex flex-col h-full overflow-y-auto custom-scrollbar">
-            <Link href="/" onClick={onClose} className="flex items-center justify-center mb-10 transition-all hover:scale-105 duration-500">
-                <img src="/logo.svg" alt="Codevertex" className="h-12 w-auto object-contain drop-shadow-2xl" />
+    const renderNavItem = (route: typeof routes[0]) => {
+        const Icon = route.icon;
+        return (
+            <Link
+                key={route.href}
+                href={route.href}
+                onClick={onClose}
+                className={cn(
+                    "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                    route.active
+                        ? "bg-primary/10 text-primary shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                )}
+            >
+                <Icon className={cn(
+                    "h-[18px] w-[18px] shrink-0 transition-colors",
+                    route.active ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground"
+                )} />
+                <span>{route.label}</span>
             </Link>
+        );
+    };
 
-            <div className="space-y-1 mt-4">
-                <div className="px-6 pb-2">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
-                        Subscriptions Node
-                    </p>
-                </div>
-                {routes.map((route) => {
-                    const Icon = route.icon;
-                    return (
-                        <Link
-                            key={route.href}
-                            href={route.href}
-                            onClick={onClose}
-                            className={cn(
-                                "group flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300",
-                                route.active 
-                                    ? "bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]" 
-                                    : "text-white/50 hover:bg-white/5 hover:text-white"
-                            )}
-                        >
-                            <Icon className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", route.active ? "text-white" : "group-hover:text-white")} />
-                            <span className="font-bold text-xs uppercase tracking-widest">{route.label}</span>
+    return (
+        <>
+            {open && (
+                <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={onClose} aria-hidden />
+            )}
+            <aside
+                className={cn(
+                    "fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col transition-transform duration-300 ease-out md:sticky md:top-0 md:h-screen md:z-auto md:translate-x-0 md:min-w-[260px]",
+                    open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+                )}
+            >
+                <div className="flex flex-col h-full bg-card border-r border-border w-full overflow-hidden transition-colors">
+                    {/* Logo */}
+                    <div className="px-5 pt-5 pb-2">
+                        <Link href="/" className="flex items-center gap-3 group text-foreground" onClick={onClose}>
+                            <svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto transition-transform duration-300 group-hover:scale-105">
+                                <circle cx="90" cy="30" r="18" stroke="#722F5F" strokeWidth="3"/>
+                                <path d="M82 30L87 35L98 24" stroke="#722F5F" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                                <text x="10" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>Code</text>
+                                <text x="115" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>ertex</text>
+                                <text x="70" y="52" fill="currentColor" opacity="0.5" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: '8px', letterSpacing: '2px' }}>IT SOLUTIONS</text>
+                            </svg>
                         </Link>
-                    );
-                })}
+                    </div>
 
-                {isPlatformOwner && (
-                    <div className="mt-8 pt-8 border-t border-white/10">
-                        <div className="px-6 mb-4 text-[10px] text-white/30 uppercase tracking-[0.2em] font-black">
-                            Platform Admin
-                        </div>
-                        <div className="space-y-1">
-                            {platformRoutes.map((route) => {
-                                const Icon = route.icon;
-                                return (
-                                    <Link
-                                        key={route.href}
-                                        href={route.href}
-                                        onClick={onClose}
-                                        className={cn(
-                                            "group flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-300",
-                                            route.active 
-                                                ? "bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]" 
-                                                : "text-white/50 hover:bg-white/5 hover:text-white"
-                                        )}
-                                    >
-                                        <Icon className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", route.active ? "text-white" : "group-hover:text-white")} />
-                                        <span className="font-bold text-xs uppercase tracking-widest">{route.label}</span>
-                                    </Link>
-                                );
-                            })}
+                    {/* Navigation */}
+                    <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+                        <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+                            Navigation
+                        </p>
+                        {routes.map(renderNavItem)}
+
+                        {isPlatformOwner && (
+                            <div className="mt-6 pt-6 border-t border-border">
+                                <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+                                    Platform Admin
+                                </p>
+                                {platformRoutes.map(renderNavItem)}
+                            </div>
+                        )}
+                    </nav>
+
+                    {/* User section */}
+                    <div className="p-3 border-t border-border">
+                        <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/50">
+                            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                                {tenant?.name?.[0] || 'C'}
+                            </div>
+                            <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-xs font-semibold text-foreground truncate">{tenant?.name || 'Codevertex'}</span>
+                                <span className="text-[10px] text-muted-foreground">Subscriptions</span>
+                            </div>
+                            <button
+                                onClick={() => logout()}
+                                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-destructive"
+                                title="Sign out"
+                            >
+                                <LogOut className="h-4 w-4" />
+                            </button>
                         </div>
                     </div>
-                )}
-            </div>
-        </div>
-
-        <div className="p-6 border-t border-white/10 mt-auto">
-            <div className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-white/5 text-white/70">
-                <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-xs font-black text-primary uppercase shadow-inner">
-                    {tenant?.name?.[0] || 'C'}
                 </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-black text-[10px] uppercase tracking-widest truncate">{tenant?.name || 'Codevertex'}</span>
-                    <span className="text-[9px] font-bold opacity-50 uppercase tracking-tighter">Unified Billing</span>
-                </div>
-                <button
-                    onClick={() => logout()}
-                    className="p-2 rounded-xl hover:bg-white/5 transition-colors text-white/50 hover:text-rose-400"
-                    title="Sign out"
-                >
-                    <LogOut className="h-5 w-5" />
-                </button>
-            </div>
-        </div>
-    </div>
-  );
-
-  return (
-    <>
-      {open && (
-        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden" onClick={onClose} aria-hidden />
-      )}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col transition-transform duration-300 md:sticky md:top-0 md:h-screen md:z-auto md:translate-x-0 md:min-w-[280px]",
-          open ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-        )}
-      >
-        <div className="flex h-16 items-center justify-between border-b border-white/10 px-4 md:hidden bg-brand-dark">
-          <span className="text-sm font-bold text-brand-light">Menu</span>
-          <button type="button" onClick={onClose} className="inline-flex size-9 items-center justify-center rounded-md text-brand-beige hover:bg-white/5 hover:text-white" aria-label="Close menu">
-            <X className="size-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto">{content}</div>
-      </aside>
-    </>
-  );
+            </aside>
+        </>
+    );
 }

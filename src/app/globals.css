@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import "tailwindcss";
-
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -26,116 +24,92 @@
   /* Brand Colors */
   --color-brand-orange: #ea8022;
   --color-brand-gold: #ae6221;
-  --color-brand-dark: #2c1a02;
-  --color-brand-light: #f5f1ec;
+  --color-brand-dark: #43170d;
+  --color-brand-light: #f9ede5;
+  --color-brand-surface: #f4e6dc;
+  --color-brand-emphasis: #f36a0c;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
-
-  @keyframes wave-move {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-}
-
-@utility magical-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: 1rem;
-  background-color: color-mix(in srgb, var(--color-brand-light), transparent 90%);
-  backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, var(--color-brand-orange), transparent 80%);
-  transition: all 0.5s ease;
-
-  &:hover {
-    border-color: color-mix(in srgb, var(--color-brand-orange), transparent 50%);
-    box-shadow: 0 0 30px color-mix(in srgb, var(--color-brand-orange), transparent 70%);
-  }
-}
-
-@utility electrical-border {
-  position: relative;
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(90deg, transparent, #ea8022, #ae6221, #d46c1a, transparent);
-    background-size: 200% 100%;
-    animation: wave-move 3s linear infinite;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    z-index: 10;
-    opacity: 0.2;
-    transition: opacity 0.5s ease;
-  }
-
-  &:hover::after {
-    opacity: 0.8;
-    animation-duration: 1.5s;
-  }
-}
-
-@utility glass-morphism {
-  backdrop-filter: blur(12px);
-  background-color: color-mix(in srgb, var(--color-brand-light), transparent 90%);
-  border: 1px solid color-mix(in srgb, var(--color-brand-orange), transparent 90%);
-  transition: all 0.5s ease;
 }
 
 :root {
-  --background: #fbfcf9;
-  --foreground: #2c1a02;
-  --card: #ffffff;
-  --card-foreground: #2c1a02;
-  --popover: #ffffff;
-  --popover-foreground: #2c1a02;
-  --primary: #ea8022;
-  --primary-dark: #ae6221;
-  --primary-foreground: #ffffff;
-  --secondary: #f5f1ec;
-  --secondary-foreground: #2c1a02;
-  --muted: #f5f1ec;
-  --muted-foreground: #584c3d;
-  --accent: #f5f1ec;
-  --accent-foreground: #2c1a02;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: #d1ccc2;
-  --input: #d1ccc2;
-  --ring: #ea8022;
-  --radius: 1rem;
+  color-scheme: light dark;
+  font-feature-settings: "liga" 1, "kern" 1;
+  text-rendering: optimizeLegibility;
+
+  --background: hsl(24, 62%, 94%);
+  --foreground: hsl(18, 36%, 18%);
+  --card: hsl(24, 62%, 96%);
+  --card-foreground: hsl(18, 36%, 18%);
+  --popover: hsl(24, 62%, 96%);
+  --popover-foreground: hsl(18, 36%, 18%);
+  --primary: hsl(24, 91%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(24, 45%, 88%);
+  --secondary-foreground: hsl(18, 36%, 18%);
+  --muted: hsl(24, 40%, 86%);
+  --muted-foreground: hsl(18, 20%, 40%);
+  --accent: hsl(24, 62%, 94%);
+  --accent-foreground: hsl(18, 36%, 18%);
+  --destructive: hsl(4, 84%, 48%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(24, 35%, 82%);
+  --input: hsl(24, 35%, 82%);
+  --ring: hsl(24, 91%, 50%);
+  --radius: 0.75rem;
 }
 
 .dark {
-  --background: #1a0f01;
-  --foreground: #fbfcf9;
-  --card: #1a0f01;
-  --card-foreground: #fbfcf9;
-  --popover: #1a0f01;
-  --popover-foreground: #fbfcf9;
-  --primary: #ea8022;
-  --primary-dark: #ae6221;
-  --primary-foreground: #ffffff;
-  --secondary: #2c1a02;
-  --secondary-foreground: #fbfcf9;
-  --muted: #2c1a02;
-  --muted-foreground: #d1ccc2;
-  --accent: #2c1a02;
-  --accent-foreground: #fbfcf9;
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --border: #584c3d;
-  --input: #584c3d;
-  --ring: #ea8022;
+  --background: hsl(18, 42%, 13%);
+  --foreground: hsl(24, 82%, 95%);
+  --card: hsl(18, 38%, 17%);
+  --card-foreground: hsl(24, 82%, 95%);
+  --popover: hsl(18, 38%, 17%);
+  --popover-foreground: hsl(24, 82%, 95%);
+  --primary: hsl(24, 88%, 65%);
+  --primary-foreground: hsl(16, 40%, 10%);
+  --secondary: hsl(18, 34%, 24%);
+  --secondary-foreground: hsl(24, 82%, 95%);
+  --muted: hsl(18, 28%, 28%);
+  --muted-foreground: hsl(24, 46%, 82%);
+  --accent: hsl(18, 32%, 26%);
+  --accent-foreground: hsl(24, 82%, 95%);
+  --destructive: hsl(3, 68%, 46%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(18, 32%, 32%);
+  --input: hsl(18, 32%, 32%);
+  --ring: hsl(24, 88%, 65%);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background-color: #f36a0c;
+  color: #ffffff;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #f36a0c, 0 0 0 4px #f9ede5;
 }
 
 @layer base {
@@ -144,15 +118,29 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: system-ui, sans-serif;
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer utilities {
+  .safe-area-pb {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
   }
-  body {
-    @apply bg-background text-foreground;
+  .touch-manipulation {
+    touch-action: manipulation;
   }
+}
+
+/* Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(234, 128, 34, 0.2);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(234, 128, 34, 0.4);
 }

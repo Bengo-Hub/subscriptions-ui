@@ -1,58 +1,53 @@
-'use client';
-
 import '@/app/globals.css';
-import { Footer } from '@/components/footer';
-import { Header } from '@/components/header';
-import { Sidebar } from '@/components/sidebar';
-import { AuthProvider } from '@/providers/auth-provider';
-import { TenantBrandingProvider } from '@/providers/tenant-branding-provider';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from 'sonner';
-import { ReactNode, useState } from 'react';
+import type { Metadata, Viewport } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import { ReactNode } from 'react';
+import { AppShell } from '@/components/app-shell';
 
-export default function OrgLayout({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 5 * 60 * 1000,     // 5 min — most data is reference/moderate
-            gcTime: 10 * 60 * 1000,        // 10 min garbage collection
-            retry: 2,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  );
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+const geistSans = Geist({
+    subsets: ['latin'],
+    variable: '--font-geist-sans',
+});
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="light"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <AuthProvider>
-          <TenantBrandingProvider>
-            <div className="flex h-screen overflow-hidden bg-background">
-              <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-              <div className="flex-1 flex flex-col min-w-0 overflow-hidden text-slate-900 dark:text-slate-100">
-                <Header onMenuClick={() => setSidebarOpen(true)} />
-                <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
-                  <div className="min-h-full flex flex-col">
-                    <div className="flex-1">{children}</div>
-                    <Footer />
-                  </div>
-                </main>
-              </div>
-            </div>
-          </TenantBrandingProvider>
-        </AuthProvider>
-        <Toaster richColors position="top-right" />
-      </ThemeProvider>
-    </QueryClientProvider>
-  );
+const geistMono = Geist_Mono({
+    subsets: ['latin'],
+    variable: '--font-geist-mono',
+});
+
+export const metadata: Metadata = {
+    title: {
+        default: 'Codevertex Subscriptions',
+        template: '%s | Codevertex Subscriptions',
+    },
+    description: 'Subscription and billing management platform',
+    icons: {
+        icon: '/favicon.svg',
+    },
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'default',
+        title: 'Subscriptions',
+    },
+};
+
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: 'cover',
+    themeColor: [
+        { media: '(prefers-color-scheme: dark)', color: '#43170d' },
+        { color: '#6b2a1b' },
+    ],
+};
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+    return (
+        <html lang="en" suppressHydrationWarning>
+            <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-dvh overflow-x-hidden`}>
+                <AppShell>{children}</AppShell>
+            </body>
+        </html>
+    );
 }

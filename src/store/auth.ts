@@ -30,7 +30,7 @@ interface Session {
 }
 
 interface AuthState {
-  status: 'idle' | 'loading' | 'authenticated' | 'error' | 'syncing' | 'subscription_required';
+  status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated' | 'error' | 'syncing' | 'subscription_required';
   user: UserProfile | null;
   session: Session | null;
   error: string | null;
@@ -70,7 +70,7 @@ export const useAuthStore = create<AuthState>()(
       initialize: async () => {
         const { session } = get();
         if (!session) {
-          set({ status: 'idle' });
+          set({ status: 'unauthenticated' });
           return;
         }
 
@@ -83,7 +83,7 @@ export const useAuthStore = create<AuthState>()(
           set({ user, status: 'authenticated', isAuthenticated: true });
         } catch {
           get().syncTenantToStorage(null);
-          set({ status: 'idle', session: null, user: null, isAuthenticated: false });
+          set({ status: 'unauthenticated', session: null, user: null, isAuthenticated: false });
         }
       },
 
@@ -163,9 +163,10 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         get().syncTenantToStorage(null);
-        set({ status: 'idle', user: null, session: null, isAuthenticated: false });
+        set({ status: 'unauthenticated', user: null, session: null, isAuthenticated: false });
         apiClient.setAccessToken(null);
-        window.location.href = buildLogoutUrl(window.location.origin);
+        try { localStorage.removeItem('subscriptions-auth-storage'); } catch { /* no-op */ }
+        window.location.href = buildLogoutUrl('https://accounts.codevertexitsolutions.com');
       },
 
       fetchUser: async () => {

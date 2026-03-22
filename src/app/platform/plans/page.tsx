@@ -150,8 +150,8 @@ export default function PlatformPlansPage() {
     <div className="p-8 max-w-7xl mx-auto space-y-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Membership Tiers</h1>
-          <p className="text-slate-500 mt-1 font-medium">Configure and manage platform-wide subscription packages.</p>
+          <h1 className="text-3xl font-black tracking-tight text-foreground">Membership Tiers</h1>
+          <p className="text-muted-foreground mt-1 font-medium">Configure and manage platform-wide subscription packages.</p>
         </div>
         <Button
           onClick={() => { resetForm(); setShowForm(true); }}
@@ -167,18 +167,18 @@ export default function PlatformPlansPage() {
         <div
           className="overflow-auto"
         >
-          <Card className="border-2 border-primary/20 shadow-2xl rounded-[2.5rem] bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800/50 px-10 py-6 border-b border-slate-100 dark:border-slate-800">
+          <Card className="border-2 border-primary/20 shadow-2xl rounded-[2.5rem] bg-card overflow-hidden">
+            <CardHeader className="bg-accent/50 px-10 py-6 border-b border-border">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-primary/10">
                     <Layout className="h-5 w-5 text-primary" />
                   </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  <h2 className="text-xl font-black text-foreground">
                     {editingPlan ? `Editing ${editingPlan.name}` : 'New Tier Configuration'}
                   </h2>
                 </div>
-                <Button variant="ghost" size="icon" onClick={resetForm} className="rounded-full hover:bg-slate-200 dark:hover:bg-slate-700">
+                <Button variant="ghost" size="icon" onClick={resetForm} className="rounded-full hover:bg-accent">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -186,39 +186,39 @@ export default function PlatformPlansPage() {
             <CardContent className="p-10 space-y-8">
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Display Name</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Display Name</label>
                   <Input
                     value={form.name}
                     onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                     placeholder="e.g. Starter (Lite)"
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 focus:ring-primary font-bold"
+                    className="h-12 rounded-xl border-border focus:ring-primary font-bold"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Plan Code (UPPERCASE)</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Plan Code (UPPERCASE)</label>
                   <Input
                     value={form.planCode}
                     onChange={(e) => setForm((p) => ({ ...p, planCode: e.target.value.toUpperCase() }))}
                     placeholder="e.g. STARTER"
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 focus:ring-primary font-black tracking-widest"
+                    className="h-12 rounded-xl border-border focus:ring-primary font-black tracking-widest"
                     disabled={!!editingPlan}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Price ({form.currency})</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Monthly Price ({form.currency})</label>
                   <Input
                     type="number"
                     value={form.basePrice}
                     onChange={(e) => setForm((p) => ({ ...p, basePrice: Number(e.target.value) }))}
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 focus:ring-primary font-bold"
+                    className="h-12 rounded-xl border-border focus:ring-primary font-bold"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Billing Cycle</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Billing Cycle</label>
                   <select
                     value={form.billingCycle}
                     onChange={(e) => setForm((p) => ({ ...p, billingCycle: e.target.value as any }))}
-                    className="flex h-12 w-full rounded-xl border-2 border-slate-100 dark:border-slate-800 bg-transparent px-4 py-2 text-sm font-bold focus:border-primary"
+                    className="flex h-12 w-full rounded-xl border-2 border-border bg-transparent px-4 py-2 text-sm font-bold focus:border-primary"
                   >
                     <option value="MONTHLY">Monthly</option>
                     <option value="ANNUAL">Annual</option>
@@ -227,45 +227,45 @@ export default function PlatformPlansPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Description</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description</label>
                 <Input
                   value={form.description}
                   onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                   placeholder="High-level summary of the tier benefits..."
-                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 focus:ring-primary font-medium"
+                  className="h-12 rounded-xl border-border focus:ring-primary font-medium"
                 />
               </div>
 
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+              <div className="pt-6 border-t border-border">
+                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
                   <Zap className="h-4 w-4 text-primary" /> Tier Limits & Overages
                 </h3>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                  <div className="space-y-3 p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800">
+                  <div className="space-y-3 p-6 rounded-3xl bg-accent/30 border border-border">
                     <label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Max Riders</label>
                     <Input
                       type="number"
                       value={form.tierLimits?.max_riders}
                       onChange={(e) => setForm((p) => ({ ...p, tierLimits: { ...p.tierLimits, max_riders: Number(e.target.value) } }))}
-                      className="bg-white dark:bg-slate-900 border-none h-10 shadow-sm font-bold"
+                      className="bg-card border-none h-10 shadow-sm font-bold"
                     />
                   </div>
-                  <div className="space-y-3 p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800">
+                  <div className="space-y-3 p-6 rounded-3xl bg-accent/30 border border-border">
                     <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Max Orders / Day</label>
                     <Input
                       type="number"
                       value={form.tierLimits?.max_orders_per_day}
                       onChange={(e) => setForm((p) => ({ ...p, tierLimits: { ...p.tierLimits, max_orders_per_day: Number(e.target.value) } }))}
-                      className="bg-white dark:bg-slate-900 border-none h-10 shadow-sm font-bold"
+                      className="bg-card border-none h-10 shadow-sm font-bold"
                     />
                   </div>
-                  <div className="space-y-3 p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800">
+                  <div className="space-y-3 p-6 rounded-3xl bg-accent/30 border border-border">
                     <label className="text-[10px] font-black uppercase tracking-widest text-amber-500">Extra Rider Fee (KES)</label>
                     <Input
                       type="number"
                       value={form.tierLimits?.overage_rider_price_per_month}
                       onChange={(e) => setForm((p) => ({ ...p, tierLimits: { ...p.tierLimits, overage_rider_price_per_month: Number(e.target.value) } }))}
-                      className="bg-white dark:bg-slate-900 border-none h-10 shadow-sm font-bold"
+                      className="bg-card border-none h-10 shadow-sm font-bold"
                     />
                   </div>
                 </div>
@@ -289,59 +289,59 @@ export default function PlatformPlansPage() {
 
 
       {/* Plans Table */}
-      <Card className="rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden bg-white dark:bg-slate-900">
-        <CardHeader className="px-10 py-8 border-b border-slate-100 dark:border-slate-800">
+      <Card className="rounded-[2.5rem] border border-border shadow-sm overflow-hidden bg-card">
+        <CardHeader className="px-10 py-8 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800">
-              <Package className="h-5 w-5 text-slate-500" />
+              <Package className="h-5 w-5 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-black text-slate-900 dark:text-white">Active Catalog</h2>
+            <h2 className="text-xl font-black text-foreground">Active Catalog</h2>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-10 space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 bg-slate-50 dark:bg-slate-800/50 rounded-2xl animate-pulse" />
+                <div key={i} className="h-16 bg-accent/50 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : plans.length ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent border-slate-100 dark:border-slate-800/50">
-                    <TableHead className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Plan</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Code</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Price (KES)</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Cycle</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</TableHead>
-                    <TableHead className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</TableHead>
+                  <TableRow className="hover:bg-transparent border-border/50">
+                    <TableHead className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Plan</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Code</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Price (KES)</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cycle</TableHead>
+                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</TableHead>
+                    <TableHead className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {plans.sort((a, b) => a.tierOrder - b.tierOrder).map((plan) => (
-                    <TableRow key={plan.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-100 dark:border-slate-800/50 transition-colors">
+                    <TableRow key={plan.id} className="group hover:bg-accent border-border/50 transition-colors">
                       <TableCell className="px-10 py-6">
                         <div className="flex flex-col">
-                          <span className="font-black text-slate-900 dark:text-white">{plan.name}</span>
-                          <span className="text-xs text-slate-500 font-medium truncate max-w-[200px]">{plan.description || 'No description'}</span>
+                          <span className="font-black text-foreground">{plan.name}</span>
+                          <span className="text-xs text-muted-foreground font-medium truncate max-w-[200px]">{plan.description || 'No description'}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none font-black text-[10px] tracking-widest px-3 py-1">
+                        <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-muted-foreground border-none font-black text-[10px] tracking-widest px-3 py-1">
                           {plan.planCode}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-black text-slate-900 dark:text-white">
+                      <TableCell className="font-black text-foreground">
                         {plan.basePrice.toLocaleString()}
                       </TableCell>
-                      <TableCell className="font-bold text-xs uppercase tracking-tighter text-slate-500">
+                      <TableCell className="font-bold text-xs uppercase tracking-tighter text-muted-foreground">
                         {plan.billingCycle}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className={cn("w-2 h-2 rounded-full", plan.isActive ? "bg-green-500 animate-pulse" : "bg-slate-300")} />
-                          <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                             {plan.isActive ? 'Live' : 'Hidden'}
                           </span>
                         </div>
@@ -381,8 +381,8 @@ export default function PlatformPlansPage() {
                 <Package className="h-8 w-8 text-slate-300" />
               </div>
               <div>
-                <h4 className="font-black text-slate-900 dark:text-white">No tiers identified</h4>
-                <p className="text-sm text-slate-500">The membership catalog is currently empty. Click "Create New Tier" to begin.</p>
+                <h4 className="font-black text-foreground">No tiers identified</h4>
+                <p className="text-sm text-muted-foreground">The membership catalog is currently empty. Click "Create New Tier" to begin.</p>
               </div>
             </div>
           )}

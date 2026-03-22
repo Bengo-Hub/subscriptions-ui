@@ -166,11 +166,11 @@ function UpgradeContent() {
           </div>
 
           {/* Plan transition card */}
-          <Card className="rounded-[2.5rem] border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+          <Card className="rounded-[2.5rem] border-border overflow-hidden shadow-sm">
+            <div className="p-8 border-b border-border bg-accent/30">
               <h3 className="text-lg font-black mb-2">Plan Change</h3>
               <div className="flex items-center gap-4 mt-4">
-                <div className="flex-1 text-center p-4 rounded-2xl bg-slate-100 dark:bg-slate-800">
+                <div className="flex-1 text-center p-4 rounded-2xl bg-accent">
                   <p className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">From</p>
                   <p className="text-xl font-black">{currentPlan?.name ?? 'Free'}</p>
                   {currentPlan && (
@@ -261,14 +261,14 @@ function UpgradeContent() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center gap-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs text-muted-foreground font-medium">
+          <div className="flex items-center gap-2 p-4 rounded-2xl bg-accent/50 border border-border text-xs text-muted-foreground font-medium">
             <CreditCard className="h-4 w-4" /> Secure checkout powered by Codevertex Treasury. PCI-DSS compliant.
           </div>
         </div>
 
         {/* Right: Upgrade Summary */}
         <div className="lg:col-span-2">
-          <Card className="rounded-[2.5rem] border-primary/20 bg-slate-50/50 dark:bg-slate-900 shadow-xl shadow-primary/5 sticky top-8">
+          <Card className="rounded-[2.5rem] border-primary/20 bg-accent/30 shadow-xl shadow-primary/5 sticky top-8">
             <CardHeader className="p-8 pb-0">
               <Badge className="w-fit mb-4 bg-green-500 text-white font-black text-[10px] tracking-widest px-3">UPGRADE</Badge>
               <h3 className="text-2xl font-black">Upgrade Summary</h3>
@@ -294,7 +294,7 @@ function UpgradeContent() {
                     <span className="font-bold">{formatDate(currentSub.currentPeriodEnd)}</span>
                   </div>
                 )}
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4 flex justify-between items-end">
+                <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
                   <div>
                     <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Due Today</span>
                     <p className="text-3xl font-black mt-1">

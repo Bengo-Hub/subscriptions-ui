@@ -132,8 +132,8 @@ function SubscribeContent() {
             <p className="text-lg text-muted-foreground">You're one step away from unlocking premium tools for your food business.</p>
           </div>
 
-          <Card className="rounded-[2.5rem] border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+          <Card className="rounded-[2.5rem] border-border bg-card shadow-sm overflow-hidden">
+            <div className="p-8 border-b border-border bg-accent/30">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-primary/10 rounded-2xl">
                   <ShieldCheck className="h-6 w-6 text-primary" />
@@ -186,14 +186,14 @@ function SubscribeContent() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center gap-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 text-xs text-muted-foreground font-medium">
+          <div className="flex items-center gap-2 p-4 rounded-2xl bg-accent/50 border border-border text-xs text-muted-foreground font-medium">
             <CreditCard className="h-4 w-4" /> Secure checkout powered by Codevertex Treasury. PCI-DSS compliant.
           </div>
         </div>
 
         {/* Right: Order Summary */}
         <div className="lg:col-span-2">
-          <Card className="rounded-[2.5rem] border-primary/20 bg-slate-50/50 dark:bg-slate-900 shadow-xl shadow-primary/5 sticky top-8">
+          <Card className="rounded-[2.5rem] border-primary/20 bg-accent/30 shadow-xl shadow-primary/5 sticky top-8">
             <CardHeader className="p-8 pb-0">
               <Badge className="w-fit mb-4 bg-primary text-white font-black text-[10px] tracking-widest px-3">CHECKOUT</Badge>
               <h3 className="text-2xl font-black">Order Summary</h3>
@@ -208,7 +208,7 @@ function SubscribeContent() {
                   <span className="text-muted-foreground font-medium">Platform Fee</span>
                   <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>
                 </div>
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4 flex justify-between items-end">
+                <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
                   <div>
                     <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Total Due Now</span>
                     <p className="text-3xl font-black mt-1">{plan.currency} {plan.basePrice.toLocaleString()}</p>
