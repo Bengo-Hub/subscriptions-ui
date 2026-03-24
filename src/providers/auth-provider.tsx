@@ -1,15 +1,19 @@
 'use client';
 
+import { apiClient } from '@/lib/api/client';
 import { useMe } from '@/hooks/useMe';
 import { useAuthStore } from '@/store/auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useEffect } from 'react';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const { status, initialize } = useAuthStore();
+    const logout = useAuthStore((s) => s.logout);
     const { isLoading: meLoading, isError: meError } = useMe();
     const pathname = usePathname();
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -22,6 +26,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         checkAuth();
     }, [status, pathname, initialize]);
+
+    // Register 401 handler: clear all caches and redirect to SSO
+    useEffect(() => {
+        apiClient.setOn401(() => {
+            queryClient.clear();
+            void logout();
+        });
+        return () => apiClient.setOn401(null);
+    }, [queryClient, logout]);
 
     useEffect(() => {
         if (meError && !pathname?.includes('/auth')) {
