@@ -169,14 +169,15 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         get().syncTenantToStorage(null);
-        set({ status: 'unauthenticated', user: null, session: null, isAuthenticated: false });
+        set({ status: 'unauthenticated', user: null, session: null, isAuthenticated: false, subscriptionInfo: undefined });
         apiClient.setAccessToken(null);
         if (typeof window !== 'undefined') {
           try { localStorage.removeItem('subscriptions-auth-storage'); } catch { /* no-op */ }
-          localStorage.removeItem('tenant_id');
-          localStorage.removeItem('tenant_slug');
-          localStorage.removeItem('is_platform_owner');
-          window.location.href = buildLogoutUrl(window.location.origin);
+          try { localStorage.removeItem('tenant_id'); } catch { /* no-op */ }
+          try { localStorage.removeItem('tenant_slug'); } catch { /* no-op */ }
+          try { localStorage.removeItem('is_platform_owner'); } catch { /* no-op */ }
+          try { sessionStorage.clear(); } catch { /* no-op */ }
+          window.location.href = buildLogoutUrl('https://accounts.codevertexitsolutions.com');
         }
       },
 
