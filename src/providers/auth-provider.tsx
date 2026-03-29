@@ -38,6 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (meError && !pathname?.includes('/auth')) {
+            // Skip SSO redirect for subscription 403 — user is authenticated
+            const data = (meError as any)?.response?.data;
+            if (data?.code === 'subscription_inactive' || data?.upgrade === true) return;
             useAuthStore.getState().redirectToSSO(window.location.href);
         }
     }, [meError, pathname]);

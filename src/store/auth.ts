@@ -36,6 +36,10 @@ interface AuthState {
   error: string | null;
   isAuthenticated?: boolean;
 
+  /** Subscription info fetched lazily after login (undefined = not started, null = loading). */
+  subscriptionInfo: Record<string, unknown> | null | undefined;
+  setSubscriptionInfo: (info: Record<string, unknown> | null) => void;
+
   initialize: () => Promise<void>;
   /** When in tenant context (e.g. route or selection), pass tenant so token is minted for that org. */
   redirectToSSO: (returnTo?: string, tenant?: string) => Promise<void>;
@@ -50,6 +54,8 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set: any, get: any) => ({
       status: 'idle',
+      subscriptionInfo: undefined,
+      setSubscriptionInfo: (info: Record<string, unknown> | null) => set({ subscriptionInfo: info }),
       user: null,
       session: null,
       error: null,
