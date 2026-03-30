@@ -39,12 +39,12 @@ interface UsageSummary {
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
 
-  const { data: subscription, isLoading: subLoading } = useQuery({
+  const { data: subscription, isLoading: subLoading, isError: subError } = useQuery({
     queryKey: ['subscription'],
     queryFn: () => apiClient.get<Subscription>('/api/v1/subscription'),
   });
 
-  const { data: usage, isLoading: usageLoading } = useQuery({
+  const { data: usage, isLoading: usageLoading, isError: usageError } = useQuery({
     queryKey: ['usage-summary'],
     queryFn: () => apiClient.get<UsageSummary>('/api/v1/usage/summary'),
   });
@@ -121,12 +121,17 @@ export default function DashboardPage() {
               <div className="h-6 w-48 bg-muted rounded animate-pulse" />
               <div className="h-4 w-72 bg-muted rounded animate-pulse" />
             </div>
+          ) : subError ? (
+            <div className="text-center py-6">
+              <p className="text-muted-foreground mb-2">Unable to load subscription details.</p>
+              <p className="text-xs text-muted-foreground">Please try refreshing the page or contact support if the issue persists.</p>
+            </div>
           ) : subscription ? (
             <div className="grid sm:grid-cols-3 gap-6">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Plan</p>
-                <p className="text-lg font-bold mt-1">{subscription.plan.name}</p>
-                <p className="text-xs text-muted-foreground capitalize">{subscription.plan.tier} tier</p>
+                <p className="text-lg font-bold mt-1">{subscription.plan?.name ?? 'Unknown Plan'}</p>
+                <p className="text-xs text-muted-foreground capitalize">{subscription.plan?.tier ?? 'unknown'} tier</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Current Period</p>
@@ -178,6 +183,14 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             ))
+            : usageError
+            ? (
+              <Card className="sm:col-span-2 lg:col-span-4">
+                <CardContent>
+                  <p className="text-sm text-muted-foreground text-center py-4">Unable to load usage data.</p>
+                </CardContent>
+              </Card>
+            )
             : usage &&
             Object.entries(usage).map(([key, val]) => (
               <Card key={key}>

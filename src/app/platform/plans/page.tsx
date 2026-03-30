@@ -18,8 +18,7 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Edit, Layout, Package, Plus, Save, Trash2, X, Zap } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
@@ -38,7 +37,6 @@ interface Plan {
 }
 
 export default function PlatformPlansPage() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
@@ -62,10 +60,6 @@ export default function PlatformPlansPage() {
       overage_orders_price_per_100_month: 375
     }
   });
-
-  useEffect(() => {
-    if (user && !isPlatformOwner) router.replace('/');
-  }, [user, isPlatformOwner, router]);
 
   const { data: plansData, isLoading } = useQuery({
     queryKey: ['platform-plans'],

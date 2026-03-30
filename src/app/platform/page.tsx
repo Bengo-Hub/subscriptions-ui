@@ -6,8 +6,6 @@ import { useAuthStore } from '@/store/auth';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart3, Package, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 
 interface PlatformStats {
   totalPlans: number;
@@ -21,17 +19,10 @@ interface PlatformStats {
 }
 
 export default function PlatformPage() {
-  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const orgSlug = user?.tenant_slug;
 
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
-
-  useEffect(() => {
-    if (user && !isPlatformOwner) {
-      router.replace('/');
-    }
-  }, [user, isPlatformOwner, router]);
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['platform-stats'],
