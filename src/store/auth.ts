@@ -148,20 +148,22 @@ export const useAuthStore = create<AuthState>()(
           apiClient.setAccessToken(session.accessToken);
           set({ session });
 
-          let attempts = 0;
-          while (attempts < 5) {
+          let lastErr: unknown;
+          for (let attempts = 0; attempts < 5; attempts++) {
             try {
               const user = await fetchProfile(session.accessToken);
               get().syncTenantToStorage(user);
               set({ user, status: 'authenticated', isAuthenticated: true });
               return;
-            } catch {
-              attempts++;
+            } catch (err) {
+              lastErr = err;
               await new Promise((r) => setTimeout(r, 1500));
             }
           }
 
-          set({ status: 'authenticated' });
+          // All retries failed — set error (never "authenticated" without user)
+          const msg = lastErr instanceof Error ? lastErr.message : 'Failed to load profile';
+          set({ status: 'error', error: msg });
         } catch {
           set({ status: 'error', error: 'Sign-in failed' });
         }

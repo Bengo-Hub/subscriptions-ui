@@ -12,8 +12,12 @@ function CallbackHandler() {
   const orgSlug = params?.orgSlug as string;
   const processed = useRef(false);
 
-  const { handleSSOCallback, status } = useAuthStore();
+  const handleSSOCallback = useAuthStore((s) => s.handleSSOCallback);
+  const status = useAuthStore((s) => s.status);
+  const user = useAuthStore((s) => s.user);
+  const error = useAuthStore((s) => s.error);
 
+  // Effect 1: trigger handleSSOCallback on mount
   useEffect(() => {
     if (processed.current) return;
     processed.current = true;
@@ -23,31 +27,51 @@ function CallbackHandler() {
     const savedState = consumeState();
 
     if (!code || !state || state !== savedState) {
-      router.replace(`/${orgSlug}`);
+      router.replace(orgSlug ? `/${orgSlug}` : '/');
       return;
     }
 
-    const callbackUrl = `${window.location.origin}/${orgSlug}/auth/callback`;
+    const callbackUrl = orgSlug
+      ? `${window.location.origin}/${orgSlug}/auth/callback`
+      : `${window.location.origin}/auth/callback`;
 
-    handleSSOCallback(code, callbackUrl).then(() => {
-      const { status } = useAuthStore.getState();
-
-      // Subscription required — redirect to subscribe page within this app
-      if (status === 'subscription_required') {
-        router.replace(orgSlug ? `/${orgSlug}/subscribe` : '/subscribe');
-        return;
-      }
-
-      const returnTo = sessionStorage.getItem('sso_return_to');
-      sessionStorage.removeItem('sso_return_to');
-
-      if (returnTo && returnTo.startsWith(window.location.origin)) {
-        router.replace(returnTo.replace(window.location.origin, ''));
-      } else {
-        router.replace(orgSlug ? `/${orgSlug}` : '/');
-      }
-    });
+    handleSSOCallback(code, callbackUrl);
   }, [orgSlug, searchParams, handleSSOCallback, router]);
+
+  // Effect 2: watch for status=authenticated && user → redirect
+  useEffect(() => {
+    if (status !== 'authenticated' || !user) return;
+
+    const returnTo = sessionStorage.getItem('sso_return_to');
+    sessionStorage.removeItem('sso_return_to');
+
+    if (returnTo && returnTo.startsWith('/')) {
+      router.replace(returnTo);
+    } else {
+      router.replace(orgSlug ? `/${orgSlug}` : '/');
+    }
+  }, [status, user, router, orgSlug]);
+
+  // Error state
+  if (status === 'error' && error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 text-center px-4">
+          <div className="text-destructive text-lg font-semibold">Sign-in failed</div>
+          <p className="text-sm text-muted-foreground max-w-sm">{error}</p>
+          <button
+            onClick={() => {
+              processed.current = false;
+              router.replace(orgSlug ? `/${orgSlug}` : '/');
+            }}
+            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
