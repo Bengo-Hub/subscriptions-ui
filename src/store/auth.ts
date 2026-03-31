@@ -35,6 +35,7 @@ interface AuthState {
   session: Session | null;
   error: string | null;
   isAuthenticated?: boolean;
+  lastAuthenticatedAt: number | null;
 
   /** Subscription info fetched lazily after login (undefined = not started, null = loading). */
   subscriptionInfo: Record<string, unknown> | null | undefined;
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>()(
       session: null,
       error: null,
       isAuthenticated: false,
+      lastAuthenticatedAt: null,
       
       syncTenantToStorage: (user: UserProfile | null) => {
         if (user) {
@@ -86,7 +88,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const user = await fetchProfile(session.accessToken);
           get().syncTenantToStorage(user);
-          set({ user, status: 'authenticated', isAuthenticated: true });
+          set({ user, status: 'authenticated', isAuthenticated: true, lastAuthenticatedAt: Date.now() });
         } catch {
           get().syncTenantToStorage(null);
           set({ status: 'unauthenticated', session: null, user: null, isAuthenticated: false });
@@ -153,7 +155,7 @@ export const useAuthStore = create<AuthState>()(
             try {
               const user = await fetchProfile(session.accessToken);
               get().syncTenantToStorage(user);
-              set({ user, status: 'authenticated', isAuthenticated: true });
+              set({ user, status: 'authenticated', isAuthenticated: true, lastAuthenticatedAt: Date.now() });
               return;
             } catch (err) {
               lastErr = err;
@@ -171,7 +173,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         get().syncTenantToStorage(null);
-        set({ status: 'unauthenticated', user: null, session: null, isAuthenticated: false, subscriptionInfo: undefined });
+        set({ status: 'unauthenticated', user: null, session: null, isAuthenticated: false, subscriptionInfo: undefined, lastAuthenticatedAt: null });
         apiClient.setAccessToken(null);
         if (typeof window !== 'undefined') {
           try { localStorage.removeItem('subscriptions-auth-storage'); } catch { /* no-op */ }
