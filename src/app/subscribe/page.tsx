@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardContent, CardHeader } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
+import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { ArrowLeft, Check, CreditCard, Loader2, ShieldCheck, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -24,6 +25,7 @@ interface InitiateResult {
   status: string;
   amount: string;
   currency: string;
+  initiate_url?: string;
   authorization_url?: string;
 }
 
@@ -37,8 +39,12 @@ function SubscribeContent() {
 
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initiating, setInitiating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [intentId, setIntentId] = useState('');
+  const [initiateUrl, setInitiateUrl] = useState('');
+  const [initiating, setInitiating] = useState(false);
 
   useEffect(() => {
     if (status === 'idle') {
@@ -79,15 +85,18 @@ function SubscribeContent() {
         return_url: `${window.location.origin}/usage?checkout=success`,
       });
 
-      if (result.authorization_url) {
+      if (result.initiate_url && result.intent_id) {
+        setIntentId(result.intent_id);
+        setInitiateUrl(result.initiate_url);
+        setPaymentOpen(true);
+      } else if (result.authorization_url) {
         window.location.href = result.authorization_url;
       } else {
-        // If no auth URL, maybe it's a zero-amount or already paid?
-        // For now, redirect to usage
         router.push('/usage?status=' + result.status);
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to initiate checkout. Please try again.');
+    } finally {
       setInitiating(false);
     }
   };
@@ -120,132 +129,162 @@ function SubscribeContent() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 py-12">
-      <div className="grid lg:grid-cols-5 gap-12 items-start">
-        {/* Left: Summary & Features */}
-        <div className="lg:col-span-3 space-y-8">
-          <div>
-            <Link href="/plans" className="inline-flex items-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors mb-6">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Change Plan
-            </Link>
-            <h1 className="text-4xl font-black tracking-tight mb-4">Complete your <br /><span className="text-primary underline decoration-primary/20 underline-offset-8">Subscription</span></h1>
-            <p className="text-lg text-muted-foreground">You're one step away from unlocking premium tools for your food business.</p>
-          </div>
+    <>
+      {paymentOpen && intentId && (
+        <TreasuryPaymentModal
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          paymentIntentId={intentId}
+          tenantSlug={user?.tenant_slug ?? ''}
+          initiateUrl={initiateUrl}
+          amount={plan.basePrice}
+          currency={plan.currency || 'KES'}
+          referenceType="subscription"
+          customerEmail={user?.email}
+          onPaymentConfirmed={() => {
+            setPaymentOpen(false);
+            router.push('/usage?checkout=success');
+          }}
+          onPaymentFailed={() => {
+            setPaymentOpen(false);
+            setError('Payment failed. Please try again.');
+          }}
+        />
+      )}
 
-          <Card className="rounded-[2.5rem] border-border bg-card shadow-sm overflow-hidden">
-            <div className="p-8 border-b border-border bg-accent/30">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-primary/10 rounded-2xl">
-                  <ShieldCheck className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black">Plan Benefits</h3>
-                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-0.5">{plan.name} Tier</p>
-                </div>
-              </div>
+      <div className="max-w-5xl mx-auto p-6 py-12">
+        <div className="grid lg:grid-cols-5 gap-12 items-start">
+          {/* Left: Summary & Features */}
+          <div className="lg:col-span-3 space-y-8">
+            <div>
+              <Link href="/plans" className="inline-flex items-center text-sm font-bold text-muted-foreground hover:text-primary transition-colors mb-6">
+                <ArrowLeft className="h-4 w-4 mr-2" /> Change Plan
+              </Link>
+              <h1 className="text-4xl font-black tracking-tight mb-4">Complete your <br /><span className="text-primary underline decoration-primary/20 underline-offset-8">Subscription</span></h1>
+              <p className="text-lg text-muted-foreground">You're one step away from unlocking premium tools for your food business.</p>
             </div>
-            <CardContent className="p-8">
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div className="flex items-start gap-4">
-                  <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                    <Check className="h-3 w-3" />
+
+            <Card className="rounded-[2.5rem] border-border bg-card shadow-sm overflow-hidden">
+              <div className="p-8 border-b border-border bg-accent/30">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/10 rounded-2xl">
+                    <ShieldCheck className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <p className="font-bold text-sm">Priority Orders</p>
-                    <p className="text-xs text-muted-foreground mt-1">Up to {plan.tierLimits.max_orders_per_day} orders per day processed with priority.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                    <Check className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm">Rider Network</p>
-                    <p className="text-xs text-muted-foreground mt-1">Connect up to {plan.tierLimits.max_riders} riders to your dedicated app.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                    <Check className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm">Secure Treasury</p>
-                    <p className="text-xs text-muted-foreground mt-1">Manage M-Pesa and Paystack payouts directly through Treasury.</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4">
-                  <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                    <Check className="h-3 w-3" />
-                  </div>
-                  <div>
-                    <p className="font-bold text-sm">Analytics Suite</p>
-                    <p className="text-xs text-muted-foreground mt-1">Real-time heatmaps and performance reports included.</p>
+                    <h3 className="text-xl font-black">Plan Benefits</h3>
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mt-0.5">{plan.name} Tier</p>
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <CardContent className="p-8">
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
+                      <Check className="h-3 w-3" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Priority Orders</p>
+                      <p className="text-xs text-muted-foreground mt-1">Up to {plan.tierLimits.max_orders_per_day} orders per day processed with priority.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
+                      <Check className="h-3 w-3" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Rider Network</p>
+                      <p className="text-xs text-muted-foreground mt-1">Connect up to {plan.tierLimits.max_riders} riders to your dedicated app.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
+                      <Check className="h-3 w-3" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Secure Treasury</p>
+                      <p className="text-xs text-muted-foreground mt-1">Manage M-Pesa and Paystack payouts directly through Treasury.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
+                      <Check className="h-3 w-3" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Analytics Suite</p>
+                      <p className="text-xs text-muted-foreground mt-1">Real-time heatmaps and performance reports included.</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          <div className="flex items-center gap-2 p-4 rounded-2xl bg-accent/50 border border-border text-xs text-muted-foreground font-medium">
-            <CreditCard className="h-4 w-4" /> Secure checkout powered by Codevertex Treasury. PCI-DSS compliant.
+            <div className="flex items-center gap-2 p-4 rounded-2xl bg-accent/50 border border-border text-xs text-muted-foreground font-medium">
+              <CreditCard className="h-4 w-4" /> Secure checkout powered by Codevertex Treasury. PCI-DSS compliant.
+            </div>
+          </div>
+
+          {/* Right: Order Summary */}
+          <div className="lg:col-span-2">
+            <Card className="rounded-[2.5rem] border-primary/20 bg-accent/30 shadow-xl shadow-primary/5 sticky top-8">
+              <CardHeader className="p-8 pb-0">
+                <Badge className="w-fit mb-4 bg-primary text-white font-black text-[10px] tracking-widest px-3">CHECKOUT</Badge>
+                <h3 className="text-2xl font-black">Order Summary</h3>
+              </CardHeader>
+              <CardContent className="p-8">
+                <div className="space-y-4 mb-8">
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
+                    <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground font-medium">Platform Fee</span>
+                    <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>
+                  </div>
+                  <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
+                    <div>
+                      <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Total Due Now</span>
+                      <p className="text-3xl font-black mt-1">{plan.currency} {plan.basePrice.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="mb-4 p-3 rounded-xl bg-destructive/10 text-destructive text-sm font-medium">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  className="w-full h-16 rounded-2xl font-black text-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={handleCheckout}
+                  disabled={initiating}
+                >
+                  {initiating ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-3 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      Confirm & Pay
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-[10px] text-center text-muted-foreground mt-6 font-bold uppercase tracking-widest leading-relaxed">
+                  By confirming, you agree to our <br />
+                  <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        {/* Right: Order Summary */}
-        <div className="lg:col-span-2">
-          <Card className="rounded-[2.5rem] border-primary/20 bg-accent/30 shadow-xl shadow-primary/5 sticky top-8">
-            <CardHeader className="p-8 pb-0">
-              <Badge className="w-fit mb-4 bg-primary text-white font-black text-[10px] tracking-widest px-3">CHECKOUT</Badge>
-              <h3 className="text-2xl font-black">Order Summary</h3>
-            </CardHeader>
-            <CardContent className="p-8">
-              <div className="space-y-4 mb-8">
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
-                  <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-muted-foreground font-medium">Platform Fee</span>
-                  <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>
-                </div>
-                <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
-                  <div>
-                    <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Total Due Now</span>
-                    <p className="text-3xl font-black mt-1">{plan.currency} {plan.basePrice.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                className="w-full h-16 rounded-2xl font-black text-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                onClick={handleCheckout}
-                disabled={initiating}
-              >
-                {initiating ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    Confirm & Pay
-                  </>
-                )}
-              </Button>
-
-              <p className="text-[10px] text-center text-muted-foreground mt-6 font-bold uppercase tracking-widest leading-relaxed">
-                By confirming, you agree to our <br />
-                <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Background Decor */}
+        <div className="fixed top-0 right-0 w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="fixed bottom-0 left-0 w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-10" />
       </div>
-
-      {/* Background Decor */}
-      <div className="fixed top-0 right-0 w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-0 left-0 w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none -z-10" />
-    </div>
+    </>
   );
 }
 
