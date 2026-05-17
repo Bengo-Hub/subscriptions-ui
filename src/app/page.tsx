@@ -192,17 +192,19 @@ export default function DashboardPage() {
               </Card>
             )
             : usage &&
-            Object.entries(usage).map(([key, val]) => (
+            Object.entries(usage)
+              .filter(([, val]) => val != null)
+              .map(([key, val]) => (
               <Card key={key}>
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
                     <span className="text-xs text-muted-foreground">
-                      {val.used}/{val.limit}
+                      {(val.used ?? 0)}/{(val.limit ?? 0)}
                     </span>
                   </div>
-                  <Progress value={val.used} max={val.limit} variant={usageVariant(val.used, val.limit)} />
-                  <p className="text-xs text-muted-foreground">{usagePct(val.used, val.limit)}% used</p>
+                  <Progress value={val.used ?? 0} max={val.limit ?? 0} variant={usageVariant(val.used ?? 0, val.limit ?? 0)} />
+                  <p className="text-xs text-muted-foreground">{usagePct(val.used ?? 0, val.limit ?? 0)}% used</p>
                 </CardContent>
               </Card>
             ))}

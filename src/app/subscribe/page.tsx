@@ -178,42 +178,26 @@ function SubscribeContent() {
               </div>
               <CardContent className="p-8">
                 <div className="grid sm:grid-cols-2 gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                      <Check className="h-3 w-3" />
+                  {Object.entries(plan.tierLimits ?? {}).slice(0, 6).map(([key, val]) => (
+                    <div className="flex items-start gap-4" key={key}>
+                      <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500"><Check className="h-3 w-3" /></div>
+                      <div>
+                        <p className="font-bold text-sm capitalize">{key.replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {val === -1 ? 'Unlimited' : String(val)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-bold text-sm">Priority Orders</p>
-                      <p className="text-xs text-muted-foreground mt-1">Up to {plan.tierLimits.max_orders_per_day} orders per day processed with priority.</p>
+                  ))}
+                  {Object.keys(plan.tierLimits ?? {}).length === 0 && (
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500"><Check className="h-3 w-3" /></div>
+                      <div>
+                        <p className="font-bold text-sm">Full {plan.name} Access</p>
+                        <p className="text-xs text-muted-foreground mt-1">All features included in this plan.</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                      <Check className="h-3 w-3" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Rider Network</p>
-                      <p className="text-xs text-muted-foreground mt-1">Connect up to {plan.tierLimits.max_riders} riders to your dedicated app.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                      <Check className="h-3 w-3" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Secure Treasury</p>
-                      <p className="text-xs text-muted-foreground mt-1">Manage M-Pesa and Paystack payouts directly through Treasury.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="mt-1 p-1 rounded-full bg-blue-500/10 text-blue-500">
-                      <Check className="h-3 w-3" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Analytics Suite</p>
-                      <p className="text-xs text-muted-foreground mt-1">Real-time heatmaps and performance reports included.</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
