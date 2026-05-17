@@ -53,11 +53,11 @@ interface CurrentSubscription {
   currentPeriodEnd: string;
 }
 
-type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad';
+type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'MarketFlow';
 type BillingTab = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
 
-const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad'];
-const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad'];
+const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
+const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
 
 function planService(code: string): ServiceTab {
   if (/^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
@@ -66,6 +66,7 @@ function planService(code: string): ServiceTab {
   if (code.startsWith('ERP_')) return 'ERP';
   if (code.startsWith('LOGISTICS_')) return 'Logistics';
   if (code.startsWith('TRULOAD_') || code.startsWith('TRANSPORTER_')) return 'TruLoad';
+  if (code.startsWith('MARKETFLOW_')) return 'MarketFlow';
   return 'All';
 }
 
@@ -78,11 +79,12 @@ function stripServicePrefix(planCode: string, service: ServiceTab): string {
     case 'ERP': stripped = planCode.replace(/^ERP_/, ''); break;
     case 'Logistics': stripped = planCode.replace(/^LOGISTICS_/, ''); break;
     case 'TruLoad': stripped = planCode.replace(/^TRULOAD_/, '').replace(/^TRANSPORTER_/, '').replace(/_YEARLY$/, ''); break;
+    case 'MarketFlow': stripped = planCode.replace(/^MARKETFLOW_/, '').replace(/_YEARLY$/, ''); break;
   }
   return stripped.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-function isOneTimePlan(p: Plan) { return p.billingCycle === 'ONE_TIME' || p.planCode.includes('ONE_TIME') || p.planCode.includes('LICENSE') || p.planCode.includes('_COMPLETE'); }
+function isOneTimePlan(p: Plan) { return p.billingCycle === 'ONE_TIME' || p.planCode.includes('ONE_TIME') || p.planCode.includes('LICENSE') || p.planCode.includes('_COMPLETE') || p.planCode.includes('_CREDITS_'); }
 function isAnnualPlan(p: Plan) { return p.billingCycle === 'ANNUAL' || p.planCode.includes('YEARLY'); }
 function isRecommended(code: string) { const u = code.toUpperCase(); return u.includes('GROWTH') || u.includes('STANDARD') || u.includes('DEVICE_5'); }
 
@@ -325,7 +327,7 @@ function TenantPlansView() {
   });
 
   const allPlans: Plan[] = plansResponse?.plans ?? [];
-  const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService || (activeService !== 'All' && planService(p.planCode) === activeService));
+  const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
   const displayPlans = servicePlans
     .filter((p) => { if (billingTab === 'ONE_TIME') return isOneTimePlan(p); if (billingTab === 'ANNUAL') return isAnnualPlan(p) && !isOneTimePlan(p); return !isAnnualPlan(p) && !isOneTimePlan(p); })
