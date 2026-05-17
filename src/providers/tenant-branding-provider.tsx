@@ -1,7 +1,34 @@
+'use client';
+
 import { fetchTenantBySlug, type TenantBrand } from '@/lib/tenant-api';
-import { useParams } from 'next/navigation';
+import { useAuthStore } from '@/store/auth';
 import { createContext, ReactNode, useContext, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+
+function hexToHslTriplet(hex: string): string {
+  const t = hex.replace(/^#/, '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(t)) return '320 60% 30%';
+  const r = parseInt(t.slice(0, 2), 16) / 255;
+  const g = parseInt(t.slice(2, 4), 16) / 255;
+  const b = parseInt(t.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
+function hexToRgbTriplet(hex: string): string {
+  const t = hex.replace(/^#/, '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(t)) return '114 47 95';
+  return `${parseInt(t.slice(0, 2), 16)} ${parseInt(t.slice(2, 4), 16)} ${parseInt(t.slice(4, 6), 16)}`;
+}
 
 interface TenantBrandingContextType {
   slug: string;
@@ -18,35 +45,54 @@ const DEFAULT_BRAND: TenantBrand = {
   name: 'Codevertex',
   slug: 'codevertex',
   logoUrl: '/images/logo/codevertex.png',
-  primaryColor: '#5B1C4D',
+  primaryColor: '#722F5F',
   secondaryColor: '#ea8022',
   orgName: 'Codevertex IT Solutions',
+  useCase: 'other',
 };
 
 export function TenantBrandingProvider({ children }: { children: ReactNode }) {
-  const params = useParams();
-  const slug = (params?.orgSlug as string) || '';
+  const user = useAuthStore((s) => s.user);
+  const slug = user?.tenant_slug || '';
 
   const { data: tenant, isLoading, error } = useQuery({
-    queryKey: ['tenant', slug],
+    queryKey: ['tenant-brand', slug],
     queryFn: () => fetchTenantBySlug(slug),
-    staleTime: 6 * 60 * 60 * 1000, // 6 hours — aligned with JWT TTL
+    staleTime: 6 * 60 * 60 * 1000, // 6 hours
     enabled: !!slug,
   });
 
-  // For core services like Subscriptions, we always use Codevertex branding
+  const effectiveBrand = useMemo(() => {
+    if (tenant) return tenant;
+    if (!isLoading && !tenant && slug) {
+      return { ...DEFAULT_BRAND, slug, name: slug, orgName: slug };
+    }
+    return DEFAULT_BRAND;
+  }, [tenant, isLoading, slug]);
+
   useMemo(() => {
     if (typeof window !== 'undefined') {
-      document.documentElement.style.setProperty('--tenant-primary', DEFAULT_BRAND.primaryColor!);
-      document.documentElement.style.setProperty('--tenant-secondary', DEFAULT_BRAND.secondaryColor!);
-      document.documentElement.style.setProperty('--tenant-logo-url', `url(${DEFAULT_BRAND.logoUrl})`);
-    }
-  }, []);
+      const primary = effectiveBrand?.primaryColor || DEFAULT_BRAND.primaryColor!;
+      const secondary = effectiveBrand?.secondaryColor || DEFAULT_BRAND.secondaryColor!;
+      const logo = effectiveBrand?.logoUrl || DEFAULT_BRAND.logoUrl!;
+      const root = document.documentElement;
 
-  const effectiveBrand = DEFAULT_BRAND;
+      root.style.setProperty('--tenant-primary', primary);
+      root.style.setProperty('--tenant-secondary', secondary);
+      root.style.setProperty('--tenant-logo-url', `url(${logo})`);
+      // Drive Tailwind semantic tokens from tenant brand color
+      root.style.setProperty('--primary', hexToHslTriplet(primary));
+      root.style.setProperty('--ring', hexToHslTriplet(primary));
+      // Drive brand RGB triplets for bg-brand-primary / bg-brand-emphasis
+      root.style.setProperty('--brand-primary', hexToRgbTriplet(primary));
+      root.style.setProperty('--brand-emphasis', hexToRgbTriplet(secondary));
+    }
+  }, [effectiveBrand]);
 
   const getServiceTitle = (appName: string) => {
-    return `Codevertex ${appName}`;
+    const tenantName = effectiveBrand?.orgName || effectiveBrand?.name || '';
+    const firstWord = tenantName.split(' ')[0] || 'Codevertex';
+    return `${firstWord} ${appName}`;
   };
 
   const value = useMemo(

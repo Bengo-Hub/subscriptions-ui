@@ -10,13 +10,13 @@ import {
     KeyRound,
     LayoutDashboard,
     LogOut,
-    Package,
     Settings,
     Sparkles,
     Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useAuthStore } from '@/store/auth';
 
@@ -41,7 +41,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     ];
 
     const platformRoutes = [
-        { label: 'Plans', icon: Package, href: '/platform/plans', active: pathname.startsWith('/platform/plans') },
         { label: 'Service Charges', icon: BadgePercent, href: '/platform/service-charges', active: pathname.startsWith('/platform/service-charges') },
         { label: 'Licenses', icon: KeyRound, href: '/platform/licenses', active: pathname.startsWith('/platform/licenses') },
         { label: 'Tenants', icon: Building2, href: '/platform/tenants', active: pathname.startsWith('/platform/tenants') },
@@ -71,6 +70,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         );
     };
 
+    const logoUrl = tenant?.logoUrl;
+    const tenantName = tenant?.orgName || tenant?.name || 'Codevertex';
+
     return (
         <>
             {open && (
@@ -86,13 +88,24 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     {/* Logo */}
                     <div className="px-5 pt-5 pb-2">
                         <Link href="/" className="flex items-center gap-3 group text-foreground" onClick={onClose}>
-                            <svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto transition-transform duration-300 group-hover:scale-105">
-                                <circle cx="90" cy="30" r="18" stroke="#722F5F" strokeWidth="3"/>
-                                <path d="M82 30L87 35L98 24" stroke="#722F5F" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                                <text x="10" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>Code</text>
-                                <text x="115" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>ertex</text>
-                                <text x="70" y="52" fill="currentColor" opacity="0.5" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: '8px', letterSpacing: '2px' }}>IT SOLUTIONS</text>
-                            </svg>
+                            {logoUrl ? (
+                                <Image
+                                    src={logoUrl}
+                                    alt={tenantName}
+                                    width={160}
+                                    height={40}
+                                    className="h-9 w-auto object-contain max-w-40 transition-transform duration-300 group-hover:scale-105"
+                                    unoptimized
+                                />
+                            ) : (
+                                <svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto transition-transform duration-300 group-hover:scale-105">
+                                    <circle cx="90" cy="30" r="18" stroke="#722F5F" strokeWidth="3"/>
+                                    <path d="M82 30L87 35L98 24" stroke="#722F5F" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <text x="10" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>Code</text>
+                                    <text x="115" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>ertex</text>
+                                    <text x="70" y="52" fill="currentColor" opacity="0.5" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: '8px', letterSpacing: '2px' }}>IT SOLUTIONS</text>
+                                </svg>
+                            )}
                         </Link>
                     </div>
 
@@ -117,10 +130,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     <div className="p-3 border-t border-border">
                         <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/50">
                             <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                                {tenant?.name?.[0] || 'C'}
+                                {tenantName?.[0] || 'C'}
                             </div>
                             <div className="flex flex-col min-w-0 flex-1">
-                                <span className="text-xs font-semibold text-foreground truncate">{tenant?.name || 'Codevertex'}</span>
+                                <span className="text-xs font-semibold text-foreground truncate">{tenantName}</span>
                                 <span className="text-[10px] text-muted-foreground">Subscriptions</span>
                             </div>
                             <button

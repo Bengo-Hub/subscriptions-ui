@@ -29,12 +29,23 @@ class ApiClient {
     const tenantSlug = localStorage.getItem('tenant_slug');
     const isPlatformOwner = localStorage.getItem('is_platform_owner') === 'true';
 
-    // Only inject headers if not a platform owner
-    if (tenantId && !isPlatformOwner) {
-      config.headers['X-Tenant-ID'] = tenantId;
-    }
-    if (tenantSlug && !isPlatformOwner) {
-      config.headers['X-Tenant-Slug'] = tenantSlug;
+    if (isPlatformOwner) {
+      // Platform owners: inject selected tenant context if one is chosen in the filter,
+      // otherwise omit headers so the backend treats the request as platform-wide.
+      try {
+        const { useTenantFilterStore } = require('@/store/tenant-filter');
+        const selected = useTenantFilterStore.getState().selectedTenant;
+        if (selected) {
+          config.headers['X-Tenant-ID'] = selected.id;
+          config.headers['X-Tenant-Slug'] = selected.slug;
+        }
+      } catch {
+        // store not available during SSR — skip
+      }
+    } else {
+      // Regular tenants: always inject their own tenant context
+      if (tenantId) config.headers['X-Tenant-ID'] = tenantId;
+      if (tenantSlug) config.headers['X-Tenant-Slug'] = tenantSlug;
     }
 
     return config;

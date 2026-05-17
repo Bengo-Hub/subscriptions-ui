@@ -5,6 +5,7 @@ import { ChevronDown, LogOut, Menu, Search, Settings, User } from 'lucide-react'
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { ThemeToggle } from './theme-toggle';
+import { TenantFilter } from './tenant-filter';
 
 function displayName(user: { fullName?: string; name?: string; email?: string } | null): string {
     if (!user) return 'Account';
@@ -31,13 +32,14 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <button type="button" onClick={onMenuClick} className="md:hidden p-2 rounded-xl hover:bg-accent transition-colors" aria-label="Open menu">
                     <Menu className="h-5 w-5 text-muted-foreground" />
                 </button>
-                <div className="hidden lg:flex relative w-72 max-w-full group">
+                <div className="hidden lg:flex relative w-64 max-w-full group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 group-focus-within:text-primary transition-colors" />
                     <input
                         placeholder="Search plans, billing..."
                         className="w-full h-9 bg-accent/50 dark:bg-accent/30 border border-border/50 rounded-xl py-1.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all outline-none placeholder:text-muted-foreground/50"
                     />
                 </div>
+                <TenantFilter className="hidden md:block" />
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2">
