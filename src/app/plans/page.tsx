@@ -31,14 +31,14 @@ interface CurrentSubscription {
   currentPeriodEnd: string;
 }
 
-type ServiceTab = 'Delivery' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad';
+type ServiceTab = 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad';
 type BillingTab = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
 
-const SERVICE_TABS: ServiceTab[] = ['Delivery', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad'];
+const SERVICE_TABS: ServiceTab[] = ['Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad'];
 
 function planBelongsToService(planCode: string, service: ServiceTab): boolean {
   switch (service) {
-    case 'Delivery':
+    case 'Ordering':
       return /^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(planCode);
     case 'POS':
       return planCode.startsWith('POS_');
@@ -47,9 +47,9 @@ function planBelongsToService(planCode: string, service: ServiceTab): boolean {
     case 'ERP':
       return planCode.startsWith('ERP_');
     case 'Logistics':
-      return planCode.startsWith('TRANSPORTER_');
+      return planCode.startsWith('LOGISTICS_');
     case 'TruLoad':
-      return planCode.startsWith('TRULOAD_');
+      return planCode.startsWith('TRULOAD_') || planCode.startsWith('TRANSPORTER_');
     default:
       return false;
   }
@@ -58,7 +58,7 @@ function planBelongsToService(planCode: string, service: ServiceTab): boolean {
 function stripServicePrefix(planCode: string, service: ServiceTab): string {
   let stripped = planCode;
   switch (service) {
-    case 'Delivery':
+    case 'Ordering':
       stripped = planCode.replace(/_YEARLY$/, '');
       break;
     case 'POS':
@@ -71,10 +71,10 @@ function stripServicePrefix(planCode: string, service: ServiceTab): string {
       stripped = planCode.replace(/^ERP_/, '');
       break;
     case 'Logistics':
-      stripped = planCode.replace(/^TRANSPORTER_/, '');
+      stripped = planCode.replace(/^LOGISTICS_/, '');
       break;
     case 'TruLoad':
-      stripped = planCode.replace(/^TRULOAD_/, '').replace(/_YEARLY$/, '');
+      stripped = planCode.replace(/^TRULOAD_/, '').replace(/^TRANSPORTER_/, '').replace(/_YEARLY$/, '');
       break;
   }
   return stripped
@@ -112,7 +112,7 @@ function isRecommendedPlan(planCode: string): boolean {
 
 export default function PlansPage() {
   const router = useRouter();
-  const [activeService, setActiveService] = useState<ServiceTab>('Delivery');
+  const [activeService, setActiveService] = useState<ServiceTab>('Ordering');
   const [billingTab, setBillingTab] = useState<BillingTab>('MONTHLY');
 
   const { data: currentSub } = useQuery({

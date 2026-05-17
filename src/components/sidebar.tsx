@@ -3,8 +3,11 @@
 import { useMe } from '@/hooks/useMe';
 import { cn } from '@/lib/utils';
 import {
+    BadgePercent,
+    Building2,
     CreditCard,
     Gauge,
+    KeyRound,
     LayoutDashboard,
     LogOut,
     Package,
@@ -38,8 +41,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     ];
 
     const platformRoutes = [
-        { label: 'Plans Management', icon: Package, href: '/platform/plans', active: pathname.startsWith('/platform/plans') },
-        { label: 'All Subscriptions', icon: Users, href: '/platform/subscriptions', active: pathname.startsWith('/platform/subscriptions') },
+        { label: 'Plans', icon: Package, href: '/platform/plans', active: pathname.startsWith('/platform/plans') },
+        { label: 'Service Charges', icon: BadgePercent, href: '/platform/service-charges', active: pathname.startsWith('/platform/service-charges') },
+        { label: 'Licenses', icon: KeyRound, href: '/platform/licenses', active: pathname.startsWith('/platform/licenses') },
+        { label: 'Tenants', icon: Building2, href: '/platform/tenants', active: pathname.startsWith('/platform/tenants') },
+        { label: 'Subscriptions', icon: Users, href: '/platform/subscriptions', active: pathname.startsWith('/platform/subscriptions') },
     ];
 
     const renderNavItem = (route: typeof routes[0]) => {
@@ -57,7 +63,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 )}
             >
                 <Icon className={cn(
-                    "h-[18px] w-[18px] shrink-0 transition-colors",
+                    "h-4.5 w-4.5 shrink-0 transition-colors",
                     route.active ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground"
                 )} />
                 <span>{route.label}</span>
@@ -72,7 +78,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             )}
             <aside
                 className={cn(
-                    "fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col transition-transform duration-300 ease-out md:sticky md:top-0 md:h-screen md:z-auto md:translate-x-0 md:min-w-[260px]",
+                    "fixed inset-y-0 left-0 z-50 flex w-65 flex-col transition-transform duration-300 ease-out md:sticky md:top-0 md:h-screen md:z-auto md:translate-x-0 md:min-w-65",
                     open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
                 )}
             >

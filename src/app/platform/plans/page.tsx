@@ -15,20 +15,18 @@ import {
   TableRow,
 } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
-import { useAuthStore } from '@/store/auth';
+import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit, Layout, Package, Plus, Save, Trash2, X, Zap } from 'lucide-react';
+import { Edit, Loader2, Package, Plus, Save, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-
-import { cn } from '@/lib/utils';
 
 interface Plan {
   id: string;
   planCode: string;
   name: string;
   description: string;
-  billingCycle: 'MONTHLY' | 'ANNUAL';
+  billingCycle: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
   basePrice: number;
   currency: string;
   isActive: boolean;
@@ -36,331 +34,316 @@ interface Plan {
   tierLimits: Record<string, any>;
 }
 
-export default function PlatformPlansPage() {
-  const queryClient = useQueryClient();
-  const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad';
+const SERVICE_TABS: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad'];
 
+function planService(code: string): ServiceTab {
+  if (/^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
+  if (code.startsWith('POS_')) return 'POS';
+  if (code.startsWith('INVENTORY_')) return 'Inventory';
+  if (code.startsWith('ERP_')) return 'ERP';
+  if (code.startsWith('LOGISTICS_')) return 'Logistics';
+  if (code.startsWith('TRULOAD_') || code.startsWith('TRANSPORTER_')) return 'TruLoad';
+  return 'All';
+}
+
+const cycleLabel: Record<string, string> = { MONTHLY: 'Monthly', ANNUAL: 'Annual', ONE_TIME: 'One-Time' };
+const cycleColor: Record<string, string> = {
+  MONTHLY: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  ANNUAL: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  ONE_TIME: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+};
+
+const emptyForm: Partial<Plan> = {
+  name: '', planCode: '', description: '',
+  basePrice: 0, billingCycle: 'MONTHLY', currency: 'KES',
+  isActive: true, tierOrder: 1, tierLimits: {},
+};
+
+type TierLimitEntry = { key: string; value: string };
+
+function tierLimitsToEntries(limits: Record<string, any>): TierLimitEntry[] {
+  return Object.entries(limits).map(([key, value]) => ({ key, value: String(value) }));
+}
+function entriesToTierLimits(entries: TierLimitEntry[]): Record<string, any> {
+  return Object.fromEntries(
+    entries
+      .filter((e) => e.key.trim())
+      .map(({ key, value }) => {
+        const num = Number(value);
+        return [key.trim(), isNaN(num) ? value : num];
+      })
+  );
+}
+
+export default function PlatformPlansPage() {
+  const qc = useQueryClient();
+  const [serviceTab, setServiceTab] = useState<ServiceTab>('All');
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
-  const [form, setForm] = useState<Partial<Plan>>({
-    name: '',
-    planCode: '',
-    description: '',
-    basePrice: 0,
-    billingCycle: 'MONTHLY',
-    currency: 'KES',
-    isActive: true,
-    tierOrder: 1,
-    tierLimits: {
-      max_admins: 2,
-      max_riders: 5,
-      max_orders_per_day: 300,
-      overage_rider_price_per_month: 250,
-      overage_orders_price_per_100_month: 375
-    }
-  });
+  const [form, setForm] = useState<Partial<Plan>>(emptyForm);
+  const [tierEntries, setTierEntries] = useState<TierLimitEntry[]>([]);
 
-  const { data: plansData, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['platform-plans'],
-    queryFn: async () => {
-      const resp = await apiClient.get<{ plans: Plan[] }>('/api/v1/plans');
-      return resp.plans;
-    },
-    enabled: !!isPlatformOwner,
+    queryFn: () => apiClient.get<{ plans: Plan[] }>('/api/v1/plans').then((r) => r.plans),
   });
 
-  const plans = plansData || [];
+  const plans = (data ?? []).filter(
+    (p) => serviceTab === 'All' || planService(p.planCode) === serviceTab
+  );
 
   const createMutation = useMutation({
-    mutationFn: (data: Partial<Plan>) => apiClient.post('/api/v1/admin/plans', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-plans'] });
-      toast.success('Subscription plan created successfully');
-      resetForm();
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to create plan'),
+    mutationFn: (body: Partial<Plan>) => apiClient.post('/api/v1/admin/plans', body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['platform-plans'] }); toast.success('Plan created'); closeForm(); },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to create plan'),
   });
-
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Plan> }) =>
-      apiClient.put(`/api/v1/admin/plans/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-plans'] });
-      toast.success('Plan updated successfully');
-      resetForm();
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to update plan'),
+    mutationFn: ({ id, body }: { id: string; body: Partial<Plan> }) => apiClient.put(`/api/v1/admin/plans/${id}`, body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['platform-plans'] }); toast.success('Plan updated'); closeForm(); },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to update plan'),
   });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/api/v1/admin/plans/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['platform-plans'] });
-      toast.success('Plan deleted');
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to delete plan'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['platform-plans'] }); toast.success('Plan deleted'); },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to delete plan'),
   });
 
-  const resetForm = () => {
-    setShowForm(false);
+  const openCreate = () => {
     setEditingPlan(null);
-    setForm({
-      name: '',
-      planCode: '',
-      description: '',
-      basePrice: 0,
-      billingCycle: 'MONTHLY',
-      currency: 'KES',
-      isActive: true,
-      tierOrder: 1,
-      tierLimits: {
-        max_admins: 2,
-        max_riders: 5,
-        max_orders_per_day: 300,
-        overage_rider_price_per_month: 250,
-        overage_orders_price_per_100_month: 375
-      }
-    });
-  };
-
-  const openEdit = (plan: Plan) => {
-    setEditingPlan(plan);
-    setForm({ ...plan });
+    setForm(emptyForm);
+    setTierEntries([]);
     setShowForm(true);
   };
+  const openEdit = (p: Plan) => {
+    setEditingPlan(p);
+    setForm({ ...p });
+    setTierEntries(tierLimitsToEntries(p.tierLimits ?? {}));
+    setShowForm(true);
+  };
+  const closeForm = () => { setShowForm(false); setEditingPlan(null); };
 
   const handleSubmit = () => {
-    if (editingPlan) {
-      updateMutation.mutate({ id: editingPlan.id, data: form });
-    } else {
-      createMutation.mutate(form);
-    }
+    const payload = { ...form, tierLimits: entriesToTierLimits(tierEntries) };
+    if (editingPlan) updateMutation.mutate({ id: editingPlan.id, body: payload });
+    else createMutation.mutate(payload);
   };
 
-  if (!isPlatformOwner) return null;
+  const addTierEntry = () => setTierEntries((prev) => [...prev, { key: '', value: '' }]);
+  const updateTierEntry = (i: number, field: 'key' | 'value', val: string) =>
+    setTierEntries((prev) => prev.map((e, idx) => idx === i ? { ...e, [field]: val } : e));
+  const removeTierEntry = (i: number) => setTierEntries((prev) => prev.filter((_, idx) => idx !== i));
+
+  const busy = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-10">
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-foreground">Membership Tiers</h1>
-          <p className="text-muted-foreground mt-1 font-medium">Configure and manage platform-wide subscription packages.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Plans Management</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Create and manage subscription plans across all service groups.</p>
         </div>
-        <Button
-          onClick={() => { resetForm(); setShowForm(true); }}
-          className="bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90 h-12 px-6 rounded-2xl font-black uppercase tracking-widest text-xs"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Tier
+        <Button onClick={openCreate} className="h-10 px-5 rounded-xl font-semibold">
+          <Plus className="h-4 w-4 mr-2" /> New Plan
         </Button>
       </div>
 
+      {/* Service tabs */}
+      <div className="flex gap-1 p-1 bg-accent/50 rounded-2xl w-fit flex-wrap">
+        {SERVICE_TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setServiceTab(t)}
+            className={cn(
+              'px-4 py-1.5 rounded-xl text-xs font-semibold transition-all',
+              serviceTab === t
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
+      {/* Create / Edit Form */}
       {showForm && (
-        <div
-          className="overflow-auto"
-        >
-          <Card className="border-2 border-primary/20 shadow-2xl rounded-[2.5rem] bg-card overflow-hidden">
-            <CardHeader className="bg-accent/50 px-10 py-6 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-primary/10">
-                    <Layout className="h-5 w-5 text-primary" />
-                  </div>
-                  <h2 className="text-xl font-black text-foreground">
-                    {editingPlan ? `Editing ${editingPlan.name}` : 'New Tier Configuration'}
-                  </h2>
-                </div>
-                <Button variant="ghost" size="icon" onClick={resetForm} className="rounded-full hover:bg-accent">
-                  <X className="h-4 w-4" />
-                </Button>
+        <Card className="border-primary/20 rounded-2xl shadow-lg">
+          <CardHeader className="border-b border-border px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg">{editingPlan ? `Edit — ${editingPlan.name}` : 'New Plan'}</h2>
+              <Button variant="ghost" size="icon" onClick={closeForm} className="rounded-full">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            {/* Core fields */}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Display Name</label>
+                <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Starter" className="h-11 rounded-xl" />
               </div>
-            </CardHeader>
-            <CardContent className="p-10 space-y-8">
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Display Name</label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                    placeholder="e.g. Starter (Lite)"
-                    className="h-12 rounded-xl border-border focus:ring-primary font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Plan Code (UPPERCASE)</label>
-                  <Input
-                    value={form.planCode}
-                    onChange={(e) => setForm((p) => ({ ...p, planCode: e.target.value.toUpperCase() }))}
-                    placeholder="e.g. STARTER"
-                    className="h-12 rounded-xl border-border focus:ring-primary font-black tracking-widest"
-                    disabled={!!editingPlan}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Monthly Price ({form.currency})</label>
-                  <Input
-                    type="number"
-                    value={form.basePrice}
-                    onChange={(e) => setForm((p) => ({ ...p, basePrice: Number(e.target.value) }))}
-                    className="h-12 rounded-xl border-border focus:ring-primary font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Billing Cycle</label>
-                  <select
-                    value={form.billingCycle}
-                    onChange={(e) => setForm((p) => ({ ...p, billingCycle: e.target.value as any }))}
-                    className="flex h-12 w-full rounded-xl border-2 border-border bg-transparent px-4 py-2 text-sm font-bold focus:border-primary"
-                  >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="ANNUAL">Annual</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Description</label>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plan Code</label>
                 <Input
-                  value={form.description}
-                  onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                  placeholder="High-level summary of the tier benefits..."
-                  className="h-12 rounded-xl border-border focus:ring-primary font-medium"
+                  value={form.planCode}
+                  onChange={(e) => setForm((p) => ({ ...p, planCode: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. LOGISTICS_STARTER"
+                  className="h-11 rounded-xl font-mono"
+                  disabled={!!editingPlan}
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Price (KES)</label>
+                <Input type="number" value={form.basePrice} onChange={(e) => setForm((p) => ({ ...p, basePrice: Number(e.target.value) }))} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Billing Cycle</label>
+                <select
+                  value={form.billingCycle}
+                  onChange={(e) => setForm((p) => ({ ...p, billingCycle: e.target.value as Plan['billingCycle'] }))}
+                  className="flex h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm font-medium"
+                >
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="ANNUAL">Annual</option>
+                  <option value="ONE_TIME">One-Time</option>
+                </select>
+              </div>
+            </div>
 
-              <div className="pt-6 border-t border-border">
-                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-primary" /> Tier Limits & Overages
-                </h3>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                  <div className="space-y-3 p-6 rounded-3xl bg-accent/30 border border-border">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-blue-500">Max Riders</label>
-                    <Input
-                      type="number"
-                      value={form.tierLimits?.max_riders}
-                      onChange={(e) => setForm((p) => ({ ...p, tierLimits: { ...p.tierLimits, max_riders: Number(e.target.value) } }))}
-                      className="bg-card border-none h-10 shadow-sm font-bold"
-                    />
-                  </div>
-                  <div className="space-y-3 p-6 rounded-3xl bg-accent/30 border border-border">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-purple-500">Max Orders / Day</label>
-                    <Input
-                      type="number"
-                      value={form.tierLimits?.max_orders_per_day}
-                      onChange={(e) => setForm((p) => ({ ...p, tierLimits: { ...p.tierLimits, max_orders_per_day: Number(e.target.value) } }))}
-                      className="bg-card border-none h-10 shadow-sm font-bold"
-                    />
-                  </div>
-                  <div className="space-y-3 p-6 rounded-3xl bg-accent/30 border border-border">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-amber-500">Extra Rider Fee (KES)</label>
-                    <Input
-                      type="number"
-                      value={form.tierLimits?.overage_rider_price_per_month}
-                      onChange={(e) => setForm((p) => ({ ...p, tierLimits: { ...p.tierLimits, overage_rider_price_per_month: Number(e.target.value) } }))}
-                      className="bg-card border-none h-10 shadow-sm font-bold"
-                    />
-                  </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description</label>
+                <Input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Short plan summary..." className="h-11 rounded-xl" />
+              </div>
+              <div className="flex items-end gap-6 pb-0.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 rounded" />
+                  <span className="text-sm font-medium">Active (visible to tenants)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground">Tier Order</label>
+                  <Input type="number" value={form.tierOrder} onChange={(e) => setForm((p) => ({ ...p, tierOrder: Number(e.target.value) }))} className="h-9 w-20 rounded-lg text-center" />
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-4 justify-end pt-6">
-                <Button variant="ghost" onClick={resetForm} className="rounded-xl font-bold px-8">Discard</Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={createMutation.isPending || updateMutation.isPending}
-                  className="bg-primary text-white shadow-xl shadow-primary/20 hover:bg-primary/90 h-14 px-10 rounded-2xl font-black uppercase tracking-widest text-sm"
-                >
-                  <Save className="h-5 w-5 mr-2" />
-                  {editingPlan ? 'Overwrite Tier' : 'Deploy Tier'}
+            {/* Tier Limits — dynamic key-value editor */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tier Limits</label>
+                <Button variant="outline" size="sm" onClick={addTierEntry} className="h-8 rounded-lg text-xs">
+                  <Plus className="h-3 w-3 mr-1" /> Add Limit
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <p className="text-xs text-muted-foreground">Use <code className="bg-accent px-1 rounded">-1</code> for unlimited. Numbers are stored as numbers, text as strings.</p>
+              {tierEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No limits configured — plan has no usage gates.</p>
+              ) : (
+                <div className="space-y-2">
+                  {tierEntries.map((entry, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        placeholder="limit key (e.g. max_riders)"
+                        value={entry.key}
+                        onChange={(e) => updateTierEntry(i, 'key', e.target.value)}
+                        className="h-9 rounded-lg font-mono text-xs flex-1"
+                      />
+                      <Input
+                        placeholder="value (e.g. 5 or -1)"
+                        value={entry.value}
+                        onChange={(e) => updateTierEntry(i, 'value', e.target.value)}
+                        className="h-9 rounded-lg font-mono text-xs w-36"
+                      />
+                      <Button variant="ghost" size="icon" onClick={() => removeTierEntry(i)} className="h-9 w-9 rounded-lg hover:text-destructive shrink-0">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="ghost" onClick={closeForm} className="rounded-xl">Cancel</Button>
+              <Button onClick={handleSubmit} disabled={busy} className="rounded-xl h-10 px-6 font-semibold">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                {editingPlan ? 'Update Plan' : 'Create Plan'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-
-      {/* Plans Table */}
-      <Card className="rounded-[2.5rem] border border-border shadow-sm overflow-hidden bg-card">
-        <CardHeader className="px-10 py-8 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800">
+      {/* Plans table */}
+      <Card className="rounded-2xl border border-border overflow-hidden">
+        <CardHeader className="px-6 py-4 border-b border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-semibold">
+                {serviceTab === 'All' ? 'All Plans' : `${serviceTab} Plans`}
+              </h2>
             </div>
-            <h2 className="text-xl font-black text-foreground">Active Catalog</h2>
+            <span className="text-sm text-muted-foreground">{plans.length} plan{plans.length !== 1 ? 's' : ''}</span>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="p-10 space-y-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 bg-accent/50 rounded-2xl animate-pulse" />
-              ))}
-            </div>
+            <div className="p-6 space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-14 bg-muted rounded-xl animate-pulse" />)}</div>
           ) : plans.length ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border/50">
-                    <TableHead className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Plan</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Code</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Price (KES)</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Cycle</TableHead>
-                    <TableHead className="py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Status</TableHead>
-                    <TableHead className="px-10 py-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground text-right">Actions</TableHead>
+                    {['Plan', 'Code', 'Service', 'Price', 'Cycle', 'Limits', 'Status', ''].map((h) => (
+                      <TableHead key={h} className={cn('py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground', h === '' && 'text-right pr-6')}>{h}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plans.sort((a, b) => a.tierOrder - b.tierOrder).map((plan) => (
-                    <TableRow key={plan.id} className="group hover:bg-accent border-border/50 transition-colors">
-                      <TableCell className="px-10 py-6">
-                        <div className="flex flex-col">
-                          <span className="font-black text-foreground">{plan.name}</span>
-                          <span className="text-xs text-muted-foreground font-medium truncate max-w-[200px]">{plan.description || 'No description'}</span>
-                        </div>
+                  {plans.sort((a, b) => a.tierOrder - b.tierOrder || a.planCode.localeCompare(b.planCode)).map((p) => (
+                    <TableRow key={p.id} className="border-border/50 hover:bg-accent/50">
+                      <TableCell className="py-4 pl-6">
+                        <div className="font-semibold text-foreground">{p.name}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-50">{p.description}</div>
                       </TableCell>
                       <TableCell>
-                        <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-muted-foreground border-none font-black text-[10px] tracking-widest px-3 py-1">
-                          {plan.planCode}
+                        <code className="text-xs bg-accent px-2 py-0.5 rounded font-mono">{p.planCode}</code>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">
+                          {planService(p.planCode)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-black text-foreground">
-                        {plan.basePrice.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-bold text-xs uppercase tracking-tighter text-muted-foreground">
-                        {plan.billingCycle}
+                      <TableCell className="font-semibold tabular-nums">
+                        {p.basePrice.toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-2 h-2 rounded-full", plan.isActive ? "bg-green-500 animate-pulse" : "bg-slate-300")} />
-                          <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-                            {plan.isActive ? 'Live' : 'Hidden'}
-                          </span>
-                        </div>
+                        <span className={cn('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full', cycleColor[p.billingCycle])}>
+                          {cycleLabel[p.billingCycle]}
+                        </span>
                       </TableCell>
-                      <TableCell className="px-10 py-6 text-right">
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEdit(plan)}
-                            className="rounded-xl hover:bg-blue-500/10 hover:text-blue-500 transition-colors"
-                          >
-                            <Edit className="h-5 w-5" />
+                      <TableCell className="text-xs text-muted-foreground">
+                        {Object.keys(p.tierLimits ?? {}).length} limits
+                      </TableCell>
+                      <TableCell>
+                        <div className={cn('w-2 h-2 rounded-full inline-block', p.isActive ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+                        <span className="ml-1.5 text-xs text-muted-foreground">{p.isActive ? 'Live' : 'Hidden'}</span>
+                      </TableCell>
+                      <TableCell className="text-right pr-6">
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="h-8 w-8 rounded-lg hover:bg-blue-500/10 hover:text-blue-500">
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (confirm('Are you absolutely sure? This will remove the tier from the catalog.')) {
-                                deleteMutation.mutate(plan.id);
-                              }
-                            }}
-                            className="rounded-xl hover:bg-rose-500/10 hover:text-rose-500 transition-colors"
+                            variant="ghost" size="icon"
+                            onClick={() => { if (confirm(`Delete "${p.name}"?`)) deleteMutation.mutate(p.id); }}
+                            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive"
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -370,14 +353,8 @@ export default function PlatformPlansPage() {
               </Table>
             </div>
           ) : (
-            <div className="p-20 text-center space-y-4">
-              <div className="p-4 rounded-full bg-slate-50 dark:bg-slate-800 w-16 h-16 mx-auto flex items-center justify-center">
-                <Package className="h-8 w-8 text-slate-300" />
-              </div>
-              <div>
-                <h4 className="font-black text-foreground">No tiers identified</h4>
-                <p className="text-sm text-muted-foreground">The membership catalog is currently empty. Click "Create New Tier" to begin.</p>
-              </div>
+            <div className="py-16 text-center text-muted-foreground text-sm">
+              No plans found{serviceTab !== 'All' ? ` for ${serviceTab}` : ''}.
             </div>
           )}
         </CardContent>
