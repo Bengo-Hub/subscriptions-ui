@@ -76,7 +76,7 @@ export default function UsagePage() {
         {data && (
           <div className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{data.plan}</span> plan &middot; Resets{' '}
-            {formatDate(data.billingPeriod.end)}
+            {formatDate(data.billingPeriod?.end)}
           </div>
         )}
       </div>
