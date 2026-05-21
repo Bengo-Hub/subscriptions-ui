@@ -25,8 +25,8 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Edit, Layout, Loader2, Package, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
@@ -310,8 +310,25 @@ function AdminPlansView() {
 
 function TenantPlansView() {
   const router = useRouter();
-  const [activeService, setActiveService] = useState<ServiceTab>('Ordering');
+  const searchParams = useSearchParams();
+
+  // Pre-select service and plan from query params (used when coming from auth-ui "Manage" / "Upgrade" buttons)
+  const serviceParam = searchParams.get('service');
+  const planParam = searchParams.get('plan');
+
+  const initialService = (): ServiceTab => {
+    if (!serviceParam) return 'Ordering';
+    const map: Record<string, ServiceTab> = {
+      ordering: 'Ordering', pos: 'POS', inventory: 'Inventory',
+      erp: 'ERP', logistics: 'Logistics', truload: 'TruLoad', marketflow: 'MarketFlow',
+    };
+    return map[serviceParam.toLowerCase()] ?? 'Ordering';
+  };
+
+  const [activeService, setActiveService] = useState<ServiceTab>(initialService);
   const [billingTab, setBillingTab] = useState<BillingTab>('MONTHLY');
+  // Scroll to highlighted plan after load
+  const highlightPlanCode = planParam ?? null;
 
   const { data: currentSub } = useQuery({
     queryKey: ['current-subscription'],
@@ -403,8 +420,9 @@ function TenantPlansView() {
           <div className={cn('grid gap-8 mb-20', displayPlans.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' : displayPlans.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto' : 'grid-cols-1 md:grid-cols-3')}>
             {displayPlans.map((plan, planIdx) => {
               const isCurrent = currentSub?.planCode === plan.planCode;
+              const isHighlighted = !isCurrent && plan.planCode === highlightPlanCode;
               const isExpiredCurrent = isCurrent && currentSub?.status === 'EXPIRED';
-              const recommended = isRecommended(plan.planCode) && !isCurrent;
+              const recommended = isRecommended(plan.planCode) && !isCurrent && !isHighlighted;
               const displayName = stripServicePrefix(plan.planCode, activeService);
               const prevPlan = planIdx > 0 ? displayPlans[planIdx - 1] : undefined;
 
@@ -450,8 +468,13 @@ function TenantPlansView() {
 
               return (
                 <div key={plan.id} className="relative">
-                  <Card className={cn('h-full flex flex-col rounded-[3rem] p-4 transition-all duration-300 bg-card border', getTierBorder(plan.planCode, isCurrent && !isExpiredCurrent))}>
+                  <Card className={cn(
+                    'h-full flex flex-col rounded-[3rem] p-4 transition-all duration-300 bg-card border',
+                    getTierBorder(plan.planCode, isCurrent && !isExpiredCurrent),
+                    isHighlighted && 'ring-2 ring-primary border-primary shadow-xl shadow-primary/10',
+                  )}>
                     {recommended && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Recommended</div>}
+                    {isHighlighted && !isCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Your Plan</div>}
                     {isCurrent && !isExpiredCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Current Plan</div>}
                     {isExpiredCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Expired</div>}
                     <div className={cn('rounded-[2.5rem] p-8 h-full flex flex-col bg-linear-to-b', getTierClass(plan.planCode))}>
@@ -571,8 +594,20 @@ function TenantPlansView() {
 
 // ─── Root export: gate on role ────────────────────────────────────────────────
 
-export default function PlansPage() {
+function PlansContent() {
   const user = useAuthStore((s) => s.user);
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
   return isPlatformOwner ? <AdminPlansView /> : <TenantPlansView />;
+}
+
+export default function PlansPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <PlansContent />
+    </Suspense>
+  );
 }
