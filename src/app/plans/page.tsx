@@ -48,7 +48,7 @@ interface CurrentSubscription {
   id: string;
   planId: string;
   planCode: string;
-  status: string;
+  status: 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELLED' | 'NONE' | string;
   trialEndsAt: string | null;
   currentPeriodEnd: string;
 }
@@ -401,15 +401,59 @@ function TenantPlansView() {
           <div className="text-center py-20"><p className="text-muted-foreground">No plans available for this selection.</p></div>
         ) : (
           <div className={cn('grid gap-8 mb-20', displayPlans.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' : displayPlans.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto' : 'grid-cols-1 md:grid-cols-3')}>
-            {displayPlans.map((plan) => {
+            {displayPlans.map((plan, planIdx) => {
               const isCurrent = currentSub?.planCode === plan.planCode;
+              const isExpiredCurrent = isCurrent && currentSub?.status === 'EXPIRED';
               const recommended = isRecommended(plan.planCode) && !isCurrent;
               const displayName = stripServicePrefix(plan.planCode, activeService);
+              const prevPlan = planIdx > 0 ? displayPlans[planIdx - 1] : undefined;
+
+              // Differential limits: only show limits that changed/improved vs previous tier
+              const allLimitEntries = Object.entries(plan.tierLimits ?? {});
+              const prevLimits = prevPlan?.tierLimits ?? {};
+              const newOrImprovedLimits = prevPlan
+                ? allLimitEntries.filter(([key, val]) => {
+                    const prev = prevLimits[key];
+                    if (prev === undefined) return true; // new key
+                    if (val === -1 && prev !== -1) return true; // became unlimited
+                    if (typeof val === 'number' && typeof prev === 'number') return val > prev; // increased
+                    return false;
+                  })
+                : allLimitEntries;
+
+              // Button logic: Upgrade/Downgrade/Subscribe/Renew
+              const curSubPlan = allPlans.find((p) => p.planCode === currentSub?.planCode);
+              let btnLabel: string;
+              let btnAction: () => void;
+              let btnDisabled = false;
+
+              if (isCurrent && !isExpiredCurrent) {
+                btnLabel = 'Current Plan';
+                btnAction = () => {};
+                btnDisabled = true;
+              } else if (isExpiredCurrent) {
+                btnLabel = 'Renew Plan';
+                btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
+              } else if (!currentSub) {
+                btnLabel = 'Get Started';
+                btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
+              } else if (!curSubPlan) {
+                btnLabel = 'Subscribe';
+                btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
+              } else if (plan.tierOrder > curSubPlan.tierOrder) {
+                btnLabel = 'Upgrade';
+                btnAction = () => router.push(`/upgrade?plan=${plan.planCode}`);
+              } else {
+                btnLabel = 'Downgrade';
+                btnAction = () => router.push(`/downgrade?plan=${plan.planCode}`);
+              }
+
               return (
                 <div key={plan.id} className="relative">
-                  <Card className={cn('h-full flex flex-col rounded-[3rem] p-4 transition-all duration-300 bg-card border', getTierBorder(plan.planCode, isCurrent))}>
+                  <Card className={cn('h-full flex flex-col rounded-[3rem] p-4 transition-all duration-300 bg-card border', getTierBorder(plan.planCode, isCurrent && !isExpiredCurrent))}>
                     {recommended && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Recommended</div>}
-                    {isCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Current Plan</div>}
+                    {isCurrent && !isExpiredCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Current Plan</div>}
+                    {isExpiredCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Expired</div>}
                     <div className={cn('rounded-[2.5rem] p-8 h-full flex flex-col bg-linear-to-b', getTierClass(plan.planCode))}>
                       <div className="mb-8">
                         <h3 className="text-2xl font-black text-foreground mb-2">{displayName}</h3>
@@ -423,10 +467,18 @@ function TenantPlansView() {
                         {billingTab === 'ONE_TIME' && <p className="text-xs text-muted-foreground font-bold -mt-2 mb-2">One-time payment</p>}
                         <p className="text-muted-foreground font-medium text-sm leading-relaxed min-h-16">{plan.description}</p>
                       </div>
-                      <div className="flex-1 space-y-4 mb-10">
-                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-2 border-b border-border pb-2">Top Features</p>
+                      <div className="flex-1 space-y-3 mb-10">
+                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">
+                          {prevPlan ? `Everything in ${stripServicePrefix(prevPlan.planCode, activeService)}, plus:` : "What's included"}
+                        </p>
+                        {prevPlan && (
+                          <div className="flex items-center gap-3 opacity-60">
+                            <Check className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-sm font-semibold text-muted-foreground">All {stripServicePrefix(prevPlan.planCode, activeService)} features</span>
+                          </div>
+                        )}
                         <div className="space-y-3">
-                          {Object.entries(plan.tierLimits ?? {}).slice(0, 4).map(([key, val]) => (
+                          {(newOrImprovedLimits.length > 0 ? newOrImprovedLimits : allLimitEntries).slice(0, 4).map(([key, val]) => (
                             <div key={key} className="flex items-center gap-3">
                               <Check className="h-4 w-4 text-blue-500 shrink-0" />
                               <span className="text-sm font-semibold text-foreground capitalize">{val === -1 ? 'Unlimited' : String(val)} {key.replace(/_/g, ' ')}</span>
@@ -436,22 +488,17 @@ function TenantPlansView() {
                       </div>
                       <Button
                         variant={recommended ? 'primary' : 'outline'}
-                        className={cn('w-full h-14 rounded-2xl font-black text-lg transition-all', isCurrent && 'opacity-50 cursor-default', recommended && 'shadow-lg shadow-primary/20 bg-primary text-white hover:bg-primary/90', !recommended && 'border-border text-foreground hover:bg-accent')}
-                        disabled={isCurrent}
-                        onClick={() => {
-                          if (isCurrent) return;
-                          if (!currentSub) { router.push(`/subscribe?plan=${plan.planCode}`); return; }
-                          const cur = allPlans.find((p) => p.planCode === currentSub.planCode);
-                          if (!cur) { router.push(`/subscribe?plan=${plan.planCode}`); return; }
-                          router.push(plan.tierOrder > cur.tierOrder ? `/upgrade?plan=${plan.planCode}` : `/downgrade?plan=${plan.planCode}`);
-                        }}
+                        className={cn(
+                          'w-full h-14 rounded-2xl font-black text-lg transition-all',
+                          btnDisabled && 'opacity-50 cursor-default',
+                          isExpiredCurrent && 'bg-red-600 hover:bg-red-700 text-white border-0',
+                          recommended && !isExpiredCurrent && 'shadow-lg shadow-primary/20 bg-primary text-white hover:bg-primary/90',
+                          !recommended && !isExpiredCurrent && 'border-border text-foreground hover:bg-accent',
+                        )}
+                        disabled={btnDisabled}
+                        onClick={btnAction}
                       >
-                        {isCurrent ? 'Current Plan' : (() => {
-                          if (!currentSub) return 'Get Started';
-                          const cur = allPlans.find((p) => p.planCode === currentSub.planCode);
-                          if (!cur) return 'Get Started';
-                          return plan.tierOrder > cur.tierOrder ? 'Upgrade' : 'Downgrade';
-                        })()}
+                        {btnLabel}
                       </Button>
                     </div>
                   </Card>
