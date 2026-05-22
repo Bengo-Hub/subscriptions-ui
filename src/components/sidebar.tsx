@@ -19,6 +19,7 @@ import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useAuthStore } from '@/store/auth';
+import { useTenantFilterStore } from '@/store/tenant-filter';
 
 interface SidebarProps {
     open?: boolean;
@@ -29,11 +30,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     const pathname = usePathname();
     const { user, hasRole } = useMe();
     const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+    const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
     const { tenant } = useTenantBranding();
     const logout = useAuthStore((s) => s.logout);
 
-    const routes = [
-        { label: 'Dashboard', icon: LayoutDashboard, href: '/', active: pathname === '/' },
+    // Tenant-specific routes are only meaningful when:
+    // - user is a regular tenant, OR
+    // - user is platform admin AND has selected a specific tenant
+    const showTenantRoutes = !isPlatformOwner || !!selectedTenant;
+
+    const tenantRoutes = [
         { label: 'Plans', icon: Sparkles, href: '/plans', active: pathname.startsWith('/plans') },
         { label: 'Usage', icon: Gauge, href: '/usage', active: pathname.startsWith('/usage') },
         { label: 'Billing', icon: CreditCard, href: '/billing', active: pathname.startsWith('/billing') },
@@ -47,7 +53,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         { label: 'Subscriptions', icon: Users, href: '/platform/subscriptions', active: pathname.startsWith('/platform/subscriptions') },
     ];
 
-    const renderNavItem = (route: typeof routes[0]) => {
+    const renderNavItem = (route: { label: string; icon: any; href: string; active: boolean }) => {
         const Icon = route.icon;
         return (
             <Link
@@ -114,8 +120,34 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
                             Navigation
                         </p>
-                        {routes.map(renderNavItem)}
 
+                        {/* Dashboard always visible */}
+                        <Link
+                            href="/"
+                            onClick={onClose}
+                            className={cn(
+                                "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                                pathname === '/'
+                                    ? "bg-primary/10 text-primary shadow-sm"
+                                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            )}
+                        >
+                            <LayoutDashboard className={cn("h-4.5 w-4.5 shrink-0", pathname === '/' ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground")} />
+                            <span>Dashboard</span>
+                        </Link>
+
+                        {/* Tenant-specific routes: hidden for platform admin when no tenant selected */}
+                        {showTenantRoutes ? (
+                            tenantRoutes.map(renderNavItem)
+                        ) : (
+                            <div className="px-3 py-2">
+                                <p className="text-[11px] text-muted-foreground/60 italic leading-relaxed">
+                                    Select a tenant above to view Plans, Usage, Billing & Settings.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Platform admin section */}
                         {isPlatformOwner && (
                             <div className="mt-6 pt-6 border-t border-border">
                                 <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">

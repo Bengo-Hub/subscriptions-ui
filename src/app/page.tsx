@@ -21,24 +21,28 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+// Subscription response matches backend SubscriptionResult (snake_case JSON tags)
 interface Subscription {
   id: string;
-  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired';
-  plan: {
-    id: string;
-    name: string;
-    tier: string;
-  };
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  cancelAtPeriodEnd: boolean;
+  tenant_id: string;
+  plan_code: string;
+  plan_name: string;
+  status: string; // ACTIVE | TRIAL | EXPIRED | CANCELLED | SUSPENDED
+  current_period_start: string;
+  current_period_end: string;
+  trial_ends_at?: string | null;
+  cancelled_at?: string | null;
+  features: string[];
+  limits: Record<string, number>;
 }
 
+// Dashboard usage summary: { orders: {used, limit}, riders: {used, limit}, ... }
 interface UsageSummary {
-  orders: { used: number; limit: number };
-  riders: { used: number; limit: number };
-  outlets: { used: number; limit: number };
-  apiCalls: { used: number; limit: number };
+  orders?: { used: number; limit: number };
+  riders?: { used: number; limit: number };
+  outlets?: { used: number; limit: number };
+  api_calls?: { used: number; limit: number };
+  [key: string]: { used: number; limit: number } | undefined;
 }
 
 interface PlatformStats {
@@ -78,17 +82,20 @@ export default function DashboardPage() {
     enabled: !!isPlatformOwner,
   });
 
+  // Status is uppercase from backend — normalize for display and variant
   const statusVariant = (s?: string) => {
-    switch (s) {
-      case 'active': return 'success';
-      case 'trialing': return 'default';
-      case 'past_due': return 'warning';
-      case 'canceled': case 'expired': return 'error';
-      default: return 'outline';
+    switch (s?.toUpperCase()) {
+      case 'ACTIVE': return 'success' as const;
+      case 'TRIAL': case 'TRIALING': return 'default' as const;
+      case 'SUSPENDED': case 'PAST_DUE': return 'warning' as const;
+      case 'CANCELLED': case 'EXPIRED': return 'error' as const;
+      default: return 'outline' as const;
     }
   };
 
-  const formatDate = (d?: string) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
+  const formatDate = (d?: string | null) =>
+    d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
   const usagePct = (used: number, limit: number) => (limit > 0 ? Math.round((used / limit) * 100) : 0);
   const usageVariant = (used: number, limit: number) => {
     const pct = usagePct(used, limit);
@@ -96,6 +103,10 @@ export default function DashboardPage() {
     if (pct >= 75) return 'warning' as const;
     return 'default' as const;
   };
+
+  // Display-friendly label for usage keys
+  const usageLabel = (key: string) =>
+    key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
@@ -212,22 +223,22 @@ export default function DashboardPage() {
               <div className="grid sm:grid-cols-3 gap-6">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Plan</p>
-                  <p className="text-lg font-bold mt-1">{subscription.plan?.name ?? 'Unknown Plan'}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{subscription.plan?.tier ?? 'unknown'} tier</p>
+                  <p className="text-lg font-bold mt-1">{subscription.plan_name ?? 'Unknown Plan'}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{subscription.plan_code ?? '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Current Period</p>
                   <p className="text-sm font-medium mt-1">
-                    {formatDate(subscription.currentPeriodStart)} — {formatDate(subscription.currentPeriodEnd)}
+                    {formatDate(subscription.current_period_start)} — {formatDate(subscription.current_period_end)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Renewal</p>
                   <p className="text-sm font-medium mt-1">
-                    {subscription.cancelAtPeriodEnd ? (
-                      <span className="text-destructive">Cancels on {formatDate(subscription.currentPeriodEnd)}</span>
+                    {subscription.cancelled_at ? (
+                      <span className="text-destructive">Cancels on {formatDate(subscription.current_period_end)}</span>
                     ) : (
-                      <span>Auto-renews {formatDate(subscription.currentPeriodEnd)}</span>
+                      <span>Auto-renews {formatDate(subscription.current_period_end)}</span>
                     )}
                   </p>
                 </div>
@@ -277,23 +288,25 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
               )
-              : usage &&
-              Object.entries(usage)
-                .filter(([, val]) => val != null)
-                .map(([key, val]) => (
-                <Card key={key}>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</p>
-                      <span className="text-xs text-muted-foreground">
-                        {(val.used ?? 0)}/{(val.limit ?? 0)}
-                      </span>
-                    </div>
-                    <Progress value={val.used ?? 0} max={val.limit ?? 0} variant={usageVariant(val.used ?? 0, val.limit ?? 0)} />
-                    <p className="text-xs text-muted-foreground">{usagePct(val.used ?? 0, val.limit ?? 0)}% used</p>
-                  </CardContent>
-                </Card>
-              ))}
+              : usage && Object.entries(usage)
+                  .filter(([, val]) => val != null && typeof val === 'object' && 'used' in val && 'limit' in val)
+                  .map(([key, val]) => {
+                    const v = val as { used: number; limit: number };
+                    return (
+                      <Card key={key}>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium capitalize">{usageLabel(key)}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {v.used ?? 0}/{v.limit ?? 0}
+                            </span>
+                          </div>
+                          <Progress value={v.used ?? 0} max={v.limit ?? 0} variant={usageVariant(v.used ?? 0, v.limit ?? 0)} />
+                          <p className="text-xs text-muted-foreground">{usagePct(v.used ?? 0, v.limit ?? 0)}% used</p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
           </div>
         </div>
       )}

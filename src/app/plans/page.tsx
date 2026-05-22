@@ -24,7 +24,22 @@ import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Edit, Layout, Loader2, Package, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Edit,
+  Layout,
+  Loader2,
+  Package,
+  Plus,
+  Save,
+  Sparkles,
+  Star,
+  Trash2,
+  X,
+  Zap,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
@@ -46,11 +61,11 @@ interface Plan {
 
 interface CurrentSubscription {
   id: string;
-  planId: string;
-  planCode: string;
-  status: 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELLED' | 'NONE' | string;
-  trialEndsAt: string | null;
-  currentPeriodEnd: string;
+  plan_code: string;   // snake_case from SubscriptionResult
+  plan_name: string;
+  status: string;      // uppercase: ACTIVE, TRIAL, EXPIRED, CANCELLED
+  trial_ends_at: string | null;
+  current_period_end: string;
 }
 
 type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'MarketFlow';
@@ -59,7 +74,8 @@ type BillingTab = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
 const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
 const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
 
-function planService(code: string): ServiceTab {
+function planService(code: string | null | undefined): ServiceTab {
+  if (!code) return 'All';
   if (/^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
   if (code.startsWith('POS_')) return 'POS';
   if (code.startsWith('INVENTORY_')) return 'Inventory';
@@ -70,7 +86,8 @@ function planService(code: string): ServiceTab {
   return 'All';
 }
 
-function stripServicePrefix(planCode: string, service: ServiceTab): string {
+function stripServicePrefix(planCode: string | null | undefined, service: ServiceTab): string {
+  if (!planCode) return '—';
   let stripped = planCode;
   switch (service) {
     case 'Ordering': stripped = planCode.replace(/_YEARLY$/, ''); break;
@@ -84,9 +101,15 @@ function stripServicePrefix(planCode: string, service: ServiceTab): string {
   return stripped.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
-function isOneTimePlan(p: Plan) { return p.billingCycle === 'ONE_TIME' || p.planCode.includes('ONE_TIME') || p.planCode.includes('LICENSE') || p.planCode.includes('_COMPLETE') || p.planCode.includes('_CREDITS_'); }
-function isAnnualPlan(p: Plan) { return p.billingCycle === 'ANNUAL' || p.planCode.includes('YEARLY'); }
-function isRecommended(code: string) { const u = code.toUpperCase(); return u.includes('GROWTH') || u.includes('STANDARD') || u.includes('DEVICE_5'); }
+function isOneTimePlan(p: Plan) {
+  return p.billingCycle === 'ONE_TIME' || (p.planCode && (p.planCode.includes('ONE_TIME') || p.planCode.includes('LICENSE') || p.planCode.includes('_COMPLETE') || p.planCode.includes('_CREDITS_')));
+}
+function isAnnualPlan(p: Plan) { return p.billingCycle === 'ANNUAL' || (p.planCode && p.planCode.includes('YEARLY')); }
+function isRecommended(code: string | null | undefined) {
+  if (!code) return false;
+  const u = code.toUpperCase();
+  return u.includes('GROWTH') || u.includes('STANDARD') || u.includes('DEVICE_5');
+}
 
 const cycleLabel: Record<string, string> = { MONTHLY: 'Monthly', ANNUAL: 'Annual', ONE_TIME: 'One-Time' };
 const cycleColor: Record<string, string> = {
@@ -112,7 +135,7 @@ function AdminPlansView() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans-admin'],
-    queryFn: () => apiClient.get<{ plans: Plan[] }>('/api/v1/plans').then((r) => r.plans),
+    queryFn: () => apiClient.get<{ plans: Plan[] }>('/api/v1/plans').then((r) => r.plans ?? []),
   });
 
   const plans = (data ?? []).filter((p) => serviceTab === 'All' || planService(p.planCode) === serviceTab);
@@ -267,17 +290,17 @@ function AdminPlansView() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {plans.sort((a, b) => a.tierOrder - b.tierOrder || a.planCode.localeCompare(b.planCode)).map((p) => (
+                  {plans.sort((a, b) => a.tierOrder - b.tierOrder || (a.planCode ?? '').localeCompare(b.planCode ?? '')).map((p) => (
                     <TableRow key={p.id} className="border-border/50 hover:bg-accent/50">
                       <TableCell className="py-4 pl-6">
                         <div className="font-semibold text-foreground">{p.name}</div>
                         <div className="text-xs text-muted-foreground truncate max-w-50">{p.description}</div>
                       </TableCell>
-                      <TableCell><code className="text-xs bg-accent px-2 py-0.5 rounded font-mono">{p.planCode}</code></TableCell>
+                      <TableCell><code className="text-xs bg-accent px-2 py-0.5 rounded font-mono">{p.planCode ?? '—'}</code></TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">{planService(p.planCode)}</Badge>
                       </TableCell>
-                      <TableCell className="font-semibold tabular-nums">{p.basePrice.toLocaleString()}</TableCell>
+                      <TableCell className="font-semibold tabular-nums">{(p.basePrice ?? 0).toLocaleString()}</TableCell>
                       <TableCell>
                         <span className={cn('text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full', cycleColor[p.billingCycle])}>{cycleLabel[p.billingCycle]}</span>
                       </TableCell>
@@ -312,7 +335,6 @@ function TenantPlansView() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Pre-select service and plan from query params (used when coming from auth-ui "Manage" / "Upgrade" buttons)
   const serviceParam = searchParams.get('service');
   const planParam = searchParams.get('plan');
 
@@ -327,7 +349,6 @@ function TenantPlansView() {
 
   const [activeService, setActiveService] = useState<ServiceTab>(initialService);
   const [billingTab, setBillingTab] = useState<BillingTab>('MONTHLY');
-  // Scroll to highlighted plan after load
   const highlightPlanCode = planParam ?? null;
 
   const { data: currentSub } = useQuery({
@@ -347,109 +368,159 @@ function TenantPlansView() {
   const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
   const displayPlans = servicePlans
-    .filter((p) => { if (billingTab === 'ONE_TIME') return isOneTimePlan(p); if (billingTab === 'ANNUAL') return isAnnualPlan(p) && !isOneTimePlan(p); return !isAnnualPlan(p) && !isOneTimePlan(p); })
+    .filter((p) => {
+      if (billingTab === 'ONE_TIME') return isOneTimePlan(p);
+      if (billingTab === 'ANNUAL') return isAnnualPlan(p) && !isOneTimePlan(p);
+      return !isAnnualPlan(p) && !isOneTimePlan(p);
+    })
     .sort((a, b) => a.tierOrder - b.tierOrder);
+
   const isAnnual = billingTab === 'ANNUAL';
 
-  const getTierClass = (code: string) => {
-    const u = code.toUpperCase();
-    if (u.includes('PROFESSIONAL') || u.includes('PREMIUM') || u.includes('COMPLETE')) return 'from-purple-500/20 to-transparent';
-    if (u.includes('GROWTH') || u.includes('STANDARD') || u.includes('DEVICE_5') || u.includes('DEVICE_10')) return 'from-primary/20 to-transparent';
-    return 'from-blue-500/10 to-transparent';
-  };
-  const getTierBorder = (code: string, isCurrent: boolean) => {
-    if (isCurrent) return 'ring-2 ring-blue-500 border-blue-500 shadow-xl shadow-blue-500/10';
-    const u = code.toUpperCase();
-    if (u.includes('GROWTH') || u.includes('STANDARD') || u.includes('DEVICE_5')) return 'border-primary shadow-lg shadow-primary/5';
-    return 'border-border';
-  };
+  // Current subscription uses snake_case from backend
+  const currentPlanCode = currentSub?.plan_code ?? null;
+  const currentStatus = currentSub?.status ?? null;
+  const isExpiredCurrent = (code: string) => currentPlanCode === code && currentStatus === 'EXPIRED';
+  const isCurrentPlan = (code: string) => currentPlanCode === code && currentStatus !== 'EXPIRED';
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Hero */}
-      <div className="relative pt-20 pb-16 px-4 overflow-hidden">
-        <div className="max-w-7xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold mb-6">
-            <Sparkles className="h-4 w-4" /> Choose your plan
+      {/* Header section */}
+      <div className="border-b border-border bg-card/50">
+        <div className="max-w-7xl mx-auto px-6 py-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <span className="text-xs font-bold uppercase tracking-widest text-primary">Subscription Plans</span>
+              </div>
+              <h1 className="text-3xl font-black text-foreground tracking-tight">
+                Choose your plan
+              </h1>
+              <p className="text-muted-foreground mt-2 max-w-lg">
+                Flexible plans for every stage of growth. Upgrade, downgrade, or cancel anytime.
+              </p>
+            </div>
+            {currentSub && (
+              <div className="flex-shrink-0 bg-card border border-border rounded-2xl p-4 min-w-52">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Current Plan</p>
+                <p className="text-base font-bold text-foreground">{currentSub.plan_name}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={cn(
+                    'text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full',
+                    currentStatus === 'ACTIVE' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                    currentStatus === 'TRIAL' && 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+                    currentStatus === 'EXPIRED' && 'bg-red-500/10 text-red-600 dark:text-red-400',
+                    !currentStatus && 'bg-muted text-muted-foreground',
+                  )}>
+                    {currentStatus ?? 'Unknown'}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
-          <h1 className="text-4xl md:text-6xl font-black text-foreground mb-6">
-            Choose the membership <br />
-            <span className="bg-gradient-to-r from-blue-600 to-primary bg-clip-text text-transparent">that's right for you</span>
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            From startups to enterprise chains, we provide the tools you need to grow your business.
-          </p>
-        </div>
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full pointer-events-none overflow-hidden">
-          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px]" />
-          <div className="absolute top-[20%] right-[-5%] w-[30%] h-[30%] bg-primary/5 rounded-full blur-[100px]" />
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-6 pt-8">
         {/* Service tabs */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-accent border border-border flex-wrap justify-center">
-            {SERVICE_TABS_TENANT.map((tab) => (
-              <button key={tab} onClick={() => { setActiveService(tab); setBillingTab('MONTHLY'); }}
-                className={cn('px-5 py-2.5 rounded-xl text-sm font-black transition-all', activeService === tab ? 'bg-white dark:bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                {tab}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap gap-1 p-1.5 bg-muted/50 border border-border rounded-2xl w-fit mb-6">
+          {SERVICE_TABS_TENANT.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => { setActiveService(tab); setBillingTab('MONTHLY'); }}
+              className={cn(
+                'px-4 py-2 rounded-xl text-sm font-semibold transition-all',
+                activeService === tab
+                  ? 'bg-card text-foreground shadow-sm border border-border'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-card/50',
+              )}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
-        {/* Billing toggle */}
-        <div className="flex justify-center mb-12">
-          <div className="inline-flex items-center gap-1 p-1.5 rounded-2xl bg-accent border border-border">
-            {(['MONTHLY', 'ANNUAL'] as BillingTab[]).concat(hasOneTime ? ['ONE_TIME'] : []).map((tab) => (
-              <button key={tab} onClick={() => setBillingTab(tab)}
-                className={cn('px-6 py-3 rounded-xl text-sm font-black transition-all flex items-center gap-2', billingTab === tab ? 'bg-white dark:bg-accent text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                {tab === 'MONTHLY' ? 'Monthly' : tab === 'ANNUAL' ? (<>Annual <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[10px] font-black">SAVE 17%</span></>) : 'One-Time'}
-              </button>
-            ))}
-          </div>
+        {/* Billing cycle toggle */}
+        <div className="flex items-center gap-1 p-1 bg-muted/50 border border-border rounded-xl w-fit mb-8">
+          {(['MONTHLY', 'ANNUAL'] as BillingTab[]).concat(hasOneTime ? ['ONE_TIME'] : []).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setBillingTab(tab)}
+              className={cn(
+                'px-5 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2',
+                billingTab === tab
+                  ? 'bg-card text-foreground shadow-sm border border-border'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {tab === 'MONTHLY' ? 'Monthly' : tab === 'ANNUAL' ? (
+                <>Annual <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">SAVE 17%</span></>
+              ) : 'One-Time'}
+            </button>
+          ))}
         </div>
 
         {/* Plan cards */}
         {plansLoading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="rounded-2xl">
+                <CardContent className="p-6 space-y-4">
+                  <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+                  <div className="h-10 w-24 bg-muted rounded animate-pulse" />
+                  <div className="space-y-2">
+                    {Array.from({ length: 4 }).map((_, j) => <div key={j} className="h-4 w-full bg-muted rounded animate-pulse" />)}
+                  </div>
+                  <div className="h-11 w-full bg-muted rounded-xl animate-pulse" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : displayPlans.length === 0 ? (
-          <div className="text-center py-20"><p className="text-muted-foreground">No plans available for this selection.</p></div>
+          <div className="text-center py-20 text-muted-foreground">
+            <Package className="h-12 w-12 mx-auto mb-4 opacity-30" />
+            <p className="font-medium">No plans available for this selection.</p>
+          </div>
         ) : (
-          <div className={cn('grid gap-8 mb-20', displayPlans.length === 1 ? 'grid-cols-1 max-w-sm mx-auto' : displayPlans.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto' : 'grid-cols-1 md:grid-cols-3')}>
+          <div className={cn(
+            'grid gap-6 mb-12',
+            displayPlans.length === 1 ? 'grid-cols-1 max-w-sm' :
+            displayPlans.length === 2 ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl' :
+            'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+          )}>
             {displayPlans.map((plan, planIdx) => {
-              const isCurrent = currentSub?.planCode === plan.planCode;
+              const isCurrent = isCurrentPlan(plan.planCode);
+              const isExpired = isExpiredCurrent(plan.planCode);
               const isHighlighted = !isCurrent && plan.planCode === highlightPlanCode;
-              const isExpiredCurrent = isCurrent && currentSub?.status === 'EXPIRED';
               const recommended = isRecommended(plan.planCode) && !isCurrent && !isHighlighted;
               const displayName = stripServicePrefix(plan.planCode, activeService);
               const prevPlan = planIdx > 0 ? displayPlans[planIdx - 1] : undefined;
 
-              // Differential limits: only show limits that changed/improved vs previous tier
               const allLimitEntries = Object.entries(plan.tierLimits ?? {});
               const prevLimits = prevPlan?.tierLimits ?? {};
               const newOrImprovedLimits = prevPlan
                 ? allLimitEntries.filter(([key, val]) => {
                     const prev = prevLimits[key];
-                    if (prev === undefined) return true; // new key
-                    if (val === -1 && prev !== -1) return true; // became unlimited
-                    if (typeof val === 'number' && typeof prev === 'number') return val > prev; // increased
+                    if (prev === undefined) return true;
+                    if (val === -1 && prev !== -1) return true;
+                    if (typeof val === 'number' && typeof prev === 'number') return val > prev;
                     return false;
                   })
                 : allLimitEntries;
 
-              // Button logic: Upgrade/Downgrade/Subscribe/Renew
-              const curSubPlan = allPlans.find((p) => p.planCode === currentSub?.planCode);
+              // CTA button logic
+              const curSubPlan = allPlans.find((p) => p.planCode === currentPlanCode);
               let btnLabel: string;
               let btnAction: () => void;
               let btnDisabled = false;
+              let btnVariant: 'primary' | 'outline' | 'secondary' = recommended ? 'primary' : 'outline';
 
-              if (isCurrent && !isExpiredCurrent) {
+              if (isCurrent && !isExpired) {
                 btnLabel = 'Current Plan';
                 btnAction = () => {};
                 btnDisabled = true;
-              } else if (isExpiredCurrent) {
+              } else if (isExpired) {
                 btnLabel = 'Renew Plan';
                 btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
               } else if (!currentSub) {
@@ -466,64 +537,122 @@ function TenantPlansView() {
                 btnAction = () => router.push(`/downgrade?plan=${plan.planCode}`);
               }
 
+              const limitsToShow = (newOrImprovedLimits.length > 0 ? newOrImprovedLimits : allLimitEntries).slice(0, 5);
+
               return (
-                <div key={plan.id} className="relative">
+                <div key={plan.id} className="relative flex flex-col">
+                  {/* Badge above card */}
+                  {(recommended || isCurrent || isExpired || isHighlighted) && (
+                    <div className="flex justify-center mb-3">
+                      <span className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest',
+                        recommended && 'bg-primary text-primary-foreground',
+                        isCurrent && !isExpired && 'bg-blue-600 text-white',
+                        isExpired && 'bg-red-500 text-white',
+                        isHighlighted && !isCurrent && !isExpired && 'bg-primary/10 text-primary border border-primary/20',
+                      )}>
+                        {recommended && <Star className="h-3 w-3" />}
+                        {recommended && 'Recommended'}
+                        {isCurrent && !isExpired && 'Current Plan'}
+                        {isExpired && 'Expired'}
+                        {isHighlighted && !isCurrent && !isExpired && 'Your Selection'}
+                      </span>
+                    </div>
+                  )}
+
                   <Card className={cn(
-                    'h-full flex flex-col rounded-[3rem] p-4 transition-all duration-300 bg-card border',
-                    getTierBorder(plan.planCode, isCurrent && !isExpiredCurrent),
-                    isHighlighted && 'ring-2 ring-primary border-primary shadow-xl shadow-primary/10',
+                    'flex-1 flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden',
+                    isCurrent && !isExpired && 'ring-2 ring-blue-500 border-blue-500',
+                    isHighlighted && !isCurrent && 'ring-2 ring-primary border-primary',
+                    recommended && !isCurrent && !isHighlighted && 'border-primary/40 shadow-lg shadow-primary/5',
+                    !isCurrent && !isHighlighted && !recommended && 'border-border hover:border-muted-foreground/30',
                   )}>
-                    {recommended && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Recommended</div>}
-                    {isHighlighted && !isCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Your Plan</div>}
-                    {isCurrent && !isExpiredCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Current Plan</div>}
-                    {isExpiredCurrent && <div className="absolute top-0 right-1/2 translate-x-1/2 -translate-y-1/2 px-4 py-1.5 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg z-20">Expired</div>}
-                    <div className={cn('rounded-[2.5rem] p-8 h-full flex flex-col bg-linear-to-b', getTierClass(plan.planCode))}>
-                      <div className="mb-8">
-                        <h3 className="text-2xl font-black text-foreground mb-2">{displayName}</h3>
-                        <div className="flex items-baseline gap-1 mb-4">
-                          <span className="text-5xl font-black text-foreground">
-                            {billingTab === 'ONE_TIME' ? `KES ${plan.basePrice.toLocaleString()}` : `KES ${isAnnual ? Math.round(plan.basePrice / 12).toLocaleString() : plan.basePrice.toLocaleString()}`}
+                    {/* Card top accent */}
+                    <div className={cn(
+                      'h-1',
+                      isCurrent && !isExpired ? 'bg-blue-500' :
+                      isHighlighted ? 'bg-primary' :
+                      recommended ? 'bg-primary' :
+                      'bg-border',
+                    )} />
+
+                    <CardContent className="p-6 flex flex-col flex-1">
+                      {/* Plan name + price */}
+                      <div className="mb-6">
+                        <h3 className="text-xl font-bold text-foreground mb-3">{displayName}</h3>
+                        <div className="flex items-baseline gap-1 mb-1">
+                          <span className="text-3xl font-black text-foreground">
+                            {billingTab === 'ONE_TIME'
+                              ? `KES ${(plan.basePrice ?? 0).toLocaleString()}`
+                              : `KES ${(isAnnual ? Math.round((plan.basePrice ?? 0) / 12) : (plan.basePrice ?? 0)).toLocaleString()}`
+                            }
                           </span>
-                          {billingTab !== 'ONE_TIME' && <span className="text-muted-foreground font-bold">/mo</span>}
+                          {billingTab !== 'ONE_TIME' && (
+                            <span className="text-sm text-muted-foreground font-medium">/mo</span>
+                          )}
                         </div>
-                        {isAnnual && <p className="text-xs text-muted-foreground font-bold -mt-2 mb-2">Billed KES {plan.basePrice.toLocaleString()} / year</p>}
-                        {billingTab === 'ONE_TIME' && <p className="text-xs text-muted-foreground font-bold -mt-2 mb-2">One-time payment</p>}
-                        <p className="text-muted-foreground font-medium text-sm leading-relaxed min-h-16">{plan.description}</p>
+                        {isAnnual && (
+                          <p className="text-xs text-muted-foreground">
+                            Billed KES {(plan.basePrice ?? 0).toLocaleString()} / year
+                          </p>
+                        )}
+                        {billingTab === 'ONE_TIME' && (
+                          <p className="text-xs text-muted-foreground">One-time payment</p>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-3 leading-relaxed min-h-10">{plan.description}</p>
                       </div>
-                      <div className="flex-1 space-y-3 mb-10">
-                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest border-b border-border pb-2">
-                          {prevPlan ? `Everything in ${stripServicePrefix(prevPlan.planCode, activeService)}, plus:` : "What's included"}
+
+                      {/* Features / limits */}
+                      <div className="flex-1 mb-6 space-y-2">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground pb-2 border-b border-border">
+                          {prevPlan
+                            ? `Everything in ${stripServicePrefix(prevPlan.planCode, activeService)}, plus:`
+                            : "What's included"}
                         </p>
                         {prevPlan && (
-                          <div className="flex items-center gap-3 opacity-60">
-                            <Check className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-sm font-semibold text-muted-foreground">All {stripServicePrefix(prevPlan.planCode, activeService)} features</span>
+                          <div className="flex items-center gap-2 py-1 opacity-60">
+                            <Check className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm text-muted-foreground">
+                              All {stripServicePrefix(prevPlan.planCode, activeService)} features
+                            </span>
                           </div>
                         )}
-                        <div className="space-y-3">
-                          {(newOrImprovedLimits.length > 0 ? newOrImprovedLimits : allLimitEntries).slice(0, 4).map(([key, val]) => (
-                            <div key={key} className="flex items-center gap-3">
-                              <Check className="h-4 w-4 text-blue-500 shrink-0" />
-                              <span className="text-sm font-semibold text-foreground capitalize">{val === -1 ? 'Unlimited' : String(val)} {key.replace(/_/g, ' ')}</span>
+                        {limitsToShow.map(([key, val]) => (
+                          <div key={key} className="flex items-center gap-2 py-0.5">
+                            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <Check className="h-2.5 w-2.5 text-primary" />
                             </div>
-                          ))}
-                        </div>
+                            <span className="text-sm text-foreground capitalize">
+                              <span className="font-semibold">
+                                {val === -1 ? 'Unlimited' : String(val)}
+                              </span>{' '}
+                              {key.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        ))}
+                        {allLimitEntries.length > 5 && (
+                          <p className="text-xs text-muted-foreground pl-6">
+                            +{allLimitEntries.length - 5} more included
+                          </p>
+                        )}
                       </div>
+
+                      {/* CTA button */}
                       <Button
-                        variant={recommended ? 'primary' : 'outline'}
+                        variant={btnVariant}
                         className={cn(
-                          'w-full h-14 rounded-2xl font-black text-lg transition-all',
-                          btnDisabled && 'opacity-50 cursor-default',
-                          isExpiredCurrent && 'bg-red-600 hover:bg-red-700 text-white border-0',
-                          recommended && !isExpiredCurrent && 'shadow-lg shadow-primary/20 bg-primary text-white hover:bg-primary/90',
-                          !recommended && !isExpiredCurrent && 'border-border text-foreground hover:bg-accent',
+                          'w-full h-11 rounded-xl font-semibold transition-all',
+                          btnDisabled && 'opacity-50 cursor-default pointer-events-none',
+                          isExpired && 'bg-red-500 hover:bg-red-600 text-white border-red-500',
+                          isCurrent && !isExpired && 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
                         )}
                         disabled={btnDisabled}
                         onClick={btnAction}
                       >
                         {btnLabel}
+                        {!btnDisabled && <ChevronRight className="h-4 w-4 ml-1" />}
                       </Button>
-                    </div>
+                    </CardContent>
                   </Card>
                 </div>
               );
@@ -532,61 +661,84 @@ function TenantPlansView() {
         )}
 
         {/* Feature comparison table */}
-        {!plansLoading && displayPlans.length > 0 && (
-          <div className="mt-16 mb-20">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-black text-foreground mb-4">Plan Features Comparison</h2>
-              <p className="text-muted-foreground">Detailed limits for each plan in this category.</p>
-            </div>
-            <div className="bg-card rounded-[3rem] border border-border overflow-hidden shadow-sm">
+        {!plansLoading && displayPlans.length > 1 && (
+          <div className="mb-12">
+            <h2 className="text-xl font-bold text-foreground mb-4">Plan Comparison</h2>
+            <Card className="rounded-2xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-border">
-                      <th className="py-6 px-10 text-xs font-black uppercase tracking-widest text-muted-foreground">Feature</th>
+                    <tr className="border-b border-border bg-muted/30">
+                      <th className="py-4 px-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Feature</th>
                       {displayPlans.map((p) => (
-                        <th key={p.id} className="py-6 px-6 text-xs font-black uppercase tracking-widest text-muted-foreground text-center">{stripServicePrefix(p.planCode, activeService)}</th>
+                        <th key={p.id} className="py-4 px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground text-center">
+                          {stripServicePrefix(p.planCode, activeService)}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {Array.from(new Set(displayPlans.flatMap((p) => Object.keys(p.tierLimits ?? {})))).map((limitKey, idx, arr) => (
-                      <tr key={limitKey} className={cn('group transition-colors', idx !== arr.length - 1 && 'border-b border-border/50')}>
-                        <td className="py-5 px-10"><span className="text-sm font-bold text-foreground capitalize group-hover:text-blue-500 transition-colors">{limitKey.replace(/_/g, ' ')}</span></td>
+                      <tr key={limitKey} className={cn('border-b border-border/50 hover:bg-muted/20 transition-colors', idx === arr.length - 1 && 'border-b-0')}>
+                        <td className="py-3.5 px-6">
+                          <span className="text-sm font-medium text-foreground capitalize">{limitKey.replace(/_/g, ' ')}</span>
+                        </td>
                         {displayPlans.map((p) => {
                           const val = (p.tierLimits ?? {})[limitKey];
-                          return <td key={p.id} className="py-5 px-6 text-center"><span className="text-sm font-black text-foreground">{val === undefined ? '—' : val === -1 ? 'Unlimited' : String(val)}</span></td>;
+                          return (
+                            <td key={p.id} className="py-3.5 px-4 text-center">
+                              <span className="text-sm font-semibold text-foreground">
+                                {val === undefined ? <span className="text-muted-foreground/40">—</span> : val === -1 ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400">Unlimited</span>
+                                ) : String(val)}
+                              </span>
+                            </td>
+                          );
                         })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
           </div>
         )}
 
-        {/* Annual savings banner */}
-        <div className="mt-12 p-12 rounded-[3.5rem] bg-card border border-border relative overflow-hidden dark:bg-accent/50">
-          <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
-            <div>
-              <h3 className="text-3xl font-black text-white mb-6">Simple, Transparent Pricing</h3>
-              <p className="text-muted-foreground mb-8 leading-relaxed text-lg">Exceeding your plan's limits? You'll be charged at competitive rates only for what you use beyond your package.</p>
-              <p className="text-sm text-muted-foreground font-medium">Overage rates vary by plan — contact support for details.</p>
-            </div>
-            <div className="p-10 rounded-[3rem] bg-linear-to-br from-white/10 to-transparent border border-white/10 text-center relative">
-              <div className="absolute top-4 right-4 animate-pulse">
-                <Badge className="bg-green-500 text-white border-none font-black text-[10px] tracking-widest px-3">SAVE BIG</Badge>
+        {/* Annual savings CTA */}
+        {billingTab !== 'ANNUAL' && billingTab !== 'ONE_TIME' && (
+          <Card className="rounded-2xl border border-border mb-12 overflow-hidden">
+            <CardContent className="p-8">
+              <div className="grid md:grid-cols-2 gap-8 items-center">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="h-5 w-5 text-primary" />
+                    <span className="text-xs font-bold uppercase tracking-widest text-primary">Annual Billing</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-foreground mb-3">Save up to 17% annually</h3>
+                  <p className="text-muted-foreground leading-relaxed mb-6">
+                    Switch to annual billing and get the equivalent of one month free. Cancel anytime.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="h-11 px-6 rounded-xl font-semibold"
+                    onClick={() => setBillingTab('ANNUAL')}
+                  >
+                    <Layout className="h-4 w-4 mr-2" />
+                    View Annual Plans
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+                <div className="bg-muted/30 rounded-2xl p-6 border border-border">
+                  <p className="text-sm font-semibold text-muted-foreground mb-4">Overage & usage rates</p>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    Exceeding your plan limits? You&apos;ll only be charged for what you actually use beyond your package at competitive per-unit rates.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-3">Contact support for enterprise pricing.</p>
+                </div>
               </div>
-              <Layout className="h-16 w-16 text-blue-500 mx-auto mb-6" />
-              <h4 className="text-3xl font-black text-white mb-3">Annual Savings</h4>
-              <p className="text-muted-foreground text-md mb-8">Switch to annual billing and get <span className="text-white font-black underline underline-offset-4 decoration-primary">1 month for free</span> on any plan.</p>
-              <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-black h-16 rounded-2xl text-xl shadow-2xl" onClick={() => setBillingTab('ANNUAL')}>Switch to Annual</Button>
-            </div>
-          </div>
-          <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 rounded-full blur-[100px] -mr-32 -mt-32" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] -ml-32 -mb-32" />
-        </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

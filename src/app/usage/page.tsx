@@ -14,7 +14,6 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-import { useParams } from 'next/navigation';
 
 interface UsageMetric {
   name: string;
@@ -82,7 +81,7 @@ export default function UsagePage() {
       </div>
 
       {/* Overage Warning */}
-      {data?.metrics.some((m) => pct(m.used, m.limit) >= 90) && (
+      {(data?.metrics ?? []).some((m) => pct(m.used ?? 0, m.limit ?? 0) >= 90) && (
         <Card className="border-yellow-500/50 bg-yellow-500/5">
           <CardContent className="flex items-start gap-4">
             <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" />
@@ -110,32 +109,36 @@ export default function UsagePage() {
                 </CardContent>
               </Card>
             ))
-          : data?.metrics.map((metric) => {
-              const Icon = METRIC_ICONS[metric.key] || Package;
-              const p = pct(metric.used, metric.limit);
+          : (data?.metrics ?? []).map((metric) => {
+              const used = metric.used ?? 0;
+              const limit = metric.limit ?? 0;
+              const Icon = METRIC_ICONS[metric.key ?? ''] || Package;
+              const p = pct(used, limit);
               const isOverage = p >= 100;
 
               return (
-                <Card key={metric.key} className={cn(isOverage && 'border-red-500/50')}>
+                <Card key={metric.key ?? metric.name} className={cn(isOverage && 'border-red-500/50')}>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Icon className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold text-sm">{metric.name}</h3>
+                        <h3 className="font-semibold text-sm">{metric.name ?? metric.key}</h3>
                       </div>
-                      <Badge variant={badgeVariant(metric.used, metric.limit)}>
+                      <Badge variant={badgeVariant(used, limit)}>
                         {p}%
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Progress value={metric.used} max={metric.limit} variant={variant(metric.used, metric.limit)} />
+                    <Progress value={used} max={limit} variant={variant(used, limit)} />
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>
-                        <span className="font-semibold text-foreground">{metric.used.toLocaleString()}</span> /{' '}
-                        {metric.limit.toLocaleString()} {metric.unit}
+                        <span className="font-semibold text-foreground">{used.toLocaleString()}</span> /{' '}
+                        {limit > 0 ? limit.toLocaleString() : '∞'} {metric.unit ?? ''}
                       </span>
-                      <span>{metric.limit - metric.used > 0 ? `${(metric.limit - metric.used).toLocaleString()} remaining` : 'Limit reached'}</span>
+                      <span>
+                        {limit <= 0 ? 'Unlimited' : limit - used > 0 ? `${(limit - used).toLocaleString()} remaining` : 'Limit reached'}
+                      </span>
                     </div>
                     {isOverage && (
                       <p className="text-xs text-red-500 flex items-center gap-1">

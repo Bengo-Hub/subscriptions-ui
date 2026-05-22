@@ -16,7 +16,6 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, CreditCard, Download, Receipt } from 'lucide-react';
-import { useParams } from 'next/navigation';
 
 interface PaymentMethod {
   type: string;
@@ -37,10 +36,15 @@ interface Invoice {
 }
 
 interface BillingInfo {
+  hasSubscription?: boolean;
   paymentMethod: PaymentMethod | null;
   nextRenewalDate: string;
-  nextAmount: number;
+  nextAmount?: number;   // preferred field
+  amount?: number;       // backend alias — use as fallback
   currency: string;
+  planName?: string;
+  planCode?: string;
+  status?: string;
   invoices: Invoice[];
 }
 
@@ -71,7 +75,14 @@ export default function BillingPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
-        <p className="text-muted-foreground mt-1">Manage payment methods, view invoices, and track renewals.</p>
+        <p className="text-muted-foreground mt-1">
+          Manage payment methods, view invoices, and track renewals.
+          {data?.planName && (
+            <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+              {data.planName}
+            </span>
+          )}
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-6">
@@ -129,7 +140,7 @@ export default function BillingPage() {
               </div>
             ) : (
               <div className="space-y-1">
-                <p className="text-3xl font-bold">{formatCurrency(data?.nextAmount, data?.currency)}</p>
+                <p className="text-3xl font-bold">{formatCurrency(data?.nextAmount ?? data?.amount, data?.currency)}</p>
                 <p className="text-sm text-muted-foreground">
                   Due on {formatDate(data?.nextRenewalDate)}
                 </p>
