@@ -76,7 +76,7 @@ const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'POS', 'Inventory', 'ERP'
 
 function planService(code: string | null | undefined): ServiceTab {
   if (!code) return 'All';
-  if (/^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
+  if (code.startsWith('ORDERING_') || /^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
   if (code.startsWith('POS_')) return 'POS';
   if (code.startsWith('INVENTORY_')) return 'Inventory';
   if (code.startsWith('ERP_')) return 'ERP';
