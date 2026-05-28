@@ -30,10 +30,56 @@ interface ServiceConfig {
   updatedAt: string;
 }
 
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+
+function contrastColor(hex: string): string {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return '#ffffff';
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 0.55 ? '#1a1a1a' : '#ffffff';
+}
+
+function BrandSwitch({
+  checked,
+  onToggle,
+  brandColor,
+  disabled = false,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  brandColor: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={onToggle}
+      disabled={disabled}
+      className="relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      style={{
+        backgroundColor: checked ? brandColor : '#d1d5db',
+      }}
+    >
+      <span
+        className={cn(
+          'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition-transform duration-200',
+          checked ? 'translate-x-5' : 'translate-x-0',
+        )}
+      />
+    </button>
+  );
+}
+
 // ── Platform Admin: Service Configs ───────────────────────────────────────────
 
 function PlatformSettingsView() {
   const queryClient = useQueryClient();
+  const { tenant } = useTenantBranding();
+  const brandColor = tenant?.primaryColor ?? '#722F5F';
+  const brandTextColor = contrastColor(brandColor);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<ServiceConfig>>({});
   const [newForm, setNewForm] = useState({ configKey: '', configValue: '', configType: 'string', description: '', isSecret: false });
@@ -78,7 +124,6 @@ function PlatformSettingsView() {
 
   const configs = data?.data ?? [];
 
-  // Group configs by prefix (e.g. "subscriptions", "billing", etc.)
   const grouped = configs.reduce<Record<string, ServiceConfig[]>>((acc, c) => {
     const prefix = c.configKey.includes('.') ? c.configKey.split('.')[0] : 'general';
     (acc[prefix] ??= []).push(c);
@@ -90,10 +135,6 @@ function PlatformSettingsView() {
     setEditForm({ configValue: c.configValue, configType: c.configType, description: c.description, isSecret: c.isSecret });
   };
 
-  const handleSaveEdit = (id: string) => {
-    updateMutation.mutate({ id, body: editForm });
-  };
-
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
@@ -101,13 +142,16 @@ function PlatformSettingsView() {
           <h1 className="text-2xl font-bold tracking-tight">System Configuration</h1>
           <p className="text-muted-foreground mt-1">Manage platform-level service configs and system settings.</p>
         </div>
-        <Button onClick={() => setShowNew(true)} className="flex items-center gap-2">
+        <Button
+          onClick={() => setShowNew(true)}
+          className="flex items-center gap-2 font-semibold"
+          style={{ backgroundColor: brandColor, color: brandTextColor }}
+        >
           <Plus className="h-4 w-4" />
           Add Config
         </Button>
       </div>
 
-      {/* New config form */}
       {showNew && (
         <Card>
           <CardHeader>
@@ -171,6 +215,7 @@ function PlatformSettingsView() {
                 onClick={() => createMutation.mutate(newForm)}
                 disabled={createMutation.isPending || !newForm.configKey || !newForm.configValue}
                 size="sm"
+                style={{ backgroundColor: brandColor, color: brandTextColor }}
               >
                 {createMutation.isPending ? 'Creating...' : 'Create'}
               </Button>
@@ -242,7 +287,12 @@ function PlatformSettingsView() {
                           <span className="text-sm text-muted-foreground">Secret</span>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleSaveEdit(c.id)} disabled={updateMutation.isPending}>
+                          <Button
+                            size="sm"
+                            onClick={() => updateMutation.mutate({ id: c.id, body: editForm })}
+                            disabled={updateMutation.isPending}
+                            style={{ backgroundColor: brandColor, color: brandTextColor }}
+                          >
                             {updateMutation.isPending ? 'Saving...' : 'Save'}
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
@@ -287,11 +337,16 @@ function PlatformSettingsView() {
 
 // ── Tenant: Subscription Settings ─────────────────────────────────────────────
 
+type SettingsTab = 'renewal' | 'notifications' | 'billing';
+
 function TenantSettingsView() {
   const queryClient = useQueryClient();
   const { tenant, isLoading: brandingLoading } = useTenantBranding();
+  const brandColor = tenant?.primaryColor ?? '#722F5F';
+  const brandTextColor = contrastColor(brandColor);
   const logoUrl = tenant?.logoUrl;
-  const primaryColor = tenant?.primaryColor;
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>('renewal');
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['sub-settings'],
@@ -300,6 +355,7 @@ function TenantSettingsView() {
 
   const [form, setForm] = useState<Partial<SubscriptionSettings>>({});
   const merged = { ...settings, ...form };
+  const hasPendingChanges = Object.keys(form).length > 0;
 
   const mutation = useMutation({
     mutationFn: (data: Partial<SubscriptionSettings>) =>
@@ -316,146 +372,207 @@ function TenantSettingsView() {
     setForm((prev) => ({ ...prev, [key]: !merged[key] }));
   };
 
+  const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'renewal', label: 'Renewal', icon: <Shield className="h-4 w-4" /> },
+    { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
+    { id: 'billing', label: 'Billing Contact', icon: <SettingsIcon className="h-4 w-4" /> },
+  ];
+
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Subscription Settings</h1>
-        <p className="text-muted-foreground mt-1">Configure renewal, notifications, and billing preferences.</p>
-      </div>
-
-      {!brandingLoading && (tenant || logoUrl || primaryColor) && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Tenant & Branding</h2>
+    <div className="max-w-3xl mx-auto">
+      {/* Page header */}
+      <div className="px-6 pt-6 pb-0 border-b border-border">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Subscription Settings</h1>
+            <p className="text-muted-foreground mt-1 text-sm">Configure renewal, notifications, and billing preferences.</p>
+          </div>
+          {/* Branding pill */}
+          {!brandingLoading && tenant && (
+            <div className="flex items-center gap-2.5 px-3 py-1.5 bg-card rounded-xl border border-border shadow-sm">
+              {logoUrl && <img src={logoUrl} alt="Logo" className="h-6 object-contain" />}
+              <div
+                className="h-5 w-5 rounded-full border border-white/20 shadow-sm"
+                style={{ backgroundColor: brandColor }}
+                title={`Brand: ${brandColor}`}
+              />
+              <span className="text-xs font-medium text-foreground">{tenant.name}</span>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {tenant && (
-              <p className="text-sm text-muted-foreground">
-                <strong>{tenant.name}</strong> ({tenant.slug}). Branding is loaded from auth-api tenant metadata.
-              </p>
-            )}
-            {(logoUrl || primaryColor) && (
-              <div className="flex items-center gap-4">
-                {logoUrl && <img src={logoUrl} alt="Logo" className="h-10 object-contain" />}
-                {primaryColor && <div className="h-8 w-24 rounded border" style={{ backgroundColor: primaryColor }} title="Primary" />}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </div>
 
-      {isLoading ? (
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-28 bg-muted rounded-2xl animate-pulse" />
+        {/* Tab bar */}
+        <div className="flex gap-0.5">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'flex items-center gap-2 px-5 py-2.5 text-sm font-semibold transition-all rounded-t-xl border-b-2',
+                activeTab === tab.id
+                  ? 'border-b-2 bg-card/80 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/40',
+              )}
+              style={activeTab === tab.id ? { borderBottomColor: brandColor, color: brandColor } : {}}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
           ))}
         </div>
-      ) : (
-        <>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Renewal</h2>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Auto-Renew Subscription</p>
-                  <p className="text-xs text-muted-foreground">Automatically renew at the end of each billing cycle.</p>
-                </div>
-                <button
-                  onClick={() => toggle('autoRenew')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${merged.autoRenew ? 'bg-primary' : 'bg-muted'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${merged.autoRenew ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-            </CardContent>
-          </Card>
+      </div>
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Notifications</h2>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Renewal Reminder</p>
-                  <p className="text-xs text-muted-foreground">Get notified before your subscription renews.</p>
-                </div>
-                <button
-                  onClick={() => toggle('notifyBeforeRenewal')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${merged.notifyBeforeRenewal ? 'bg-primary' : 'bg-muted'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${merged.notifyBeforeRenewal ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Usage Threshold Alert</p>
-                  <p className="text-xs text-muted-foreground">
-                    Alert when usage hits {merged.usageThresholdPercent || 80}% of any limit.
-                  </p>
-                </div>
-                <button
-                  onClick={() => toggle('notifyOnUsageThreshold')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${merged.notifyOnUsageThreshold ? 'bg-primary' : 'bg-muted'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${merged.notifyOnUsageThreshold ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-              {merged.notifyOnUsageThreshold && (
-                <div className="flex items-center gap-3 pl-4 border-l-2 border-primary/20">
-                  <label className="text-sm text-muted-foreground whitespace-nowrap">Threshold %</label>
-                  <Input
-                    type="number"
-                    min={50}
-                    max={100}
-                    value={merged.usageThresholdPercent || 80}
-                    onChange={(e) => setForm((prev) => ({ ...prev, usageThresholdPercent: Number(e.target.value) }))}
-                    className="w-24"
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <SettingsIcon className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Billing Contact</h2>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium block mb-1.5">Billing Email</label>
-                <Input
-                  type="email"
-                  value={merged.billingEmail || ''}
-                  onChange={(e) => setForm((prev) => ({ ...prev, billingEmail: e.target.value }))}
-                  placeholder="billing@company.com"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Invoices and receipts will be sent here.</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button onClick={() => mutation.mutate(merged)} disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
+      {/* Tab content */}
+      <div className="p-6 space-y-5">
+        {isLoading ? (
+          <div className="space-y-4">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} className="h-20 bg-muted rounded-2xl animate-pulse" />
+            ))}
           </div>
-        </>
-      )}
+        ) : (
+          <>
+            {activeTab === 'renewal' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" style={{ color: brandColor }} />
+                    <h2 className="font-semibold">Auto-Renewal</h2>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <p className="text-sm font-medium">Auto-Renew Subscription</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Automatically renew at the end of each billing cycle.
+                      </p>
+                    </div>
+                    <BrandSwitch
+                      checked={!!merged.autoRenew}
+                      onToggle={() => toggle('autoRenew')}
+                      brandColor={brandColor}
+                    />
+                  </div>
+                  {merged.autoRenew && (
+                    <p className="mt-3 text-xs px-3 py-2 rounded-lg bg-muted text-muted-foreground">
+                      Your subscription will renew automatically. Ensure a payment method is saved in Billing.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'notifications' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-5 w-5" style={{ color: brandColor }} />
+                    <h2 className="font-semibold">Notification Preferences</h2>
+                  </div>
+                </CardHeader>
+                <CardContent className="divide-y divide-border">
+                  <div className="flex items-center justify-between py-4 first:pt-0">
+                    <div>
+                      <p className="text-sm font-medium">Renewal Reminder</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Get notified before your subscription renews.
+                      </p>
+                    </div>
+                    <BrandSwitch
+                      checked={!!merged.notifyBeforeRenewal}
+                      onToggle={() => toggle('notifyBeforeRenewal')}
+                      brandColor={brandColor}
+                    />
+                  </div>
+                  <div className="py-4 last:pb-0 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Usage Threshold Alert</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Alert when usage hits {merged.usageThresholdPercent || 80}% of any limit.
+                        </p>
+                      </div>
+                      <BrandSwitch
+                        checked={!!merged.notifyOnUsageThreshold}
+                        onToggle={() => toggle('notifyOnUsageThreshold')}
+                        brandColor={brandColor}
+                      />
+                    </div>
+                    {merged.notifyOnUsageThreshold && (
+                      <div className="flex items-center gap-3 pl-4 border-l-2 mt-2" style={{ borderColor: brandColor + '40' }}>
+                        <label className="text-sm text-muted-foreground whitespace-nowrap">Threshold %</label>
+                        <Input
+                          type="number"
+                          min={50}
+                          max={100}
+                          value={merged.usageThresholdPercent || 80}
+                          onChange={(e) => setForm((prev) => ({ ...prev, usageThresholdPercent: Number(e.target.value) }))}
+                          className="w-24"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'billing' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <SettingsIcon className="h-5 w-5" style={{ color: brandColor }} />
+                    <h2 className="font-semibold">Billing Contact</h2>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium block mb-1.5">Billing Email</label>
+                    <Input
+                      type="email"
+                      value={merged.billingEmail || ''}
+                      onChange={(e) => setForm((prev) => ({ ...prev, billingEmail: e.target.value }))}
+                      placeholder="billing@company.com"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1.5">Invoices, receipts, and payment alerts are sent here.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Branding info — shown on all tabs as a subtle footer */}
+            {!brandingLoading && tenant && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-accent/30 border border-border/50">
+                <Palette className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-xs text-muted-foreground flex-1">
+                  Brand theme for <strong>{tenant.name}</strong> ({tenant.slug}) is loaded from your auth profile.
+                </p>
+                <div className="h-5 w-10 rounded-md border" style={{ backgroundColor: brandColor }} />
+              </div>
+            )}
+
+            {/* Save button */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              {hasPendingChanges && (
+                <span className="text-xs text-muted-foreground">Unsaved changes</span>
+              )}
+              <Button
+                onClick={() => mutation.mutate(merged)}
+                disabled={mutation.isPending}
+                className="min-w-[120px] font-semibold shadow-sm"
+                style={{ backgroundColor: brandColor, color: brandTextColor }}
+              >
+                {mutation.isPending ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving…
+                  </span>
+                ) : 'Save Changes'}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -466,6 +583,10 @@ const AUTH_API_URL_DEFAULT = process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://ss
 const SUBS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://subscriptionsapi.codevertexitsolutions.com';
 
 function IntegrationsSection() {
+  const { tenant } = useTenantBranding();
+  const brandColor = tenant?.primaryColor ?? '#722F5F';
+  const brandTextColor = contrastColor(brandColor);
+
   const [authApiUrl, setAuthApiUrl] = useState(AUTH_API_URL_DEFAULT);
   const [allowedOrigins, setAllowedOrigins] = useState('');
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
@@ -520,7 +641,12 @@ function IntegrationsSection() {
                 onChange={(e) => setAuthApiUrl(e.target.value)}
                 className="flex-1"
               />
-              <Button type="button" onClick={testAuthConnection} disabled={testStatus === 'loading'}>
+              <Button
+                type="button"
+                onClick={testAuthConnection}
+                disabled={testStatus === 'loading'}
+                style={{ backgroundColor: brandColor, color: brandTextColor }}
+              >
                 {testStatus === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Test'}
               </Button>
             </div>
@@ -551,7 +677,12 @@ function IntegrationsSection() {
             />
             <p className="text-xs text-muted-foreground">Comma-separated list of allowed CORS origins.</p>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="font-semibold"
+            style={{ backgroundColor: brandColor, color: brandTextColor }}
+          >
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             {saving ? 'Saving...' : 'Save Integrations'}
           </Button>
@@ -565,6 +696,9 @@ function IntegrationsSection() {
 
 export default function SettingsPage() {
   const { user } = useMe();
+  const { tenant } = useTenantBranding();
+  const brandColor = tenant?.primaryColor ?? '#722F5F';
+  const brandTextColor = contrastColor(brandColor);
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
   const [tab, setTab] = useState<'configs' | 'integrations'>('configs');
 
@@ -573,26 +707,32 @@ export default function SettingsPage() {
   return (
     <div>
       <div className="border-b border-border bg-card/50">
-        <div className="max-w-3xl mx-auto px-6 pt-6 pb-0">
-          <div className="flex gap-1 p-1 bg-accent/50 rounded-2xl w-fit">
-            <button
-              onClick={() => setTab('configs')}
-              className={cn(
-                'px-5 py-2 rounded-xl text-sm font-semibold transition-all',
-                tab === 'configs' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Service Configs
-            </button>
-            <button
-              onClick={() => setTab('integrations')}
-              className={cn(
-                'px-5 py-2 rounded-xl text-sm font-semibold transition-all',
-                tab === 'integrations' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Integrations
-            </button>
+        <div className="max-w-4xl mx-auto px-6 pt-6 pb-0">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Platform Settings</h1>
+              <p className="text-muted-foreground mt-1 text-sm">Manage platform configuration and integrations.</p>
+            </div>
+          </div>
+          <div className="flex gap-0.5">
+            {([
+              { id: 'configs', label: 'Service Configs' },
+              { id: 'integrations', label: 'Integrations' },
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={cn(
+                  'px-5 py-2.5 text-sm font-semibold transition-all rounded-t-xl border-b-2',
+                  tab === t.id
+                    ? 'bg-card/80 text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/40',
+                )}
+                style={tab === t.id ? { borderBottomColor: brandColor, color: brandColor } : {}}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
