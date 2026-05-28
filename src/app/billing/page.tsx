@@ -15,11 +15,21 @@ import {
 } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
+import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Calendar, CreditCard, Download, Receipt } from 'lucide-react';
+
+function contrastColor(hex: string): string {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return '#ffffff';
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 0.55 ? '#1a1a1a' : '#ffffff';
+}
 
 interface PaymentMethod {
   type: string;
@@ -55,6 +65,9 @@ interface BillingInfo {
 export default function BillingPage() {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const { tenant } = useTenantBranding();
+  const brandColor = tenant?.primaryColor ?? '#722F5F';
+  const brandTextColor = contrastColor(brandColor);
 
   const { data, isLoading } = useQuery({
     queryKey: ['billing'],
@@ -164,6 +177,7 @@ export default function BillingPage() {
                   size="sm"
                   onClick={() => setupMutation.mutate()}
                   disabled={setupMutation.isPending}
+                  style={{ borderColor: brandColor, color: brandColor }}
                 >
                   {setupMutation.isPending ? 'Starting…' : 'Update Card'}
                 </Button>
@@ -183,9 +197,10 @@ export default function BillingPage() {
                 <Button
                   onClick={() => setupMutation.mutate()}
                   disabled={setupMutation.isPending}
-                  className="w-full"
+                  className="w-full font-semibold shadow-sm"
+                  style={{ backgroundColor: brandColor, color: brandTextColor }}
                 >
-                  {setupMutation.isPending ? 'Starting…' : '+ Add Payment Method'}
+                  {setupMutation.isPending ? 'Setting up…' : '+ Add Payment Method'}
                 </Button>
               </div>
             )}
