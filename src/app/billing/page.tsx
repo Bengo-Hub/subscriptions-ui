@@ -14,7 +14,11 @@ import {
   TableRow,
 } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
-import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/store/auth';
+import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { Calendar, CreditCard, Download, Receipt } from 'lucide-react';
 
 interface PaymentMethod {
@@ -49,9 +53,28 @@ interface BillingInfo {
 }
 
 export default function BillingPage() {
+  const user = useAuthStore((s) => s.user);
+  const queryClient = useQueryClient();
+
   const { data, isLoading } = useQuery({
     queryKey: ['billing'],
     queryFn: () => apiClient.get<BillingInfo>('/api/v1/billing'),
+  });
+
+  const [paymentSetup, setPaymentSetup] = useState<{
+    initiateUrl: string;
+    intentId: string;
+  } | null>(null);
+
+  const setupMutation = useMutation({
+    mutationFn: () =>
+      apiClient.post<{ initiate_url: string; payment_intent_id: string }>(
+        '/api/v1/subscription/payment-method/setup',
+        {},
+      ),
+    onSuccess: (res) =>
+      setPaymentSetup({ initiateUrl: res.initiate_url, intentId: res.payment_intent_id }),
+    onError: () => toast.error('Failed to initiate payment method setup'),
   });
 
   const formatDate = (d?: string) =>
@@ -72,6 +95,29 @@ export default function BillingPage() {
   };
 
   return (
+    <>
+    {paymentSetup && (
+      <TreasuryPaymentModal
+        open={!!paymentSetup}
+        onOpenChange={(open) => { if (!open) setPaymentSetup(null); }}
+        paymentIntentId={paymentSetup.intentId}
+        tenantSlug={user?.tenant_slug ?? ''}
+        initiateUrl={paymentSetup.initiateUrl}
+        amount={0}
+        currency="KES"
+        referenceType="card_setup"
+        customerEmail={user?.email}
+        onPaymentConfirmed={() => {
+          setPaymentSetup(null);
+          queryClient.invalidateQueries({ queryKey: ['billing'] });
+          toast.success('Payment method saved successfully');
+        }}
+        onPaymentFailed={() => {
+          setPaymentSetup(null);
+          toast.error('Card setup failed. Please try again.');
+        }}
+      />
+    )}
     <div className="p-6 max-w-5xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing</h1>
@@ -113,12 +159,25 @@ export default function BillingPage() {
                     </p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">Update Card</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setupMutation.mutate()}
+                  disabled={setupMutation.isPending}
+                >
+                  {setupMutation.isPending ? 'Starting…' : 'Update Card'}
+                </Button>
               </div>
             ) : (
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground mb-3">No payment method on file</p>
-                <Button size="sm">Add Payment Method</Button>
+                <Button
+                  size="sm"
+                  onClick={() => setupMutation.mutate()}
+                  disabled={setupMutation.isPending}
+                >
+                  {setupMutation.isPending ? 'Starting…' : 'Add Payment Method'}
+                </Button>
               </div>
             )}
           </CardContent>
@@ -206,5 +265,6 @@ export default function BillingPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardContent, CardHeader, Input } from '@/components/ui/base';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { apiClient } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Database, Globe, Link2, Loader2, Palette, Plus, Shield, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -565,5 +566,37 @@ function IntegrationsSection() {
 export default function SettingsPage() {
   const { user } = useMe();
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
-  return isPlatformOwner ? <PlatformSettingsView /> : <TenantSettingsView />;
+  const [tab, setTab] = useState<'configs' | 'integrations'>('configs');
+
+  if (!isPlatformOwner) return <TenantSettingsView />;
+
+  return (
+    <div>
+      <div className="border-b border-border bg-card/50">
+        <div className="max-w-3xl mx-auto px-6 pt-6 pb-0">
+          <div className="flex gap-1 p-1 bg-accent/50 rounded-2xl w-fit">
+            <button
+              onClick={() => setTab('configs')}
+              className={cn(
+                'px-5 py-2 rounded-xl text-sm font-semibold transition-all',
+                tab === 'configs' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Service Configs
+            </button>
+            <button
+              onClick={() => setTab('integrations')}
+              className={cn(
+                'px-5 py-2 rounded-xl text-sm font-semibold transition-all',
+                tab === 'integrations' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Integrations
+            </button>
+          </div>
+        </div>
+      </div>
+      {tab === 'configs' ? <PlatformSettingsView /> : <IntegrationsSection />}
+    </div>
+  );
 }

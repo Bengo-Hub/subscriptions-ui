@@ -135,7 +135,7 @@ function AdminPlansView() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans-admin'],
-    queryFn: () => apiClient.get<{ plans: Plan[] }>('/api/v1/plans').then((r) => r.plans ?? []),
+    queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans').then((r) => r.data ?? []),
   });
 
   const plans = (data ?? []).filter((p) => serviceTab === 'All' || planService(p.planCode) === serviceTab);
@@ -360,11 +360,11 @@ function TenantPlansView() {
 
   const { data: plansResponse, isLoading: plansLoading } = useQuery({
     queryKey: ['plans'],
-    queryFn: () => apiClient.get<{ plans: Plan[]; count: number }>('/api/v1/plans'),
+    queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans'),
     staleTime: 300_000,
   });
 
-  const allPlans: Plan[] = plansResponse?.plans ?? [];
+  const allPlans: Plan[] = plansResponse?.data ?? [];
   const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
   const displayPlans = servicePlans
