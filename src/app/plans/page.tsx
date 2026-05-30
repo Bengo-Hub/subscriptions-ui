@@ -46,6 +46,12 @@ import { toast } from 'sonner';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
 
+interface DiscountRule {
+  type: 'ANNUAL_DISCOUNT' | 'LOYALTY_DISCOUNT' | 'NEW_CUSTOMER';
+  value: number;
+  description?: string;
+}
+
 interface Plan {
   id: string;
   planCode: string;
@@ -55,8 +61,11 @@ interface Plan {
   basePrice: number;
   currency: string;
   isActive: boolean;
+  isPublic: boolean;
   tierOrder: number;
   tierLimits: Record<string, any>;
+  freeTrialDays: number;
+  discountRules: DiscountRule[];
 }
 
 interface CurrentSubscription {
@@ -120,7 +129,7 @@ const cycleColor: Record<string, string> = {
 
 // ─── Admin (platform owner) view ─────────────────────────────────────────────
 
-const emptyForm: Partial<Plan> = { name: '', planCode: '', description: '', basePrice: 0, billingCycle: 'MONTHLY', currency: 'KES', isActive: true, tierOrder: 1, tierLimits: {} };
+const emptyForm: Partial<Plan> = { name: '', planCode: '', description: '', basePrice: 0, billingCycle: 'MONTHLY', currency: 'KES', isActive: true, isPublic: true, tierOrder: 1, tierLimits: {}, freeTrialDays: 14, discountRules: [] };
 type TierLimitEntry = { key: string; value: string };
 const toLimitEntries = (limits: Record<string, any>): TierLimitEntry[] => Object.entries(limits).map(([k, v]) => ({ key: k, value: String(v) }));
 const fromLimitEntries = (entries: TierLimitEntry[]) => Object.fromEntries(entries.filter((e) => e.key.trim()).map(({ key, value }) => { const n = Number(value); return [key.trim(), isNaN(n) ? value : n]; }));
@@ -157,7 +166,12 @@ function AdminPlansView() {
   });
 
   const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setShowForm(true); };
-  const openEdit = (p: Plan) => { setEditingPlan(p); setForm({ ...p }); setTierEntries(toLimitEntries(p.tierLimits ?? {})); setShowForm(true); };
+  const openEdit = (p: Plan) => {
+    setEditingPlan(p);
+    setForm({ ...p, freeTrialDays: p.freeTrialDays ?? 14, isPublic: p.isPublic ?? true, discountRules: p.discountRules ?? [] });
+    setTierEntries(toLimitEntries(p.tierLimits ?? {}));
+    setShowForm(true);
+  };
   const closeForm = () => { setShowForm(false); setEditingPlan(null); };
   const handleSubmit = () => {
     const payload = { ...form, tierLimits: fromLimitEntries(tierEntries) };
@@ -225,14 +239,32 @@ function AdminPlansView() {
                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description</label>
                 <Input value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} placeholder="Short plan summary..." className="h-11 rounded-xl" />
               </div>
-              <div className="flex items-end gap-6 pb-0.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 rounded" />
-                  <span className="text-sm font-medium">Active (visible to tenants)</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-muted-foreground">Tier Order</label>
-                  <Input type="number" value={form.tierOrder} onChange={(e) => setForm((p) => ({ ...p, tierOrder: Number(e.target.value) }))} className="h-9 w-20 rounded-lg text-center" />
+              <div className="flex flex-col gap-3 pb-0.5">
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))} className="h-4 w-4 rounded" />
+                    <span className="text-sm font-medium">Active</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={form.isPublic ?? true} onChange={(e) => setForm((p) => ({ ...p, isPublic: e.target.checked }))} className="h-4 w-4 rounded" />
+                    <span className="text-sm font-medium">Public</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-muted-foreground">Tier Order</label>
+                    <Input type="number" value={form.tierOrder} onChange={(e) => setForm((p) => ({ ...p, tierOrder: Number(e.target.value) }))} className="h-9 w-20 rounded-lg text-center" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={(form.freeTrialDays ?? 14) > 0} onChange={(e) => setForm((p) => ({ ...p, freeTrialDays: e.target.checked ? 14 : 0 }))} className="h-4 w-4 rounded" />
+                    <span className="text-sm font-medium">Free trial</span>
+                  </label>
+                  {(form.freeTrialDays ?? 14) > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Input type="number" min={1} max={365} value={form.freeTrialDays ?? 14} onChange={(e) => setForm((p) => ({ ...p, freeTrialDays: Number(e.target.value) }))} className="h-9 w-20 rounded-lg text-center" />
+                      <span className="text-xs text-muted-foreground">days</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

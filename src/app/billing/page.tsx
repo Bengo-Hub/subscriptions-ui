@@ -20,7 +20,8 @@ import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Calendar, CreditCard, Download, Gift, Receipt, Tag, TrendingUp, Wallet } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle2, CreditCard, Download, Gift, Receipt, RefreshCw, Tag, TrendingUp, Wallet } from 'lucide-react';
+import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
 
 function contrastColor(hex: string): string {
   const h = hex.replace('#', '');
@@ -120,6 +121,9 @@ export default function BillingPage() {
     queryKey: ['billing'],
     queryFn: () => apiClient.get<BillingInfo>('/api/v1/billing'),
   });
+
+  const { data: settings } = useSubscriptionSettings();
+  const settingsMutation = useUpdateSubscriptionSettings();
 
   const { data: preview } = useQuery({
     queryKey: ['invoice-preview'],
@@ -226,7 +230,29 @@ export default function BillingPage() {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-6">
+      {/* Dunning / payment-failure banner */}
+      {data?.status === 'SUSPENDED' && (
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-semibold">Payment failed — your subscription is suspended</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Auto-renewal failed. Update your payment method to reactivate your subscription.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="ml-auto shrink-0"
+            onClick={() => setupMutation.mutate()}
+            disabled={setupMutation.isPending}
+          >
+            Update Card
+          </Button>
+        </div>
+      )}
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Payment Method */}
         <Card>
           <CardHeader>
@@ -285,6 +311,55 @@ export default function BillingPage() {
                   {setupMutation.isPending ? 'Setting up…' : '+ Add Payment Method'}
                 </Button>
               </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Auto-Renew Status */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold">Auto-Renewal</h2>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings?.autoRenew ?? true}
+                onClick={() =>
+                  settingsMutation.mutate({ autoRenew: !(settings?.autoRenew ?? true) })
+                }
+                disabled={settingsMutation.isPending}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                  (settings?.autoRenew ?? true) ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                    (settings?.autoRenew ?? true) ? 'translate-x-[18px]' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {(settings?.autoRenew ?? true) && !data?.paymentMethod ? (
+              <div className="flex items-start gap-2 text-sm text-amber-600">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>No card on file. Add a payment method to enable auto-renewal.</p>
+              </div>
+            ) : (settings?.autoRenew ?? true) && data?.paymentMethod ? (
+              <div className="flex items-start gap-2 text-sm text-green-600">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Card ending in <strong>{data.paymentMethod.last4}</strong> will be charged on{' '}
+                  {formatDate(data?.nextRenewalDate)}.
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Auto-renewal is off. Your subscription will expire at period end.
+              </p>
             )}
           </CardContent>
         </Card>

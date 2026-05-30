@@ -18,19 +18,22 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Users } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 
 interface TenantSubscription {
   id: string;
+  tenantId?: string;
   tenantSlug: string;
   tenantName: string;
   planName: string;
   planTier: string;
-  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired';
+  status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'expired' | 'SUSPENDED';
   startDate: string;
   currentPeriodEnd: string;
   monthlyRevenue: number;
   currency: string;
+  dunningAttempt?: number;
 }
 
 interface PaginatedResponse {
@@ -145,16 +148,24 @@ export default function PlatformSubscriptionsPage() {
                     <TableHead>Started</TableHead>
                     <TableHead>Renews</TableHead>
                     <TableHead>Revenue</TableHead>
+                    <TableHead>Dunning</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.data.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell>
-                        <div>
-                          <p className="font-medium">{sub.tenantName}</p>
-                          <p className="text-xs text-muted-foreground">{sub.tenantSlug}</p>
-                        </div>
+                        {sub.tenantId ? (
+                          <Link href={`/platform/tenants/${sub.tenantId}`} className="hover:underline">
+                            <p className="font-medium">{sub.tenantName}</p>
+                            <p className="text-xs text-muted-foreground">{sub.tenantSlug}</p>
+                          </Link>
+                        ) : (
+                          <div>
+                            <p className="font-medium">{sub.tenantName}</p>
+                            <p className="text-xs text-muted-foreground">{sub.tenantSlug}</p>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="font-medium">{sub.planName}</TableCell>
                       <TableCell className="capitalize">{sub.planTier}</TableCell>
@@ -165,6 +176,15 @@ export default function PlatformSubscriptionsPage() {
                       <TableCell>{formatDate(sub.currentPeriodEnd)}</TableCell>
                       <TableCell className="font-semibold">
                         {formatCurrency(sub.monthlyRevenue, sub.currency)}/mo
+                      </TableCell>
+                      <TableCell>
+                        {(sub.status === 'SUSPENDED' || sub.status === 'past_due') && sub.dunningAttempt != null ? (
+                          <span className={`text-xs font-semibold ${sub.dunningAttempt >= 3 ? 'text-destructive' : 'text-amber-500'}`}>
+                            {sub.dunningAttempt >= 3 ? 'Final attempt' : `Attempt ${sub.dunningAttempt} of 3`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

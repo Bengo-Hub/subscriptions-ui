@@ -11,7 +11,9 @@ import {
     LayoutDashboard,
     LogOut,
     Settings,
+    Sliders,
     Sparkles,
+    Tag,
     Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -51,6 +53,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         { label: 'Licenses', icon: KeyRound, href: '/platform/licenses', active: pathname.startsWith('/platform/licenses') },
         { label: 'Tenants', icon: Building2, href: '/platform/tenants', active: pathname.startsWith('/platform/tenants') },
         { label: 'Subscriptions', icon: Users, href: '/platform/subscriptions', active: pathname.startsWith('/platform/subscriptions') },
+        { label: 'Coupons', icon: Tag, href: '/platform/coupons', active: pathname.startsWith('/platform/coupons') },
+        { label: 'Configs', icon: Sliders, href: '/platform/configs', active: pathname.startsWith('/platform/configs') },
     ];
 
     const renderNavItem = (route: { label: string; icon: any; href: string; active: boolean }) => {
