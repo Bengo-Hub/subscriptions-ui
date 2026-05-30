@@ -1,21 +1,21 @@
-export type AddonBillingCycle = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME'
-export type AddonStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED'
+export type AddonBillingCycle = 'monthly' | 'annual' | 'one_time'
+export type AddonStatus = 'active' | 'paused' | 'cancelled'
 
 export interface CustomAddon {
   id: string
-  tenantId: string
+  tenant_id: string
   name: string
   description?: string
-  serviceCode?: string
-  serviceAddonType?: string
-  billingCycle: AddonBillingCycle
-  unitPriceKes: number
+  service_code?: string
+  service_addon_type?: string
+  billing_cycle: AddonBillingCycle
+  unit_price_kes: number
   quantity: number
   status: AddonStatus
   notes?: string
-  createdByUserId?: string
-  createdAt: string
-  updatedAt: string
+  created_by_user_id?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface CustomAddonCreateRequest {

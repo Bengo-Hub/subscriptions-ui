@@ -4,6 +4,7 @@ import { Badge, Card, CardContent, CardHeader, Progress } from '@/components/ui/
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
+import { useTenantFilterStore } from '@/store/tenant-filter';
 import {
   AlertTriangle,
   BarChart3,
@@ -41,8 +42,11 @@ const METRIC_ICONS: Record<string, any> = {
 };
 
 export default function UsagePage() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
+  const tenantKey = selectedTenant?.id ?? null;
+
   const { data, isLoading } = useQuery({
-    queryKey: ['usage'],
+    queryKey: ['usage', tenantKey],
     queryFn: () => apiClient.get<UsageResponse>('/api/v1/usage'),
   });
 

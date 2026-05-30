@@ -10,26 +10,33 @@ import {
   redeemCoupon,
   setupPaymentMethod,
 } from '@/lib/api/billing'
+import { useTenantFilterStore } from '@/store/tenant-filter'
 
 export function useBilling() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
   return useQuery({
-    queryKey: ['billing'],
+    queryKey: ['billing', tenantKey],
     queryFn: getBilling,
     staleTime: 60_000,
   })
 }
 
 export function useInvoicePreview() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
   return useQuery({
-    queryKey: ['invoice-preview'],
+    queryKey: ['invoice-preview', tenantKey],
     queryFn: getInvoicePreview,
     staleTime: 5 * 60_000,
   })
 }
 
 export function useCreditWallet() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
   return useQuery({
-    queryKey: ['credit-wallet'],
+    queryKey: ['credit-wallet', tenantKey],
     queryFn: getCreditWallet,
     staleTime: 60_000,
   })
@@ -44,12 +51,14 @@ export function useSetupPaymentMethod() {
 
 export function useRedeemCoupon() {
   const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
   return useMutation({
     mutationFn: (code: string) => redeemCoupon(code),
     onSuccess: (res) => {
       toast.success(`${res.message} — KES ${res.credits_earned.toLocaleString()} added to your credit wallet`)
-      qc.invalidateQueries({ queryKey: ['credit-wallet'] })
-      qc.invalidateQueries({ queryKey: ['invoice-preview'] })
+      qc.invalidateQueries({ queryKey: ['credit-wallet', tenantKey] })
+      qc.invalidateQueries({ queryKey: ['invoice-preview', tenantKey] })
     },
     onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Invalid or expired coupon code'),
   })

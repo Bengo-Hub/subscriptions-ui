@@ -10,10 +10,13 @@ import {
   updateAdminAddon,
 } from '@/lib/api/addons'
 import type { CustomAddonCreateRequest, CustomAddonUpdateRequest } from '@/types/addon'
+import { useTenantFilterStore } from '@/store/tenant-filter'
 
 export function useMyAddons() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
   return useQuery({
-    queryKey: ['my-addons'],
+    queryKey: ['my-addons', tenantKey],
     queryFn: getMyAddons,
     staleTime: 60_000,
   })

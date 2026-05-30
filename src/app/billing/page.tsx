@@ -16,6 +16,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
+import { useTenantFilterStore } from '@/store/tenant-filter';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -36,8 +37,8 @@ interface PaymentMethod {
   type: string;
   brand: string;
   last4: string;
-  expiryMonth: number;
-  expiryYear: number;
+  expiryMonth: string;
+  expiryYear: string;
 }
 
 interface Invoice {
@@ -116,9 +117,11 @@ export default function BillingPage() {
   const { tenant } = useTenantBranding();
   const brandColor = tenant?.primaryColor ?? '#722F5F';
   const brandTextColor = contrastColor(brandColor);
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
+  const tenantKey = selectedTenant?.id ?? null;
 
   const { data, isLoading } = useQuery({
-    queryKey: ['billing'],
+    queryKey: ['billing', tenantKey],
     queryFn: () => apiClient.get<BillingInfo>('/api/v1/billing'),
   });
 
@@ -126,13 +129,13 @@ export default function BillingPage() {
   const settingsMutation = useUpdateSubscriptionSettings();
 
   const { data: preview } = useQuery({
-    queryKey: ['invoice-preview'],
+    queryKey: ['invoice-preview', tenantKey],
     queryFn: () => apiClient.get<InvoicePreview>('/api/v1/billing/invoice-preview'),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: wallet } = useQuery({
-    queryKey: ['credit-wallet'],
+    queryKey: ['credit-wallet', tenantKey],
     queryFn: () => apiClient.get<CreditWallet>('/api/v1/billing/credits'),
     staleTime: 5 * 60 * 1000,
   });
@@ -164,8 +167,8 @@ export default function BillingPage() {
     onSuccess: (res) => {
       toast.success(`${res.message} — KES ${res.credits_earned.toLocaleString()} added to your credit wallet`);
       setCouponCode('');
-      queryClient.invalidateQueries({ queryKey: ['credit-wallet'] });
-      queryClient.invalidateQueries({ queryKey: ['invoice-preview'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-wallet', tenantKey] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-preview', tenantKey] });
     },
     onError: (err: any) => toast.error(err?.message ?? 'Invalid or expired coupon code'),
   });
@@ -208,7 +211,7 @@ export default function BillingPage() {
         customerEmail={user?.email}
         onPaymentConfirmed={() => {
           setPaymentSetup(null);
-          queryClient.invalidateQueries({ queryKey: ['billing'] });
+          queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
           toast.success('Payment method saved successfully');
         }}
         onPaymentFailed={() => {
@@ -323,44 +326,76 @@ export default function BillingPage() {
                 <RefreshCw className="h-5 w-5 text-primary" />
                 <h2 className="font-semibold">Auto-Renewal</h2>
               </div>
-              <button
-                role="switch"
-                aria-checked={settings?.autoRenew ?? true}
-                onClick={() =>
-                  settingsMutation.mutate({ autoRenew: !(settings?.autoRenew ?? true) })
-                }
-                disabled={settingsMutation.isPending}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                  (settings?.autoRenew ?? true) ? 'bg-primary' : 'bg-muted-foreground/30'
-                }`}
-              >
-                <span
-                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
-                    (settings?.autoRenew ?? true) ? 'translate-x-[18px]' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              {(() => {
+                const pm = data?.paymentMethod;
+                const supportsAutoCharge = pm?.type === 'card' || pm?.type === 'mobile_money';
+                const autoRenew = settings?.autoRenew ?? true;
+                return (
+                  <button
+                    role="switch"
+                    aria-checked={autoRenew && supportsAutoCharge}
+                    onClick={() => {
+                      if (!supportsAutoCharge) return; // non-recurring method — can't enable
+                      settingsMutation.mutate({ autoRenew: !autoRenew });
+                    }}
+                    disabled={settingsMutation.isPending || !supportsAutoCharge}
+                    title={!supportsAutoCharge && pm ? 'Card or mobile money required for auto-renewal' : undefined}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed ${
+                      autoRenew && supportsAutoCharge ? 'bg-primary' : 'bg-muted-foreground/30'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${
+                        autoRenew && supportsAutoCharge ? 'translate-x-[18px]' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                );
+              })()}
             </div>
           </CardHeader>
           <CardContent>
-            {(settings?.autoRenew ?? true) && !data?.paymentMethod ? (
-              <div className="flex items-start gap-2 text-sm text-amber-600">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>No card on file. Add a payment method to enable auto-renewal.</p>
-              </div>
-            ) : (settings?.autoRenew ?? true) && data?.paymentMethod ? (
-              <div className="flex items-start gap-2 text-sm text-green-600">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  Card ending in <strong>{data.paymentMethod.last4}</strong> will be charged on{' '}
-                  {formatDate(data?.nextRenewalDate)}.
+            {(() => {
+              const pm = data?.paymentMethod;
+              const supportsAutoCharge = pm?.type === 'card' || pm?.type === 'mobile_money';
+              const autoRenew = settings?.autoRenew ?? true;
+
+              if (!pm) {
+                return (
+                  <div className="flex items-start gap-2 text-sm text-amber-600">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>No card on file. Add a payment method to enable auto-renewal.</p>
+                  </div>
+                );
+              }
+              if (!supportsAutoCharge) {
+                return (
+                  <div className="flex items-start gap-2 text-sm text-amber-600">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                      Auto-renewal requires a card or mobile money payment method.{' '}
+                      <span className="capitalize">{pm.type}</span> payments cannot be charged automatically.
+                    </p>
+                  </div>
+                );
+              }
+              if (autoRenew) {
+                return (
+                  <div className="flex items-start gap-2 text-sm text-green-600">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                      Card ending in <strong>{pm.last4}</strong> will be charged on{' '}
+                      {formatDate(data?.nextRenewalDate)}.
+                    </p>
+                  </div>
+                );
+              }
+              return (
+                <p className="text-sm text-muted-foreground">
+                  Auto-renewal is off. Your subscription will expire at period end.
                 </p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Auto-renewal is off. Your subscription will expire at period end.
-              </p>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
 

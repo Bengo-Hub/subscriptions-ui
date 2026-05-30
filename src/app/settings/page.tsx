@@ -8,7 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, Database, Globe, Link2, Loader2, Palette, Plus, Shield, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useMe } from '@/hooks/useMe';
+import { useMe } from '@/hooks/useMe'
+import { useTenantFilterStore } from '@/store/tenant-filter';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -339,9 +340,11 @@ function PlatformSettingsView() {
 
 type SettingsTab = 'renewal' | 'notifications' | 'billing';
 
-function TenantSettingsView() {
+function TenantSettingsView({ viewingTenant }: { viewingTenant?: { id: string; name: string } | null }) {
   const queryClient = useQueryClient();
   const { tenant, isLoading: brandingLoading } = useTenantBranding();
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
+  const tenantKey = viewingTenant?.id ?? selectedTenant?.id ?? null;
   const brandColor = tenant?.primaryColor ?? '#722F5F';
   const brandTextColor = contrastColor(brandColor);
   const logoUrl = tenant?.logoUrl;
@@ -349,7 +352,7 @@ function TenantSettingsView() {
   const [activeTab, setActiveTab] = useState<SettingsTab>('renewal');
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ['sub-settings'],
+    queryKey: ['sub-settings', tenantKey],
     queryFn: () => apiClient.get<SubscriptionSettings>('/api/v1/subscription/settings'),
   });
 
@@ -361,7 +364,8 @@ function TenantSettingsView() {
     mutationFn: (data: Partial<SubscriptionSettings>) =>
       apiClient.put('/api/v1/subscription/settings', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sub-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['sub-settings', tenantKey] });
+      queryClient.invalidateQueries({ queryKey: ['subscription-settings', tenantKey] });
       toast.success('Settings saved');
       setForm({});
     },
@@ -697,12 +701,17 @@ function IntegrationsSection() {
 export default function SettingsPage() {
   const { user } = useMe();
   const { tenant } = useTenantBranding();
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
   const brandColor = tenant?.primaryColor ?? '#722F5F';
   const brandTextColor = contrastColor(brandColor);
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
   const [tab, setTab] = useState<'configs' | 'integrations'>('configs');
 
+  // Regular tenant: their own subscription settings
   if (!isPlatformOwner) return <TenantSettingsView />;
+
+  // Platform admin with a tenant selected: show that tenant's subscription settings
+  if (selectedTenant) return <TenantSettingsView viewingTenant={selectedTenant} />;
 
   return (
     <div>

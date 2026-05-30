@@ -29,14 +29,13 @@ import type { CustomAddonCreateRequest } from '@/types/addon';
 
 interface TenantSubscriptionDetail {
   id: string;
-  tenantId: string;
+  tenant_id: string;
   status: string;
-  planCode: string;
-  planName?: string;
-  billingCycle: string;
-  trialEndsAt?: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
+  plan_code: string;
+  plan_name?: string;
+  trial_ends_at?: string;
+  current_period_start: string;
+  current_period_end: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -51,7 +50,7 @@ export default function TenantDetailPage() {
   const [overrideReason, setOverrideReason] = useState('');
 
   const [showAddonForm, setShowAddonForm] = useState(false);
-  const [addonForm, setAddonForm] = useState<CustomAddonCreateRequest>({ name: '', billingCycle: 'MONTHLY', unitPriceKes: 0, quantity: 1 });
+  const [addonForm, setAddonForm] = useState<CustomAddonCreateRequest>({ name: '', billingCycle: 'monthly', unitPriceKes: 0, quantity: 1 });
 
   const [giftAmount, setGiftAmount] = useState('');
   const [giftReason, setGiftReason] = useState('');
@@ -87,7 +86,7 @@ export default function TenantDetailPage() {
   const handleCreateAddon = () => {
     createAddonMutation.mutate(
       { tenantId, req: addonForm },
-      { onSuccess: () => { setShowAddonForm(false); setAddonForm({ name: '', billingCycle: 'MONTHLY', unitPriceKes: 0, quantity: 1 }); } },
+      { onSuccess: () => { setShowAddonForm(false); setAddonForm({ name: '', billingCycle: 'monthly', unitPriceKes: 0, quantity: 1 }); } },
     );
   };
 
@@ -134,7 +133,7 @@ export default function TenantDetailPage() {
             <div className="grid sm:grid-cols-3 gap-6">
               <div>
                 <p className="text-xs text-muted-foreground">Plan</p>
-                <p className="font-semibold">{subData.planName ?? subData.planCode}</p>
+                <p className="font-semibold">{subData.plan_name ?? subData.plan_code}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Status</p>
@@ -143,17 +142,13 @@ export default function TenantDetailPage() {
                 </Badge>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Billing Cycle</p>
-                <p className="font-medium">{subData.billingCycle}</p>
-              </div>
-              <div>
                 <p className="text-xs text-muted-foreground">Period</p>
-                <p className="text-sm">{formatDate(subData.currentPeriodStart)} – {formatDate(subData.currentPeriodEnd)}</p>
+                <p className="text-sm">{formatDate(subData.current_period_start)} – {formatDate(subData.current_period_end)}</p>
               </div>
-              {subData.trialEndsAt && (
+              {subData.trial_ends_at && (
                 <div>
                   <p className="text-xs text-muted-foreground">Trial Ends</p>
-                  <p className="text-sm">{formatDate(subData.trialEndsAt)}</p>
+                  <p className="text-sm">{formatDate(subData.trial_ends_at)}</p>
                 </div>
               )}
               {subData.status === 'TRIAL' && (
@@ -277,9 +272,9 @@ export default function TenantDetailPage() {
                 <div className="space-y-1">
                   <label className="text-xs text-muted-foreground">Billing Cycle</label>
                   <select value={addonForm.billingCycle} onChange={(e) => setAddonForm((p) => ({ ...p, billingCycle: e.target.value as any }))} className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm">
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="ANNUAL">Annual</option>
-                    <option value="ONE_TIME">One-Time</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="annual">Annual</option>
+                    <option value="one_time">One-Time</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -314,12 +309,12 @@ export default function TenantDetailPage() {
                       <p className="font-medium text-sm">{a.name}</p>
                       {a.description && <p className="text-xs text-muted-foreground">{a.description}</p>}
                     </TableCell>
-                    <TableCell className="text-sm">{a.billingCycle}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">KES {a.unitPriceKes.toLocaleString()}</TableCell>
+                    <TableCell className="text-sm capitalize">{a.billing_cycle.replace('_', '-')}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">KES {a.unit_price_kes.toLocaleString()}</TableCell>
                     <TableCell className="text-right tabular-nums">{a.quantity}</TableCell>
-                    <TableCell><Badge variant={a.status === 'ACTIVE' ? 'success' : 'outline'}>{a.status}</Badge></TableCell>
+                    <TableCell><Badge variant={a.status === 'active' ? 'success' : 'outline'}>{a.status}</Badge></TableCell>
                     <TableCell className="text-right pr-4">
-                      {a.status !== 'CANCELLED' && (
+                      {a.status !== 'cancelled' && (
                         <Button
                           variant="ghost"
                           size="sm"

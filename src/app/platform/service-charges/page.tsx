@@ -21,16 +21,32 @@ import { BadgePercent, Edit, Loader2, Plus, Save, Star, Trash2, X } from 'lucide
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+// Backend returns snake_case from Ent ORM — match exactly
 interface ServiceChargePlan {
   id: string;
   code: string;
   name: string;
   description?: string;
+  charge_type: 'PERCENTAGE' | 'FIXED_PER_TRANSACTION' | 'TIERED';
+  charge_value: number;
+  currency: string;
+  min_charge?: number | null;
+  max_charge?: number | null;
+  applicable_services?: string[] | null;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+// Shape used for the create/update form (camelCase for ergonomics)
+interface ServiceChargePlanForm {
+  code: string;
+  name: string;
+  description: string;
   chargeType: 'PERCENTAGE' | 'FIXED_PER_TRANSACTION' | 'TIERED';
   chargeValue: number;
   currency: string;
-  minCharge?: number | null;
-  maxCharge?: number | null;
+  minCharge: number | null;
+  maxCharge: number | null;
   applicableServices: string[];
   isActive: boolean;
   isDefault: boolean;
@@ -42,7 +58,6 @@ const CHARGE_TYPES = [
   { value: 'TIERED', label: 'Tiered (volume-based)' },
 ];
 
-// Services that have seeded service charges
 const SERVICE_GROUPS = [
   { key: 'ordering', label: 'Ordering' },
   { key: 'logistics', label: 'Logistics' },
@@ -51,7 +66,7 @@ const SERVICE_GROUPS = [
   { key: 'truload', label: 'TruLoad' },
 ];
 
-const emptyForm: Partial<ServiceChargePlan> = {
+const emptyForm: ServiceChargePlanForm = {
   code: '', name: '', description: '',
   chargeType: 'PERCENTAGE', chargeValue: 0,
   currency: 'KES', minCharge: null, maxCharge: null,
@@ -59,61 +74,106 @@ const emptyForm: Partial<ServiceChargePlan> = {
 };
 
 function chargeDisplay(p: ServiceChargePlan): string {
-  if (p.chargeType === 'PERCENTAGE') return `${p.chargeValue}%`;
-  if (p.chargeType === 'FIXED_PER_TRANSACTION') return `KES ${p.chargeValue}`;
+  if (p.charge_type === 'PERCENTAGE') return `${p.charge_value}%`;
+  if (p.charge_type === 'FIXED_PER_TRANSACTION') return `KES ${p.charge_value}`;
   return 'Tiered';
+}
+
+function planToForm(p: ServiceChargePlan): ServiceChargePlanForm {
+  return {
+    code: p.code,
+    name: p.name,
+    description: p.description ?? '',
+    chargeType: p.charge_type,
+    chargeValue: p.charge_value,
+    currency: p.currency,
+    minCharge: p.min_charge ?? null,
+    maxCharge: p.max_charge ?? null,
+    applicableServices: p.applicable_services ?? [],
+    isActive: p.is_active,
+    isDefault: p.is_default,
+  };
 }
 
 export default function ServiceChargesPage() {
   const qc = useQueryClient();
   const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<ServiceChargePlan | null>(null);
-  const [form, setForm] = useState<Partial<ServiceChargePlan>>(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<ServiceChargePlanForm>(emptyForm);
   const [svcInput, setSvcInput] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-service-charges'],
     queryFn: () =>
-      apiClient.get<{ data: ServiceChargePlan[]; total: number }>('/api/v1/service-charges/plans').then((r) => r.data),
+      apiClient.get<{ data: ServiceChargePlan[]; total: number }>('/api/v1/service-charges/plans'),
   });
 
-  const plans = (data ?? []).filter((p) => {
+  const allPlans = data?.data ?? [];
+  const plans = allPlans.filter((p) => {
     if (serviceFilter === 'all') return true;
-    if (p.applicableServices.length === 0) return true;
-    return p.applicableServices.includes(serviceFilter);
+    const svcs = p.applicable_services ?? [];
+    if (svcs.length === 0) return true;
+    return svcs.includes(serviceFilter);
   });
 
   const createMutation = useMutation({
-    mutationFn: (body: Partial<ServiceChargePlan>) => apiClient.post('/api/v1/admin/service-charges', body),
+    mutationFn: (body: ServiceChargePlanForm) =>
+      apiClient.post('/api/v1/admin/service-charges', {
+        code: body.code,
+        name: body.name,
+        description: body.description,
+        chargeType: body.chargeType,
+        chargeValue: body.chargeValue,
+        currency: body.currency,
+        minCharge: body.minCharge,
+        maxCharge: body.maxCharge,
+        applicableServices: body.applicableServices,
+        isActive: body.isActive,
+        isDefault: body.isDefault,
+      }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['platform-service-charges'] }); toast.success('Service charge created'); closeForm(); },
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to create'),
   });
+
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Partial<ServiceChargePlan> }) =>
-      apiClient.put(`/api/v1/admin/service-charges/${id}`, body),
+    mutationFn: ({ id, body }: { id: string; body: ServiceChargePlanForm }) =>
+      apiClient.put(`/api/v1/admin/service-charges/${id}`, {
+        name: body.name,
+        description: body.description,
+        chargeType: body.chargeType,
+        chargeValue: body.chargeValue,
+        currency: body.currency,
+        minCharge: body.minCharge,
+        maxCharge: body.maxCharge,
+        applicableServices: body.applicableServices,
+        isActive: body.isActive,
+        isDefault: body.isDefault,
+      }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['platform-service-charges'] }); toast.success('Service charge updated'); closeForm(); },
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to update'),
   });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/api/v1/admin/service-charges/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['platform-service-charges'] }); toast.success('Deleted'); },
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to delete'),
   });
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setSvcInput(''); setShowForm(true); };
+  const openCreate = () => { setEditingId(null); setForm(emptyForm); setSvcInput(''); setShowForm(true); };
   const openEdit = (p: ServiceChargePlan) => {
-    setEditing(p);
-    setForm({ ...p });
-    setSvcInput(p.applicableServices.join(', '));
+    setEditingId(p.id);
+    const f = planToForm(p);
+    setForm(f);
+    setSvcInput(f.applicableServices.join(', '));
     setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setEditing(null); };
+  const closeForm = () => { setShowForm(false); setEditingId(null); };
 
   const handleSubmit = () => {
     const services = svcInput.split(',').map((s) => s.trim()).filter(Boolean);
     const payload = { ...form, applicableServices: services };
-    if (editing) updateMutation.mutate({ id: editing.id, body: payload });
+    if (editingId) updateMutation.mutate({ id: editingId, body: payload });
     else createMutation.mutate(payload);
   };
 
@@ -152,7 +212,7 @@ export default function ServiceChargesPage() {
         <Card className="border-primary/20 rounded-2xl shadow-lg">
           <CardHeader className="border-b border-border px-6 py-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg">{editing ? `Edit — ${editing.name}` : 'New Service Charge Plan'}</h2>
+              <h2 className="font-bold text-lg">{editingId ? `Edit — ${form.name}` : 'New Service Charge Plan'}</h2>
               <Button variant="ghost" size="icon" onClick={closeForm} className="rounded-full"><X className="h-4 w-4" /></Button>
             </div>
           </CardHeader>
@@ -165,7 +225,7 @@ export default function ServiceChargesPage() {
                   onChange={(e) => setForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
                   placeholder="SC_ORDERING_5PCT"
                   className="h-11 rounded-xl font-mono"
-                  disabled={!!editing}
+                  disabled={!!editingId}
                 />
               </div>
               <div className="space-y-1.5">
@@ -176,7 +236,7 @@ export default function ServiceChargesPage() {
                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Charge Type</label>
                 <select
                   value={form.chargeType}
-                  onChange={(e) => setForm((p) => ({ ...p, chargeType: e.target.value as ServiceChargePlan['chargeType'] }))}
+                  onChange={(e) => setForm((p) => ({ ...p, chargeType: e.target.value as ServiceChargePlanForm['chargeType'] }))}
                   className="flex h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm font-medium"
                 >
                   {CHARGE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -202,7 +262,7 @@ export default function ServiceChargesPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Applicable Services (comma-separated product codes)</label>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Applicable Services (comma-separated)</label>
               <Input
                 value={svcInput}
                 onChange={(e) => setSvcInput(e.target.value)}
@@ -227,7 +287,7 @@ export default function ServiceChargesPage() {
               <Button variant="ghost" onClick={closeForm} className="rounded-xl">Cancel</Button>
               <Button onClick={handleSubmit} disabled={busy} className="rounded-xl h-10 px-6 font-semibold">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                {editing ? 'Update' : 'Create'}
+                {editingId ? 'Update' : 'Create'}
               </Button>
             </div>
           </CardContent>
@@ -264,40 +324,40 @@ export default function ServiceChargesPage() {
                       <TableCell className="py-4 pl-6">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">{p.name}</span>
-                          {p.isDefault && <span title="Default"><Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" /></span>}
+                          {p.is_default && <span title="Default"><Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" /></span>}
                         </div>
                         <div className="text-xs text-muted-foreground">{p.description}</div>
                       </TableCell>
                       <TableCell><code className="text-xs bg-accent px-2 py-0.5 rounded font-mono">{p.code}</code></TableCell>
-                      <TableCell className="text-xs font-medium text-muted-foreground">{CHARGE_TYPES.find((t) => t.value === p.chargeType)?.label}</TableCell>
+                      <TableCell className="text-xs font-medium text-muted-foreground">{CHARGE_TYPES.find((t) => t.value === p.charge_type)?.label}</TableCell>
                       <TableCell className="font-semibold tabular-nums">{chargeDisplay(p)}</TableCell>
                       <TableCell className="text-xs text-muted-foreground tabular-nums">
-                        {p.minCharge != null ? `${p.minCharge}` : '—'} / {p.maxCharge != null ? `${p.maxCharge}` : '—'}
+                        {p.min_charge != null ? `${p.min_charge}` : '—'} / {p.max_charge != null ? `${p.max_charge}` : '—'}
                       </TableCell>
                       <TableCell>
-                        {p.applicableServices.length === 0 ? (
+                        {(p.applicable_services ?? []).length === 0 ? (
                           <Badge variant="outline" className="text-[10px]">All</Badge>
                         ) : (
                           <div className="flex gap-1 flex-wrap">
-                            {p.applicableServices.map((s) => (
+                            {(p.applicable_services ?? []).map((s) => (
                               <Badge key={s} variant="outline" className="text-[10px] capitalize">{s}</Badge>
                             ))}
                           </div>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className={cn('w-2 h-2 rounded-full inline-block', p.isActive ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-                        <span className="ml-1.5 text-xs text-muted-foreground">{p.isActive ? 'Active' : 'Inactive'}</span>
+                        <div className={cn('w-2 h-2 rounded-full inline-block', p.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+                        <span className="ml-1.5 text-xs text-muted-foreground">{p.is_active ? 'Active' : 'Inactive'}</span>
                       </TableCell>
                       <TableCell className="text-right pr-6">
                         <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)} className="h-8 w-8 rounded-lg hover:bg-blue-500/10 hover:text-blue-500">
+                          <Button variant="outline" size="icon" onClick={() => openEdit(p)} className="h-8 w-8 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950">
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
-                            variant="ghost" size="icon"
+                            variant="outline" size="icon"
                             onClick={() => { if (confirm(`Delete "${p.name}"?`)) deleteMutation.mutate(p.id); }}
-                            className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive"
+                            className="h-8 w-8 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
