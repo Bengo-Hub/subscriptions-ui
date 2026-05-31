@@ -13,14 +13,23 @@ export const getSettings = () =>
 export const updateSettings = (settings: Partial<SubscriptionSettings>) =>
   apiClient.put<{ status: string }>('/api/v1/subscription/settings', settings)
 
-export const initiateSubscription = (data: { planCode: string; billingCycle?: string }) =>
-  apiClient.post<{ initiate_url: string; payment_intent_id: string }>(
+export const initiateSubscription = (planCode: string, returnUrl?: string) =>
+  apiClient.post<{ intent_id: string; status: string; amount: string; currency: string; initiate_url?: string; authorization_url?: string }>(
     '/api/v1/subscription/initiate',
-    data,
+    { plan_code: planCode, return_url: returnUrl },
   )
 
-export const changePlan = (data: { planCode: string; billingCycle?: string }) =>
-  apiClient.put<Subscription>('/api/v1/subscription/plan', data)
+export const createSubscription = (planCode: string, bundleCode?: string) =>
+  apiClient.post<Subscription>('/api/v1/subscription', {
+    plan_code: planCode,
+    bundle_code: bundleCode,
+  })
+
+export const changePlan = (newPlanCode: string, billingCycle?: string) =>
+  apiClient.put<Subscription>('/api/v1/subscription/plan', {
+    new_plan_code: newPlanCode,
+    billing_cycle: billingCycle,
+  })
 
 export const extendTrial = (tenantId: string, trialEndsAt: string) =>
   apiClient.post<{ status: string; trial_ends_at: string }>(

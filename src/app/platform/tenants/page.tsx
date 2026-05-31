@@ -79,7 +79,8 @@ export default function TenantsPage() {
 
   const { data: plansData } = useQuery({
     queryKey: ['platform-plans-all'],
-    queryFn: () => apiClient.get<{ plans: Plan[] }>('/api/v1/plans').then((r) => r.plans),
+    queryFn: () =>
+      apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans', { limit: 500 }).then((r) => r.data ?? []),
     enabled: modal?.type === 'assign',
   });
 

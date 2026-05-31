@@ -78,7 +78,8 @@ export default function LicensesPage() {
 
   const { data: plansData } = useQuery({
     queryKey: ['platform-plans'],
-    queryFn: () => apiClient.get<{ plans: Plan[] }>('/api/v1/plans').then((r) => r.plans),
+    queryFn: () =>
+      apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans', { limit: 500 }).then((r) => r.data ?? []),
   });
 
   const { data: tenantsData, isLoading: tenantsLoading } = useQuery({

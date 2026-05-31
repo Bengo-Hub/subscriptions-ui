@@ -144,7 +144,7 @@ function AdminPlansView() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans-admin'],
-    queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans').then((r) => r.data ?? []),
+    queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans', { limit: 500 }).then((r) => r.data ?? []),
   });
 
   const plans = (data ?? []).filter((p) => serviceTab === 'All' || planService(p.planCode) === serviceTab);
@@ -392,7 +392,7 @@ function TenantPlansView() {
 
   const { data: plansResponse, isLoading: plansLoading } = useQuery({
     queryKey: ['plans'],
-    queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans'),
+    queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans', { limit: 500 }),
     staleTime: 300_000,
   });
 

@@ -4,7 +4,7 @@ import { Badge, Button, Card, CardContent, CardHeader } from '@/components/ui/ba
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
-import { ArrowLeft, Check, CreditCard, Loader2, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, CreditCard, Loader2, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -17,6 +17,8 @@ interface Plan {
   description: string;
   basePrice: number;
   currency: string;
+  billingCycle: string;
+  freeTrialDays: number;
   tierLimits: Record<string, any>;
 }
 
@@ -60,9 +62,11 @@ function SubscribeContent() {
 
     async function fetchPlan() {
       try {
-        const data = await apiClient.get<Plan>(`/api/v1/plans/code/${planCode}`);
-        setPlan(data);
-      } catch (err) {
+        // Backend returns { plan: {...} } — unwrap the wrapper
+        const resp = await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${planCode}`);
+        const planData: Plan = (resp as any)?.plan ?? resp as Plan;
+        setPlan(planData);
+      } catch {
         setError('Failed to load plan details');
       } finally {
         setLoading(false);
@@ -73,6 +77,29 @@ function SubscribeContent() {
       fetchPlan();
     }
   }, [planCode, status, router, redirectToSSO]);
+
+  const hasTrial = (plan?.freeTrialDays ?? 0) > 0;
+  const isFree = (plan?.basePrice ?? 0) === 0;
+
+  // Start a free trial or free plan directly via POST /subscription
+  const handleStartTrial = async () => {
+    if (!plan) return;
+    setInitiating(true);
+    setError(null);
+    try {
+      await apiClient.post('/api/v1/subscription', { plan_code: plan.planCode });
+      router.push('/usage?subscribed=true');
+    } catch (err: any) {
+      const msg = err.response?.data?.error ?? '';
+      if (msg.includes('already') || err.response?.status === 409) {
+        router.push('/usage');
+      } else {
+        setError(msg || 'Failed to start trial. Please try again.');
+      }
+    } finally {
+      setInitiating(false);
+    }
+  };
 
   const handleCheckout = async () => {
     if (!plan) return;
@@ -211,25 +238,53 @@ function SubscribeContent() {
           <div className="lg:col-span-2">
             <Card className="rounded-[2.5rem] border-primary/20 bg-accent/30 shadow-xl shadow-primary/5 sticky top-8">
               <CardHeader className="p-8 pb-0">
-                <Badge className="w-fit mb-4 bg-primary text-white font-black text-[10px] tracking-widest px-3">CHECKOUT</Badge>
+                <Badge className="w-fit mb-4 bg-primary text-white font-black text-[10px] tracking-widest px-3">
+                  {hasTrial ? 'FREE TRIAL' : 'CHECKOUT'}
+                </Badge>
                 <h3 className="text-2xl font-black">Order Summary</h3>
               </CardHeader>
               <CardContent className="p-8">
                 <div className="space-y-4 mb-8">
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
-                    <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-muted-foreground font-medium">Platform Fee</span>
-                    <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>
-                  </div>
-                  <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
-                    <div>
-                      <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Total Due Now</span>
-                      <p className="text-3xl font-black mt-1">{plan.currency} {plan.basePrice.toLocaleString()}</p>
-                    </div>
-                  </div>
+                  {hasTrial ? (
+                    <>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
+                        <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}/mo after trial</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          <span className="text-muted-foreground font-medium">Trial period</span>
+                        </div>
+                        <span className="text-primary font-bold">{plan.freeTrialDays} days free</span>
+                      </div>
+                      <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
+                        <div>
+                          <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Due Today</span>
+                          <p className="text-3xl font-black mt-1 text-primary">Free</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
+                        <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-muted-foreground font-medium">Platform Fee</span>
+                        <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>
+                      </div>
+                      <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
+                        <div>
+                          <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Total Due Now</span>
+                          <p className="text-3xl font-black mt-1">
+                            {isFree ? 'Free' : `${plan.currency} ${plan.basePrice.toLocaleString()}`}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {error && (
@@ -240,13 +295,23 @@ function SubscribeContent() {
 
                 <Button
                   className="w-full h-16 rounded-2xl font-black text-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  onClick={handleCheckout}
+                  onClick={hasTrial || isFree ? handleStartTrial : handleCheckout}
                   disabled={initiating}
                 >
                   {initiating ? (
                     <>
                       <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                      Connecting...
+                      Processing...
+                    </>
+                  ) : hasTrial ? (
+                    <>
+                      <Sparkles className="h-5 w-5 mr-2" />
+                      Start {plan.freeTrialDays}-Day Free Trial
+                    </>
+                  ) : isFree ? (
+                    <>
+                      <Check className="h-5 w-5 mr-2" />
+                      Activate Free Plan
                     </>
                   ) : (
                     <>
@@ -256,8 +321,9 @@ function SubscribeContent() {
                 </Button>
 
                 <p className="text-[10px] text-center text-muted-foreground mt-6 font-bold uppercase tracking-widest leading-relaxed">
-                  By confirming, you agree to our <br />
-                  <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+                  {hasTrial
+                    ? `No payment required today. Cancel any time during your trial.`
+                    : `By confirming, you agree to our Terms of Service.`}
                 </p>
               </CardContent>
             </Card>

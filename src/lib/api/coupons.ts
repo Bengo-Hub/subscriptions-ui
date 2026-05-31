@@ -33,6 +33,7 @@ export const updateCoupon = (id: string, req: Partial<CouponCreateRequest>) =>
     max_uses: req.maxUses,
     max_stacks: req.maxStacks,
     is_active: req.isActive,
+    valid_from: req.validFrom,
     valid_until: req.validUntil,
   })
 

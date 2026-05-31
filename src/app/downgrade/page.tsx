@@ -88,12 +88,17 @@ function DowngradeContent() {
 
     async function fetchData() {
       try {
-        const [target, sub] = await Promise.all([
-          apiClient.get<Plan>(`/api/v1/plans/code/${planCode}`),
+        // Plan responses are wrapped: { plan: {...} } — unwrap with fallback
+        const unwrap = (r: any): Plan => r?.plan ?? r;
+        const [targetResp, sub] = await Promise.all([
+          apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${planCode}`),
           apiClient.get<CurrentSubscription>('/api/v1/subscription'),
         ]);
-        const current = sub?.planCode
-          ? await apiClient.get<Plan>(`/api/v1/plans/code/${sub.planCode}`)
+        const target = unwrap(targetResp);
+        // sub uses snake_case: plan_code (not planCode)
+        const subPlanCode = (sub as any)?.plan_code ?? sub?.planCode;
+        const current = subPlanCode
+          ? unwrap(await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${subPlanCode}`))
           : null;
         setTargetPlan(target);
         setCurrentSub(sub);
@@ -113,8 +118,8 @@ function DowngradeContent() {
     setSubmitting(true);
     setError(null);
     try {
-      await apiClient.put('/api/v1/subscription', {
-        plan_code: targetPlan.planCode,
+      await apiClient.put('/api/v1/subscription/plan', {
+        new_plan_code: targetPlan.planCode,
         effective: periodEnd ? 'period_end' : 'immediate',
       });
       router.push('/usage?downgrade=success');

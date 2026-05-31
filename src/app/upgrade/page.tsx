@@ -79,12 +79,17 @@ function UpgradeContent() {
 
     async function fetchData() {
       try {
-        const [target, sub] = await Promise.all([
-          apiClient.get<Plan>(`/api/v1/plans/code/${planCode}`),
+        // Plan responses are wrapped: { plan: {...} } — unwrap with fallback
+        const unwrap = (r: any): Plan => r?.plan ?? r;
+        const [targetResp, sub] = await Promise.all([
+          apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${planCode}`),
           apiClient.get<CurrentSubscription>('/api/v1/subscription'),
         ]);
-        const current = sub?.planCode
-          ? await apiClient.get<Plan>(`/api/v1/plans/code/${sub.planCode}`)
+        const target = unwrap(targetResp);
+        // sub uses snake_case: plan_code (not planCode)
+        const subPlanCode = (sub as any)?.plan_code ?? sub?.planCode;
+        const current = subPlanCode
+          ? unwrap(await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${subPlanCode}`))
           : null;
         setTargetPlan(target);
         setCurrentSub(sub);
@@ -214,7 +219,7 @@ function UpgradeContent() {
                       </p>
                     )}
                   </div>
-                  <ArrowRight className="h-6 w-6 text-primary flex-shrink-0" />
+                  <ArrowRight className="h-6 w-6 text-primary shrink-0" />
                   <div className="flex-1 text-center p-4 rounded-2xl bg-primary/10 border border-primary/20">
                     <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">To</p>
                     <p className="text-xl font-black text-primary">{targetPlan.name}</p>
