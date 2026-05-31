@@ -265,7 +265,7 @@ export default function BillingPage() {
         paymentIntentId={paymentSetup.intentId}
         tenantSlug={user?.tenant_slug ?? ''}
         initiateUrl={paymentSetup.initiateUrl}
-        amount={1}
+        amount={5}
         currency="KES"
         referenceType="card_setup"
         customerEmail={billingEmail || user?.email}
@@ -371,7 +371,7 @@ export default function BillingPage() {
                   <p className="text-sm font-medium">No payment method on file</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Add a card to enable subscription auto-renewal.
-                    A KES 1 verification charge will be refunded instantly.
+                    A KES 5 verification charge will be refunded instantly.
                   </p>
                 </div>
                 <Button
