@@ -164,6 +164,7 @@ const FEATURE_INFO: Record<string, { label: string; category: string }> = {
   ledger_posting:           { label: 'Double-Entry Ledger Posting',          category: 'Payments & Gateways' },
   tax_codes:                { label: 'Tax Code Management (VAT/EAC)',         category: 'Payments & Gateways' },
   equity_payouts:           { label: 'Equity & Royalty Payouts',             category: 'Payments & Gateways' },
+  etims_integration:        { label: 'KRA eTIMS Integration (Auto Tax Transmission)', category: 'Payments & Gateways' },
   customer_management:      { label: 'Customer Ledger',                      category: 'Payments & Gateways' },
   vendor_management:        { label: 'Vendor Management',                    category: 'Payments & Gateways' },
   // Ordering
@@ -319,7 +320,7 @@ const COMPARISON_FEATURES = [
   'payment_collection', 'payment_links', 'multi_currency', 'bulk_payouts',
   'escrow_management', 'payout_schedules', 'invoice_generation',
   'basic_reconciliation', 'reconciliation', 'ar_tracking', 'ap_tracking',
-  'ledger_posting', 'tax_codes', 'equity_payouts',
+  'ledger_posting', 'tax_codes', 'etims_integration', 'equity_payouts',
   'online_ordering', 'delivery_zones', 'scheduled_delivery', 'promo_codes',
   'group_ordering', 'loyalty_program', 'custom_domain', 'multi_outlet',
   'hotel_module', 'route_optimization', 'white_labeling', 'api_webhooks',
