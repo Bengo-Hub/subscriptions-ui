@@ -1,6 +1,32 @@
 import { apiClient } from './client'
 import type { CustomAddon, CustomAddonCreateRequest, CustomAddonUpdateRequest } from '@/types/addon'
 
+// ── Self-service plan addons (PlanFeature with is_included=false) ─────────────
+
+export interface PlanAddon {
+  feature_code: string
+  plan_id: string
+  limit_value?: number
+  overage_unit_price: number
+  purchased: boolean
+}
+
+export const listPlanAddons = () =>
+  apiClient.get<{ addons: PlanAddon[] }>('/api/v1/addons')
+
+export const purchasePlanAddon = (featureCode: string, returnUrl?: string) =>
+  apiClient.post<{ status: string; feature_code: string; intent?: Record<string, any> }>(
+    `/api/v1/addons/${featureCode}/purchase`,
+    returnUrl ? { return_url: returnUrl } : {},
+  )
+
+export const removePlanAddon = (featureCode: string) =>
+  apiClient.delete<{ status: string; feature_code: string }>(
+    `/api/v1/addons/${featureCode}`,
+  )
+
+// ── Custom addons (admin-managed recurring line items) ────────────────────────
+
 export const getMyAddons = () =>
   apiClient.get<{ data: CustomAddon[] }>('/api/v1/custom-addons')
 

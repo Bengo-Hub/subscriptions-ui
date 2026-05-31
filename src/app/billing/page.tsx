@@ -19,10 +19,12 @@ import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { AlertCircle, Calendar, CheckCircle2, CreditCard, Download, Gift, Receipt, RefreshCw, Tag, TrendingUp, Wallet } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle2, CreditCard, Download, Gift, Layers, Loader2, Package, Receipt, RefreshCw, Tag, TrendingUp, Trash2, Wallet, Zap } from 'lucide-react';
 import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
+import { usePlanAddons, usePurchasePlanAddon, useRemovePlanAddon } from '@/hooks/useCustomAddons';
+import type { PlanAddon } from '@/lib/api/addons';
 
 function contrastColor(hex: string): string {
   const h = hex.replace('#', '');
@@ -119,6 +121,16 @@ export default function BillingPage() {
   const brandTextColor = contrastColor(brandColor);
   const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
   const tenantKey = selectedTenant?.id ?? null;
+  // Show a prompt when landing here after a subscription checkout
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('checkout') === 'success') {
+        toast.success('Subscription activated! Add a payment method below to enable auto-renewal.');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['billing', tenantKey],
@@ -147,6 +159,17 @@ export default function BillingPage() {
 
   const [couponCode, setCouponCode] = useState('');
 
+  // Self-service plan addons
+  const { data: planAddonsData, isLoading: addonsLoading } = usePlanAddons();
+  const purchaseAddonMutation = usePurchasePlanAddon();
+  const removeAddonMutation = useRemovePlanAddon();
+  const planAddons: PlanAddon[] = planAddonsData?.addons ?? [];
+  const [addonPayment, setAddonPayment] = useState<{ initiateUrl: string; intentId: string; amount: number; featureCode: string } | null>(null);
+
+  function addonLabel(code: string): string {
+    return code.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   const billingEmail = settings?.billingEmail || user?.email || '';
 
   const setupMutation = useMutation({
@@ -158,6 +181,17 @@ export default function BillingPage() {
     onSuccess: (res) =>
       setPaymentSetup({ initiateUrl: res.initiate_url, intentId: res.payment_intent_id }),
     onError: () => toast.error('Failed to initiate payment method setup'),
+  });
+
+  const confirmCardMutation = useMutation({
+    mutationFn: (intentId: string) =>
+      apiClient.post<{ status: string; payment_method?: object }>(
+        '/api/v1/subscription/payment-method/confirm',
+        { intent_id: intentId },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+    },
   });
 
   const redeemMutation = useMutation({
@@ -172,7 +206,7 @@ export default function BillingPage() {
       queryClient.invalidateQueries({ queryKey: ['credit-wallet', tenantKey] });
       queryClient.invalidateQueries({ queryKey: ['invoice-preview', tenantKey] });
     },
-    onError: (err: any) => toast.error(err?.message ?? 'Invalid or expired coupon code'),
+    onError: (err: any) => toast.error(err?.response?.data?.error ?? err?.message ?? 'Invalid or expired coupon code'),
   });
 
   const formatDate = (d?: string) =>
@@ -200,6 +234,30 @@ export default function BillingPage() {
 
   return (
     <>
+    {addonPayment && (
+      <TreasuryPaymentModal
+        open={!!addonPayment}
+        onOpenChange={(open) => { if (!open) setAddonPayment(null); }}
+        paymentIntentId={addonPayment.intentId}
+        tenantSlug={user?.tenant_slug ?? ''}
+        initiateUrl={addonPayment.initiateUrl}
+        amount={addonPayment.amount}
+        currency="KES"
+        referenceType="addon_purchase"
+        customerEmail={billingEmail || user?.email}
+        allowedMethods="paystack,mpesa"
+        onPaymentConfirmed={() => {
+          setAddonPayment(null);
+          queryClient.invalidateQueries({ queryKey: ['plan-addons', tenantKey] });
+          queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+          toast.success('Add-on activated successfully');
+        }}
+        onPaymentFailed={() => {
+          setAddonPayment(null);
+          toast.error('Add-on payment failed. Please try again.');
+        }}
+      />
+    )}
     {paymentSetup && (
       <TreasuryPaymentModal
         open={!!paymentSetup}
@@ -213,9 +271,17 @@ export default function BillingPage() {
         customerEmail={billingEmail || user?.email}
         allowedMethods="paystack,mpesa"
         onPaymentConfirmed={() => {
+          const intentId = paymentSetup.intentId;
           setPaymentSetup(null);
-          queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
-          toast.success('Payment method saved successfully');
+          toast.success('Payment processed — saving your card details…');
+          confirmCardMutation.mutate(intentId, {
+            onSuccess: () => toast.success('Payment method saved successfully'),
+            onError: () => {
+              // Fallback: invalidate billing query so NATS pipeline result is visible on refresh
+              queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+              toast.success('Payment method saved — refresh if it does not appear immediately');
+            },
+          });
         }}
         onPaymentFailed={() => {
           setPaymentSetup(null);
@@ -522,6 +588,99 @@ export default function BillingPage() {
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Self-Service Plan Add-ons Marketplace */}
+      {(planAddons.length > 0 || addonsLoading) && (
+        <Card className="rounded-2xl border-border">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold">Available Add-ons</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">Expand your current plan</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add-ons are charged immediately when purchased. Free add-ons activate instantly.
+            </p>
+          </CardHeader>
+          <CardContent>
+            {addonsLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading available add-ons…</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {planAddons.map((addon) => (
+                  <div
+                    key={addon.feature_code}
+                    className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                      addon.purchased
+                        ? 'border-primary/30 bg-primary/5'
+                        : 'border-border hover:border-primary/30 hover:bg-accent/50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`mt-0.5 p-1.5 rounded-lg ${addon.purchased ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                        <Package className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">{addonLabel(addon.feature_code)}</p>
+                        {addon.limit_value != null && addon.limit_value > 0 && (
+                          <p className="text-xs text-muted-foreground">{addon.limit_value.toLocaleString()} units included</p>
+                        )}
+                        <p className="text-xs font-semibold text-primary mt-0.5">
+                          {addon.overage_unit_price === 0 ? 'Free' : `KES ${addon.overage_unit_price.toLocaleString()}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="ml-3 shrink-0">
+                      {addon.purchased ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => removeAddonMutation.mutate(addon.feature_code)}
+                          disabled={removeAddonMutation.isPending}
+                        >
+                          {removeAddonMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="h-8 px-3 text-xs"
+                          onClick={async () => {
+                            const result = await purchaseAddonMutation.mutateAsync({
+                              featureCode: addon.feature_code,
+                              returnUrl: `${window.location.origin}/billing?addon_success=${addon.feature_code}`,
+                            });
+                            if (result.status === 'payment_required' && result.intent) {
+                              const intent = result.intent as Record<string, any>;
+                              setAddonPayment({
+                                intentId: intent.intent_id ?? intent.id ?? '',
+                                initiateUrl: intent.initiate_url ?? '',
+                                amount: addon.overage_unit_price,
+                                featureCode: addon.feature_code,
+                              });
+                            }
+                          }}
+                          disabled={purchaseAddonMutation.isPending}
+                        >
+                          {purchaseAddonMutation.isPending
+                            ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            : <Zap className="h-3 w-3 mr-1" />}
+                          {addon.overage_unit_price === 0 ? 'Activate' : 'Purchase'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

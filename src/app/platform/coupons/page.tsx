@@ -26,7 +26,7 @@ const emptyForm: CouponCreateRequest = {
   name: '',
   type: 'percentage',
   value: 0,
-  isActive: true,
+  isActive: false,
   maxUses: -1,
   maxStacks: 1,
   minPlanPrice: 0,
@@ -256,7 +256,7 @@ export default function CouponsPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Value</TableHead>
                   <TableHead>Redeemed</TableHead>
-                  <TableHead>Expires</TableHead>
+                  <TableHead>Valid Period</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-24 text-right pr-6">{''}</TableHead>
                 </TableRow>
@@ -273,11 +273,20 @@ export default function CouponsPage() {
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px] font-semibold">{typeLabel(c.type)}</Badge></TableCell>
                     <TableCell className="font-semibold tabular-nums">{formatValue(c)}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-sm tabular-nums">
                       {c.maxUses === -1 ? `${c.usedCount} / ∞` : `${c.usedCount} / ${c.maxUses}`}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {c.validUntil ? new Date(c.validUntil).toLocaleDateString() : '—'}
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">From</span>
+                          <span>{c.validFrom ? new Date(c.validFrom).toLocaleDateString() : '—'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Until</span>
+                          <span>{c.validUntil ? new Date(c.validUntil).toLocaleDateString() : '∞'}</span>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={c.isActive ? 'success' : 'outline'}>{c.isActive ? 'Active' : 'Inactive'}</Badge>

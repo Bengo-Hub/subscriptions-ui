@@ -52,6 +52,14 @@ interface DiscountRule {
   description?: string;
 }
 
+interface PlanFeature {
+  id?: string;
+  featureCode: string;
+  isIncluded: boolean;
+  limitValue?: number | null;
+  overageUnitPrice: number;
+}
+
 interface Plan {
   id: string;
   planCode: string;
@@ -66,6 +74,7 @@ interface Plan {
   tierLimits: Record<string, any>;
   freeTrialDays: number;
   discountRules: DiscountRule[];
+  features?: PlanFeature[];
 }
 
 interface CurrentSubscription {
@@ -136,6 +145,8 @@ type TierLimitEntry = { key: string; value: string };
 const toLimitEntries = (limits: Record<string, any>): TierLimitEntry[] => Object.entries(limits).map(([k, v]) => ({ key: k, value: String(v) }));
 const fromLimitEntries = (entries: TierLimitEntry[]) => Object.fromEntries(entries.filter((e) => e.key.trim()).map(({ key, value }) => { const n = Number(value); return [key.trim(), isNaN(n) ? value : n]; }));
 
+type FeatureEntry = { featureCode: string; isIncluded: boolean; limitValue: string; overageUnitPrice: string };
+
 function AdminPlansView() {
   const qc = useQueryClient();
   const [serviceTab, setServiceTab] = useState<ServiceTab>('All');
@@ -143,6 +154,7 @@ function AdminPlansView() {
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [form, setForm] = useState<Partial<Plan>>(emptyForm);
   const [tierEntries, setTierEntries] = useState<TierLimitEntry[]>([]);
+  const [featureEntries, setFeatureEntries] = useState<FeatureEntry[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans-admin'],
@@ -167,16 +179,48 @@ function AdminPlansView() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to delete plan'),
   });
 
-  const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setShowForm(true); };
-  const openEdit = (p: Plan) => {
+  const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setFeatureEntries([]); setShowForm(true); };
+
+  // Fetch plan by ID for fresh data (bypasses service list cache) so freeTrialDays and
+  // feature overageUnitPrice are always current even right after an update.
+  const openEdit = async (p: Plan) => {
     setEditingPlan(p);
-    setForm({ ...p, freeTrialDays: p.freeTrialDays ?? 14, isPublic: p.isPublic ?? true, discountRules: p.discountRules ?? [] });
-    setTierEntries(toLimitEntries(p.tierLimits ?? {}));
     setShowForm(true);
+    try {
+      const fresh = await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/${p.id}`);
+      const planData: Plan = (fresh as any)?.plan ?? (fresh as Plan);
+      setForm({ ...planData, freeTrialDays: planData.freeTrialDays, isPublic: planData.isPublic ?? true, discountRules: planData.discountRules ?? [] });
+      setTierEntries(toLimitEntries(planData.tierLimits ?? {}));
+      setFeatureEntries((planData.features ?? []).map((f) => ({
+        featureCode: f.featureCode,
+        isIncluded: f.isIncluded,
+        limitValue: f.limitValue != null ? String(f.limitValue) : '',
+        overageUnitPrice: String(f.overageUnitPrice ?? 0),
+      })));
+    } catch {
+      setForm({ ...p, freeTrialDays: p.freeTrialDays, isPublic: p.isPublic ?? true, discountRules: p.discountRules ?? [] });
+      setTierEntries(toLimitEntries(p.tierLimits ?? {}));
+      setFeatureEntries((p.features ?? []).map((f) => ({
+        featureCode: f.featureCode,
+        isIncluded: f.isIncluded,
+        limitValue: f.limitValue != null ? String(f.limitValue) : '',
+        overageUnitPrice: String(f.overageUnitPrice ?? 0),
+      })));
+    }
   };
+
   const closeForm = () => { setShowForm(false); setEditingPlan(null); };
+
+  const toFeaturePayload = (entries: FeatureEntry[]): PlanFeature[] =>
+    entries.filter((e) => e.featureCode.trim()).map((e) => ({
+      featureCode: e.featureCode.trim(),
+      isIncluded: e.isIncluded,
+      limitValue: e.limitValue !== '' ? Number(e.limitValue) : null,
+      overageUnitPrice: Number(e.overageUnitPrice) || 0,
+    }));
+
   const handleSubmit = () => {
-    const payload = { ...form, tierLimits: fromLimitEntries(tierEntries) };
+    const payload = { ...form, tierLimits: fromLimitEntries(tierEntries), features: toFeaturePayload(featureEntries) };
     if (editingPlan) updateMutation.mutate({ id: editingPlan.id, body: payload });
     else createMutation.mutate(payload);
   };
@@ -288,6 +332,55 @@ function AdminPlansView() {
                 </div>
               ))}
             </div>
+            {/* Features / Overage Pricing */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Features &amp; Overage Pricing</label>
+                <Button variant="outline" size="sm" onClick={() => setFeatureEntries((p) => [...p, { featureCode: '', isIncluded: true, limitValue: '', overageUnitPrice: '0' }])} className="h-8 rounded-lg text-xs">
+                  <Plus className="h-3 w-3 mr-1" /> Add Feature
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Set overage price per unit above the limit (0 = not billable).</p>
+              {featureEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No features configured.</p>
+              ) : featureEntries.map((f, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <Input
+                    placeholder="feature_code (e.g. rider_app)"
+                    value={f.featureCode}
+                    onChange={(e) => setFeatureEntries((p) => p.map((en, idx) => idx === i ? { ...en, featureCode: e.target.value } : en))}
+                    className="h-9 rounded-lg font-mono text-xs flex-1"
+                  />
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={f.isIncluded}
+                      onChange={(e) => setFeatureEntries((p) => p.map((en, idx) => idx === i ? { ...en, isIncluded: e.target.checked } : en))}
+                      className="h-3.5 w-3.5 rounded"
+                    />
+                    Included
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="limit"
+                    value={f.limitValue}
+                    onChange={(e) => setFeatureEntries((p) => p.map((en, idx) => idx === i ? { ...en, limitValue: e.target.value } : en))}
+                    className="h-9 rounded-lg font-mono text-xs w-24"
+                    title="Limit value (blank = none)"
+                  />
+                  <Input
+                    type="number"
+                    placeholder="overage KES"
+                    value={f.overageUnitPrice}
+                    onChange={(e) => setFeatureEntries((p) => p.map((en, idx) => idx === i ? { ...en, overageUnitPrice: e.target.value } : en))}
+                    className="h-9 rounded-lg font-mono text-xs w-28"
+                    title="Overage unit price (KES)"
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => setFeatureEntries((p) => p.filter((_, idx) => idx !== i))} className="h-9 w-9 rounded-lg hover:text-destructive shrink-0"><X className="h-3.5 w-3.5" /></Button>
+                </div>
+              ))}
+            </div>
+
             <div className="flex justify-end gap-3 pt-2">
               <Button variant="ghost" onClick={closeForm} className="rounded-xl">Cancel</Button>
               <Button onClick={handleSubmit} disabled={busy} className="rounded-xl h-10 px-6 font-semibold">

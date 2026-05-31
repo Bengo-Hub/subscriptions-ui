@@ -7,10 +7,60 @@ import {
   createAdminAddon,
   getAdminTenantAddons,
   getMyAddons,
+  listPlanAddons,
+  purchasePlanAddon,
+  removePlanAddon,
   updateAdminAddon,
 } from '@/lib/api/addons'
 import type { CustomAddonCreateRequest, CustomAddonUpdateRequest } from '@/types/addon'
 import { useTenantFilterStore } from '@/store/tenant-filter'
+
+// ── Self-service plan addons ──────────────────────────────────────────────────
+
+export function usePlanAddons() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useQuery({
+    queryKey: ['plan-addons', tenantKey],
+    queryFn: listPlanAddons,
+    staleTime: 60_000,
+  })
+}
+
+export function usePurchasePlanAddon() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: ({ featureCode, returnUrl }: { featureCode: string; returnUrl?: string }) =>
+      purchasePlanAddon(featureCode, returnUrl),
+    onSuccess: (res) => {
+      if (res.status === 'activated') {
+        toast.success(`Add-on activated`)
+        qc.invalidateQueries({ queryKey: ['plan-addons', tenantKey] })
+        qc.invalidateQueries({ queryKey: ['billing', tenantKey] })
+      }
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to purchase add-on'),
+  })
+}
+
+export function useRemovePlanAddon() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: (featureCode: string) => removePlanAddon(featureCode),
+    onSuccess: () => {
+      toast.success('Add-on removed')
+      qc.invalidateQueries({ queryKey: ['plan-addons', tenantKey] })
+      qc.invalidateQueries({ queryKey: ['billing', tenantKey] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to remove add-on'),
+  })
+}
+
+// ── Custom addons (admin-managed) ─────────────────────────────────────────────
 
 export function useMyAddons() {
   const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)

@@ -47,6 +47,7 @@ function SubscribeContent() {
   const [intentId, setIntentId] = useState('');
   const [initiateUrl, setInitiateUrl] = useState('');
   const [initiating, setInitiating] = useState(false);
+  const [paidIntentId, setPaidIntentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'idle') {
@@ -171,7 +172,13 @@ function SubscribeContent() {
           allowedMethods="paystack,mpesa"
           onPaymentConfirmed={() => {
             setPaymentOpen(false);
-            router.push('/usage?checkout=success');
+            // Save card details from this subscription payment for auto-renewal.
+            // Fire-and-forget: the user is redirected regardless; card saving is best-effort here.
+            apiClient
+              .post('/api/v1/subscription/payment-method/confirm', { intent_id: intentId })
+              .catch(() => { /* non-fatal */ });
+            setPaidIntentId(intentId);
+            router.push('/billing?checkout=success&save_card=1');
           }}
           onPaymentFailed={() => {
             setPaymentOpen(false);
