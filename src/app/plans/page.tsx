@@ -653,13 +653,15 @@ function TenantPlansView() {
               } else if (!currentSub) {
                 btnLabel = 'Get Started';
                 btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
-              } else if (!curSubPlan) {
+              } else if (!curSubPlan || planService(plan.planCode) !== planService(currentPlanCode)) {
+                // No current plan found, or different service group — treat as fresh subscribe
                 btnLabel = 'Subscribe';
                 btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
               } else if (plan.tierOrder > curSubPlan.tierOrder) {
                 btnLabel = 'Upgrade';
                 btnAction = () => router.push(`/upgrade?plan=${plan.planCode}`);
               } else {
+                // Same service group, lower or equal tier
                 btnLabel = 'Downgrade';
                 btnAction = () => router.push(`/downgrade?plan=${plan.planCode}`);
               }
