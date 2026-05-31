@@ -244,6 +244,8 @@ const FEATURE_INFO: Record<string, { label: string; category: string }> = {
   multi_department:         { label: 'Multi-Department Structure',           category: 'ERP' },
   approval_workflows:       { label: 'Approval Workflows',                   category: 'ERP' },
   custom_workflows:         { label: 'Custom Workflows',                     category: 'ERP' },
+  // Branding (all tiers — auth-ui branding tab syncs logo/colors to all services)
+  custom_branding:          { label: 'Custom Branding (Logo, Colors, Font)',  category: 'Platform & API' },
   // Platform / API
   basic_analytics:          { label: 'Analytics Dashboard',                  category: 'Platform & API' },
   advanced_analytics:       { label: 'Advanced Analytics (Superset)',        category: 'Platform & API' },
@@ -331,6 +333,7 @@ const COMPARISON_FEATURES = [
   'dedicated_account_manager',
   'hr_management', 'payroll', 'leave_management', 'asset_management',
   'approval_workflows', 'custom_workflows',
+  'custom_branding',
   'basic_analytics', 'advanced_analytics', 'api_access', 'webhooks',
   'custom_integrations', 'audit_trail', 'priority_support', 'premium_support',
 ];
@@ -1056,7 +1059,7 @@ function TenantPlansView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {/* ── Usage limits (NATS-tracked) ──────────────────────────── */}
+                      {/* ── Usage limits ──────────────────────────────────────────── */}
                       {allLimitKeys.length > 0 && (
                         <>
                           <SectionHeader title="Usage Limits" />
@@ -1069,11 +1072,6 @@ function TenantPlansView() {
                               <tr key={key} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                                 <td className="py-3 px-6">
                                   <span className="text-sm font-medium text-foreground">{label}</span>
-                                  {info?.nats && (
-                                    <span className="block text-[10px] text-muted-foreground/50 font-mono">
-                                      NATS: {info.nats}
-                                    </span>
-                                  )}
                                 </td>
                                 {displayPlans.map((p) => {
                                   const val = (p.tierLimits ?? {})[key];
