@@ -138,6 +138,203 @@ const cycleColor: Record<string, string> = {
   ONE_TIME: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
 };
 
+// ─── Feature & Limit Registry ─────────────────────────────────────────────────
+// Each feature_code in plan_features maps to a human label + display category.
+// NATS note in LIMIT_INFO shows which event the subscriptions-service listens to
+// when counting usage against that limit (for ops/billing transparency).
+
+const FEATURE_INFO: Record<string, { label: string; category: string }> = {
+  // Payments & Gateways
+  mpesa_integration:        { label: 'M-Pesa (Daraja) Integration',          category: 'Payments & Gateways' },
+  paystack_integration:     { label: 'Paystack Gateway',                     category: 'Payments & Gateways' },
+  mpesa_pos:                { label: 'M-Pesa POS Payments',                  category: 'Payments & Gateways' },
+  paystack_gateway:         { label: 'Paystack Online Gateway',              category: 'Payments & Gateways' },
+  payment_collection:       { label: 'Online Payment Collection',            category: 'Payments & Gateways' },
+  payment_links:            { label: 'Shareable Payment Links',              category: 'Payments & Gateways' },
+  wallet_management:        { label: 'Digital Wallet Management',            category: 'Payments & Gateways' },
+  multi_currency:           { label: 'Multi-Currency Support',               category: 'Payments & Gateways' },
+  bulk_payouts:             { label: 'Bulk Payouts',                         category: 'Payments & Gateways' },
+  escrow_management:        { label: 'Escrow Management',                    category: 'Payments & Gateways' },
+  payout_schedules:         { label: 'Automated Payout Schedules',           category: 'Payments & Gateways' },
+  invoice_generation:       { label: 'Invoice & Quotation Generation',       category: 'Payments & Gateways' },
+  basic_reconciliation:     { label: 'Basic Bank Reconciliation',            category: 'Payments & Gateways' },
+  reconciliation:           { label: 'Full Bank Reconciliation',             category: 'Payments & Gateways' },
+  ar_tracking:              { label: 'Accounts Receivable (AR) Tracking',    category: 'Payments & Gateways' },
+  ap_tracking:              { label: 'Accounts Payable (AP) Tracking',       category: 'Payments & Gateways' },
+  ledger_posting:           { label: 'Double-Entry Ledger Posting',          category: 'Payments & Gateways' },
+  tax_codes:                { label: 'Tax Code Management (VAT/EAC)',         category: 'Payments & Gateways' },
+  equity_payouts:           { label: 'Equity & Royalty Payouts',             category: 'Payments & Gateways' },
+  customer_management:      { label: 'Customer Ledger',                      category: 'Payments & Gateways' },
+  vendor_management:        { label: 'Vendor Management',                    category: 'Payments & Gateways' },
+  // Ordering
+  online_ordering:          { label: 'Online Ordering Storefront',           category: 'Ordering' },
+  rider_app:                { label: 'Rider Mobile App',                     category: 'Ordering' },
+  admin_dashboard:          { label: 'Admin Dashboard',                      category: 'Ordering' },
+  delivery_zones:           { label: 'Delivery Zone & Fee Management',       category: 'Ordering' },
+  scheduled_delivery:       { label: 'Scheduled / Timed Deliveries',         category: 'Ordering' },
+  promo_codes:              { label: 'Promo Codes & Discounts',              category: 'Ordering' },
+  group_ordering:           { label: 'Group & Collaborative Orders',         category: 'Ordering' },
+  loyalty_program:          { label: 'Loyalty Points Program',               category: 'Ordering' },
+  wallet:                   { label: 'Customer Wallet Balance',              category: 'Ordering' },
+  custom_domain:            { label: 'Custom Domain',                        category: 'Ordering' },
+  multi_outlet:             { label: 'Multi-Outlet / Branch Management',     category: 'Ordering' },
+  pos_integration:          { label: 'POS ↔ Online Order Integration',       category: 'Ordering' },
+  hotel_module:             { label: 'Hotel & Hospitality Module',           category: 'Ordering' },
+  route_optimization:       { label: 'Route Optimization',                   category: 'Ordering' },
+  api_webhooks:             { label: 'API & Outbound Webhook Events',        category: 'Ordering' },
+  white_labeling:           { label: 'White-Label Storefront',               category: 'Ordering' },
+  // POS
+  pos_terminal:             { label: 'POS Terminal Software',                category: 'POS' },
+  order_management:         { label: 'Order Management',                     category: 'POS' },
+  receipt_printing:         { label: 'Receipt Printing',                     category: 'POS' },
+  daily_reports:            { label: 'Daily Reports & Till Closure',         category: 'POS' },
+  shift_reports:            { label: 'Shift Reports',                        category: 'POS' },
+  table_management:         { label: 'Table & Floor Management',             category: 'POS' },
+  kds:                      { label: 'Kitchen Display System (KDS)',          category: 'POS' },
+  offline_sync:             { label: 'Offline Mode & Auto-Sync',             category: 'POS' },
+  multi_cashier:            { label: 'Multi-Cashier Support',                category: 'POS' },
+  // Logistics
+  rider_management:         { label: 'Rider Fleet Management',               category: 'Logistics' },
+  delivery_assignment:      { label: 'Delivery Task Assignment',             category: 'Logistics' },
+  live_tracking:            { label: 'Live GPS Rider Tracking',              category: 'Logistics' },
+  basic_dispatch:           { label: 'Dispatch Management',                  category: 'Logistics' },
+  route_optimisation:       { label: 'Route Optimisation (Valhalla engine)', category: 'Logistics' },
+  driver_analytics:         { label: 'Driver Performance Analytics',         category: 'Logistics' },
+  performance_reports:      { label: 'Fleet Performance Reports',            category: 'Logistics' },
+  // Inventory
+  stock_tracking:           { label: 'Real-Time Stock Tracking',             category: 'Inventory' },
+  low_stock_alerts:         { label: 'Low-Stock Alerts',                     category: 'Inventory' },
+  purchase_orders:          { label: 'Purchase Orders & GRN',                category: 'Inventory' },
+  basic_reports:            { label: 'Basic Inventory Reports',              category: 'Inventory' },
+  multi_warehouse:          { label: 'Multi-Warehouse Management',           category: 'Inventory' },
+  batch_expiry_tracking:    { label: 'Batch & Expiry Tracking (FIFO)',       category: 'Inventory' },
+  supplier_portal:          { label: 'Supplier Portal',                      category: 'Inventory' },
+  barcode_scanning:         { label: 'Barcode / QR Scanning',               category: 'Inventory' },
+  bulk_import:              { label: 'Bulk CSV Import',                      category: 'Inventory' },
+  // CRM & Marketing
+  contact_management:       { label: 'CRM Contact Management',               category: 'CRM & Marketing' },
+  lead_management:          { label: 'Lead Management',                      category: 'CRM & Marketing' },
+  basic_campaigns:          { label: 'Email & SMS Campaigns',                category: 'CRM & Marketing' },
+  unlimited_campaigns:      { label: 'Unlimited Campaigns',                  category: 'CRM & Marketing' },
+  landing_pages:            { label: 'Landing Pages',                        category: 'CRM & Marketing' },
+  email_sequences:          { label: 'Email Drip Sequences',                 category: 'CRM & Marketing' },
+  ai_chat_agent:            { label: 'AI Chat Agent (RAG-powered)',           category: 'CRM & Marketing' },
+  lead_scoring:             { label: 'AI Lead Scoring',                      category: 'CRM & Marketing' },
+  funnel_builder:           { label: 'Marketing Funnel Builder',             category: 'CRM & Marketing' },
+  automation_workflows:     { label: 'Marketing Automation Workflows',       category: 'CRM & Marketing' },
+  deal_pipeline:            { label: 'Sales Deal Pipeline (CRM)',            category: 'CRM & Marketing' },
+  whatsapp_integration:     { label: 'WhatsApp Business Integration',        category: 'CRM & Marketing' },
+  ticketing:                { label: 'Helpdesk Ticketing',                   category: 'CRM & Marketing' },
+  helpdesk:                 { label: 'Helpdesk Portal',                      category: 'CRM & Marketing' },
+  sla_policies:             { label: 'SLA Policies',                         category: 'CRM & Marketing' },
+  knowledge_base:           { label: 'Knowledge Base',                       category: 'CRM & Marketing' },
+  testimonials:             { label: 'Testimonials & Reviews',               category: 'CRM & Marketing' },
+  profile_pages:            { label: 'Public Business Profile Pages',        category: 'CRM & Marketing' },
+  shortlinks:               { label: 'Branded URL Shortlinks',               category: 'CRM & Marketing' },
+  white_label:              { label: 'White Label',                          category: 'CRM & Marketing' },
+  dedicated_account_manager:{ label: 'Dedicated Account Manager',            category: 'CRM & Marketing' },
+  // ERP
+  hr_management:            { label: 'HR Management',                        category: 'ERP' },
+  payroll:                  { label: 'Payroll Processing',                   category: 'ERP' },
+  basic_procurement:        { label: 'Purchase Requisitions',                category: 'ERP' },
+  leave_management:         { label: 'Leave Management',                     category: 'ERP' },
+  asset_management:         { label: 'Asset Management',                     category: 'ERP' },
+  budgeting:                { label: 'Budget Planning',                      category: 'ERP' },
+  advanced_reports:         { label: 'Advanced Reporting',                   category: 'ERP' },
+  multi_department:         { label: 'Multi-Department Structure',           category: 'ERP' },
+  approval_workflows:       { label: 'Approval Workflows',                   category: 'ERP' },
+  custom_workflows:         { label: 'Custom Workflows',                     category: 'ERP' },
+  // Platform / API
+  basic_analytics:          { label: 'Analytics Dashboard',                  category: 'Platform & API' },
+  advanced_analytics:       { label: 'Advanced Analytics (Superset)',        category: 'Platform & API' },
+  api_access:               { label: 'REST API Access',                      category: 'Platform & API' },
+  webhooks:                 { label: 'Outbound Webhook Subscriptions',       category: 'Platform & API' },
+  custom_integrations:      { label: 'Custom Third-Party Integrations',      category: 'Platform & API' },
+  audit_trail:              { label: 'Audit Trail',                          category: 'Platform & API' },
+  priority_support:         { label: 'Priority Support',                     category: 'Platform & API' },
+  premium_support:          { label: 'Premium Support (SLA)',                category: 'Platform & API' },
+  sms_notifications:        { label: 'SMS Notifications (via notifications-api)', category: 'Platform & API' },
+  push_notifications:       { label: 'Push Notifications (via notifications-api)', category: 'Platform & API' },
+};
+
+/** Maps tierLimits keys to display labels, units, and the NATS subject the
+ *  subscriptions-service listens to when counting usage against this limit. */
+const LIMIT_INFO: Record<string, { label: string; unit?: string; nats?: string; isOverage?: boolean }> = {
+  max_orders_per_day:              { label: 'Max Orders',                    unit: '/ day',   nats: 'ordering.order.created' },
+  max_admins:                      { label: 'Admins',                        unit: '',        nats: 'auth.user.created (admin)' },
+  max_staff:                       { label: 'Staff Members',                 unit: '',        nats: 'auth.user.created (staff)' },
+  max_cashiers:                    { label: 'Cashiers',                      unit: '',        nats: 'auth.user.created (cashier)' },
+  max_outlets:                     { label: 'Outlets / Branches',            unit: '',        nats: 'auth.outlet.created' },
+  max_riders:                      { label: 'Riders',                        unit: '',        nats: 'logistics.fleet.member_invited' },
+  api_calls_per_month:             { label: 'API Calls',                     unit: '/ month' },
+  webhook_calls_per_day:           { label: 'Webhook Calls',                 unit: '/ day',   nats: 'ordering.webhook.dispatched' },
+  email_notifications_per_day:     { label: 'Emails',                        unit: '/ day',   nats: 'notifications.email.sent' },
+  sms_notifications_per_day:       { label: 'SMS',                           unit: '/ day',   nats: 'notifications.sms.sent' },
+  live_tracking_requests_per_day:  { label: 'Live Tracking Requests',        unit: '/ day',   nats: 'logistics.task.eta_updated' },
+  routing_requests_per_day:        { label: 'Route Calculations',            unit: '/ day' },
+  max_devices:                     { label: 'POS Devices',                   unit: '',        nats: 'pos.device.registered' },
+  max_tables:                      { label: 'Tables',                        unit: '',        nats: 'pos.table.created' },
+  inventory_max_sku:               { label: 'Products (SKUs)',               unit: '',        nats: 'inventory.product.created' },
+  inventory_max_warehouses:        { label: 'Warehouses',                    unit: '',        nats: 'inventory.warehouse.created' },
+  max_suppliers:                   { label: 'Suppliers',                     unit: '' },
+  max_transactions_per_month:      { label: 'Payment Transactions',          unit: '/ month', nats: 'pos.transaction.created' },
+  max_wallets:                     { label: 'Digital Wallets',               unit: '' },
+  max_payment_links:               { label: 'Payment Links',                 unit: '' },
+  max_currencies:                  { label: 'Currencies',                    unit: '' },
+  max_bulk_payout_rows:            { label: 'Bulk Payout Rows',              unit: '' },
+  max_contacts:                    { label: 'CRM Contacts',                  unit: '',        nats: 'marketflow.contact.created' },
+  max_leads:                       { label: 'CRM Leads',                     unit: '',        nats: 'marketflow.lead.created' },
+  max_campaigns:                   { label: 'Campaigns',                     unit: '',        nats: 'marketflow.campaign.created' },
+  max_sequences:                   { label: 'Email Sequences',               unit: '' },
+  max_funnels:                     { label: 'Marketing Funnels',             unit: '' },
+  ai_credits_monthly:              { label: 'AI Chat Credits',               unit: '/ month' },
+  max_integrations:                { label: 'Third-Party Integrations (Zapier, Make, etc.)', unit: '' },
+  max_tickets:                     { label: 'Support Tickets',               unit: '' },
+  max_agents:                      { label: 'Support Agents',                unit: '' },
+  max_employees:                   { label: 'Employees (ERP)',               unit: '',        nats: 'erp.employee.created' },
+  max_departments:                 { label: 'Departments (ERP)',             unit: '' },
+  max_weighings_month:             { label: 'Weighings',                     unit: '/ month', nats: 'truload.weighing.created' },
+  max_stations:                    { label: 'Weighbridge Stations',          unit: '' },
+  max_warehouses:                  { label: 'Warehouses',                    unit: '' },
+  max_products:                    { label: 'Products',                      unit: '' },
+  history_days:                    { label: 'Ticket History',                unit: 'days' },
+  max_sites:                       { label: 'Weighbridge Sites',             unit: '' },
+  max_users:                       { label: 'Users',                         unit: '' },
+  // Overage — rendered in a separate section at the bottom
+  overage_rider_price_per_month:        { label: 'Extra Rider Overage',           unit: 'KES / rider / month', isOverage: true },
+  overage_orders_price_per_100_month:   { label: 'Orders Overage (per 100)',       unit: 'KES / month',         isOverage: true },
+};
+
+// Internal gateway-access feature codes — not user-facing in the comparison table
+const INTERNAL_FEATURE_CODES = new Set([
+  'basic_inventory_access', 'basic_logistics_access', 'basic_treasury_access',
+]);
+
+// Ordered list of feature codes to highlight in the comparison table.
+// Only codes that exist in at least one plan and have a FEATURE_INFO entry are shown.
+const COMPARISON_FEATURES = [
+  'mpesa_integration', 'paystack_integration', 'mpesa_pos', 'paystack_gateway',
+  'payment_collection', 'payment_links', 'multi_currency', 'bulk_payouts',
+  'escrow_management', 'payout_schedules', 'invoice_generation',
+  'basic_reconciliation', 'reconciliation', 'ar_tracking', 'ap_tracking',
+  'ledger_posting', 'tax_codes', 'equity_payouts',
+  'online_ordering', 'delivery_zones', 'scheduled_delivery', 'promo_codes',
+  'group_ordering', 'loyalty_program', 'custom_domain', 'multi_outlet',
+  'hotel_module', 'route_optimization', 'white_labeling', 'api_webhooks',
+  'pos_terminal', 'table_management', 'kds', 'offline_sync', 'multi_cashier', 'receipt_printing',
+  'rider_management', 'live_tracking', 'route_optimisation', 'driver_analytics',
+  'stock_tracking', 'low_stock_alerts', 'purchase_orders', 'multi_warehouse',
+  'batch_expiry_tracking', 'supplier_portal', 'barcode_scanning', 'bulk_import',
+  'contact_management', 'lead_management', 'basic_campaigns', 'unlimited_campaigns',
+  'ai_chat_agent', 'whatsapp_integration', 'deal_pipeline', 'funnel_builder',
+  'automation_workflows', 'ticketing', 'knowledge_base', 'profile_pages', 'white_label',
+  'dedicated_account_manager',
+  'hr_management', 'payroll', 'leave_management', 'asset_management',
+  'approval_workflows', 'custom_workflows',
+  'basic_analytics', 'advanced_analytics', 'api_access', 'webhooks',
+  'custom_integrations', 'audit_trail', 'priority_support', 'premium_support',
+];
+
 // ─── Admin (platform owner) view ─────────────────────────────────────────────
 
 const emptyForm: Partial<Plan> = { name: '', planCode: '', description: '', basePrice: 0, billingCycle: 'MONTHLY', currency: 'KES', isActive: true, isPublic: true, tierOrder: 1, tierLimits: {}, freeTrialDays: 14, discountRules: [] };
@@ -746,19 +943,27 @@ function TenantPlansView() {
                             </span>
                           </div>
                         )}
-                        {limitsToShow.map(([key, val]) => (
-                          <div key={key} className="flex items-center gap-2 py-0.5">
-                            <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <Check className="h-2.5 w-2.5 text-primary" />
-                            </div>
-                            <span className="text-sm text-foreground capitalize">
-                              <span className="font-semibold">
-                                {val === -1 ? 'Unlimited' : String(val)}
-                              </span>{' '}
-                              {key.replace(/_/g, ' ')}
-                            </span>
-                          </div>
-                        ))}
+                        {limitsToShow
+                          .filter(([key]) => !LIMIT_INFO[key]?.isOverage)
+                          .map(([key, val]) => {
+                            const info = LIMIT_INFO[key];
+                            const label = info
+                              ? `${info.label}${info.unit ? ` ${info.unit}` : ''}`
+                              : key.replace(/_/g, ' ');
+                            return (
+                              <div key={key} className="flex items-center gap-2 py-0.5">
+                                <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                  <Check className="h-2.5 w-2.5 text-primary" />
+                                </div>
+                                <span className="text-sm text-foreground">
+                                  <span className="font-semibold">
+                                    {val === -1 ? 'Unlimited' : Number(val).toLocaleString()}
+                                  </span>{' '}
+                                  {label}
+                                </span>
+                              </div>
+                            );
+                          })}
                         {allLimitEntries.length > 5 && (
                           <p className="text-xs text-muted-foreground pl-6">
                             +{allLimitEntries.length - 5} more included
@@ -790,48 +995,168 @@ function TenantPlansView() {
         )}
 
         {/* Feature comparison table */}
-        {!plansLoading && displayPlans.length > 1 && (
-          <div className="mb-12">
-            <h2 className="text-xl font-bold text-foreground mb-4">Plan Comparison</h2>
-            <Card className="rounded-2xl border border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30">
-                      <th className="py-4 px-6 text-xs font-bold uppercase tracking-widest text-muted-foreground">Feature</th>
-                      {displayPlans.map((p) => (
-                        <th key={p.id} className="py-4 px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground text-center">
-                          {stripServicePrefix(p.planCode, activeService)}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.from(new Set(displayPlans.flatMap((p) => Object.keys(p.tierLimits ?? {})))).map((limitKey, idx, arr) => (
-                      <tr key={limitKey} className={cn('border-b border-border/50 hover:bg-muted/20 transition-colors', idx === arr.length - 1 && 'border-b-0')}>
-                        <td className="py-3.5 px-6">
-                          <span className="text-sm font-medium text-foreground capitalize">{limitKey.replace(/_/g, ' ')}</span>
-                        </td>
-                        {displayPlans.map((p) => {
-                          const val = (p.tierLimits ?? {})[limitKey];
-                          return (
-                            <td key={p.id} className="py-3.5 px-4 text-center">
-                              <span className="text-sm font-semibold text-foreground">
-                                {val === undefined ? <span className="text-muted-foreground/40">—</span> : val === -1 ? (
-                                  <span className="text-emerald-600 dark:text-emerald-400">Unlimited</span>
-                                ) : String(val)}
-                              </span>
-                            </td>
-                          );
-                        })}
+        {!plansLoading && displayPlans.length > 1 && (() => {
+          // ── Limits (numeric, NATS-tracked) ──────────────────────────────────
+          const allLimitKeys = Array.from(
+            new Set(displayPlans.flatMap((p) => Object.keys(p.tierLimits ?? {})))
+          ).filter((k) => !LIMIT_INFO[k]?.isOverage);
+
+          const overageKeys = Array.from(
+            new Set(displayPlans.flatMap((p) => Object.keys(p.tierLimits ?? {})))
+          ).filter((k) => LIMIT_INFO[k]?.isOverage);
+
+          // ── Boolean features (✓ / —) ─────────────────────────────────────
+          const planFeatureSets = displayPlans.map(
+            (p) => new Set(
+              (p.features ?? [])
+                .filter((f) => f.isIncluded && !INTERNAL_FEATURE_CODES.has(f.featureCode))
+                .map((f) => f.featureCode)
+            )
+          );
+          const visibleFeatureCodes = COMPARISON_FEATURES.filter(
+            (code) => FEATURE_INFO[code] && planFeatureSets.some((s) => s.has(code))
+          );
+
+          // Group feature codes by category (preserving COMPARISON_FEATURES order)
+          const featureCategories: string[] = [];
+          const featuresByCategory: Record<string, string[]> = {};
+          for (const code of visibleFeatureCodes) {
+            const cat = FEATURE_INFO[code]?.category ?? 'Other';
+            if (!featuresByCategory[cat]) {
+              featuresByCategory[cat] = [];
+              featureCategories.push(cat);
+            }
+            featuresByCategory[cat].push(code);
+          }
+
+          const ColCount = displayPlans.length + 1;
+
+          const SectionHeader = ({ title }: { title: string }) => (
+            <tr className="bg-muted/30 border-t border-border">
+              <td colSpan={ColCount} className="py-2 px-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                {title}
+              </td>
+            </tr>
+          );
+
+          return (
+            <div className="mb-12">
+              <h2 className="text-xl font-bold text-foreground mb-4">Plan Comparison</h2>
+              <Card className="rounded-2xl border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30">
+                        <th className="py-4 px-6 text-xs font-bold uppercase tracking-widest text-muted-foreground w-1/2">Feature</th>
+                        {displayPlans.map((p) => (
+                          <th key={p.id} className="py-4 px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground text-center">
+                            {stripServicePrefix(p.planCode, activeService)}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        )}
+                    </thead>
+                    <tbody>
+                      {/* ── Usage limits (NATS-tracked) ──────────────────────────── */}
+                      {allLimitKeys.length > 0 && (
+                        <>
+                          <SectionHeader title="Usage Limits" />
+                          {allLimitKeys.map((key) => {
+                            const info = LIMIT_INFO[key];
+                            const label = info
+                              ? `${info.label}${info.unit ? ` (${info.unit})` : ''}`
+                              : key.replace(/_/g, ' ');
+                            return (
+                              <tr key={key} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                                <td className="py-3 px-6">
+                                  <span className="text-sm font-medium text-foreground">{label}</span>
+                                  {info?.nats && (
+                                    <span className="block text-[10px] text-muted-foreground/50 font-mono">
+                                      NATS: {info.nats}
+                                    </span>
+                                  )}
+                                </td>
+                                {displayPlans.map((p) => {
+                                  const val = (p.tierLimits ?? {})[key];
+                                  return (
+                                    <td key={p.id} className="py-3 px-4 text-center">
+                                      {val === undefined
+                                        ? <span className="text-muted-foreground/30 text-sm">—</span>
+                                        : val === -1
+                                        ? <span className="text-emerald-600 dark:text-emerald-400 text-sm font-semibold">Unlimited</span>
+                                        : <span className="text-sm font-semibold text-foreground">{Number(val).toLocaleString()}</span>
+                                      }
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </>
+                      )}
+
+                      {/* ── Boolean features by category (✓ / —) ─────────────────── */}
+                      {featureCategories.flatMap((cat) =>
+                        [
+                          <SectionHeader key={`hdr-${cat}`} title={cat} />,
+                          ...featuresByCategory[cat].map((code) => (
+                            <tr key={code} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                              <td className="py-3 px-6">
+                                <span className="text-sm font-medium text-foreground">
+                                  {FEATURE_INFO[code]?.label ?? code}
+                                </span>
+                              </td>
+                              {planFeatureSets.map((featureSet, pi) => (
+                                <td key={displayPlans[pi].id} className="py-3 px-4 text-center">
+                                  {featureSet.has(code)
+                                    ? <span className="text-emerald-600 dark:text-emerald-400 font-bold text-base">✓</span>
+                                    : <span className="text-muted-foreground/25 text-base">—</span>
+                                  }
+                                </td>
+                              ))}
+                            </tr>
+                          )),
+                        ]
+                      )}
+
+                      {/* ── Overage / per-unit rates ──────────────────────────────── */}
+                      {overageKeys.length > 0 && (
+                        <>
+                          <SectionHeader title="Overage & Usage Rates" />
+                          {overageKeys.map((key) => {
+                            const info = LIMIT_INFO[key];
+                            return (
+                              <tr key={key} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                                <td className="py-3 px-6">
+                                  <span className="text-sm font-medium text-foreground">
+                                    {info?.label ?? key.replace(/_/g, ' ')}
+                                  </span>
+                                  {info?.unit && (
+                                    <span className="text-xs text-muted-foreground ml-1">({info.unit})</span>
+                                  )}
+                                </td>
+                                {displayPlans.map((p) => {
+                                  const val = (p.tierLimits ?? {})[key];
+                                  return (
+                                    <td key={p.id} className="py-3 px-4 text-center">
+                                      {val !== undefined
+                                        ? <span className="text-sm font-semibold text-foreground">KES {Number(val).toLocaleString()}</span>
+                                        : <span className="text-muted-foreground/30 text-sm">—</span>
+                                      }
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          );
+        })()}
 
         {/* Annual savings CTA */}
         {billingTab !== 'ANNUAL' && billingTab !== 'ONE_TIME' && (
