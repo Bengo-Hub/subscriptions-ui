@@ -9,6 +9,10 @@ import {
   giftCredits,
   redeemCoupon,
   setupPaymentMethod,
+  setDefaultPaymentMethod,
+  deletePaymentMethod,
+  cancelSubscription,
+  undoCancelSubscription,
 } from '@/lib/api/billing'
 import { useTenantFilterStore } from '@/store/tenant-filter'
 
@@ -44,8 +48,64 @@ export function useCreditWallet() {
 
 export function useSetupPaymentMethod() {
   return useMutation({
-    mutationFn: setupPaymentMethod,
+    mutationFn: (payload?: { billing_email?: string }) => setupPaymentMethod(payload),
     onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to set up payment method'),
+  })
+}
+
+export function useSetDefaultPaymentMethod() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: (last4: string) => setDefaultPaymentMethod(last4),
+    onSuccess: () => {
+      toast.success('Default payment method updated')
+      qc.invalidateQueries({ queryKey: ['billing', tenantKey] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to update default payment method'),
+  })
+}
+
+export function useDeletePaymentMethod() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: (last4: string) => deletePaymentMethod(last4),
+    onSuccess: () => {
+      toast.success('Payment method removed')
+      qc.invalidateQueries({ queryKey: ['billing', tenantKey] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to remove payment method'),
+  })
+}
+
+export function useCancelSubscription() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: () => {
+      toast.success('Subscription cancellation scheduled — access continues until your current period ends')
+      qc.invalidateQueries({ queryKey: ['billing', tenantKey] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to cancel subscription'),
+  })
+}
+
+export function useUndoCancelSubscription() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: undoCancelSubscription,
+    onSuccess: () => {
+      toast.success('Subscription cancellation reversed — auto-renewal restored')
+      qc.invalidateQueries({ queryKey: ['billing', tenantKey] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to reverse cancellation'),
   })
 }
 

@@ -1,10 +1,18 @@
-export interface PaymentMethod {
-  type: 'card'
-  brand: string
-  last4: string
-  expiryMonth: string
-  expiryYear: string
-}
+export type PaymentMethod =
+  | {
+      type: 'card'
+      brand: string
+      last4: string
+      expiryMonth: string
+      expiryYear: string
+      isDefault?: boolean
+    }
+  | {
+      type: 'mobile_money'
+      phone: string
+      provider: string
+      isDefault?: boolean
+    }
 
 export interface Invoice {
   id: string
@@ -69,6 +77,11 @@ export interface BillingInfo {
   amount?: number
   nextAmount?: number
   currency?: string
+  /** Primary payment method (first in list / default). */
   paymentMethod?: PaymentMethod
+  /** All saved payment methods. Index 0 is the default. */
+  paymentMethods?: PaymentMethod[]
+  /** True when subscription is queued to cancel at period end. */
+  cancelAtPeriodEnd?: boolean
   invoices: Invoice[]
 }

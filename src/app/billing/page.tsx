@@ -21,10 +21,17 @@ import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { AlertCircle, Calendar, CheckCircle2, CreditCard, Download, Gift, Layers, Loader2, Package, Receipt, RefreshCw, Tag, TrendingUp, Trash2, Wallet, Zap } from 'lucide-react';
+import { AlertCircle, Calendar, CheckCircle2, CreditCard, Download, Gift, Layers, Loader2, Package, Receipt, RefreshCw, Tag, TrendingUp, Trash2, Wallet, XCircle, Zap } from 'lucide-react';
 import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
 import { usePlanAddons, usePurchasePlanAddon, useRemovePlanAddon } from '@/hooks/useCustomAddons';
 import type { PlanAddon } from '@/lib/api/addons';
+import { PaymentMethodList } from '@/components/billing/PaymentMethodList';
+import {
+  setDefaultPaymentMethod,
+  deletePaymentMethod,
+  cancelSubscription,
+  undoCancelSubscription,
+} from '@/lib/api/billing';
 
 function contrastColor(hex: string): string {
   const h = hex.replace('#', '');
@@ -37,10 +44,13 @@ function contrastColor(hex: string): string {
 
 interface PaymentMethod {
   type: string;
-  brand: string;
-  last4: string;
-  expiryMonth: string;
-  expiryYear: string;
+  brand?: string;
+  last4?: string;
+  expiryMonth?: string;
+  expiryYear?: string;
+  phone?: string;
+  provider?: string;
+  isDefault?: boolean;
 }
 
 interface Invoice {
@@ -56,6 +66,7 @@ interface Invoice {
 interface BillingInfo {
   hasSubscription?: boolean;
   paymentMethod: PaymentMethod | null;
+  paymentMethods?: PaymentMethod[];
   nextRenewalDate: string;
   nextAmount?: number;
   amount?: number;
@@ -63,6 +74,8 @@ interface BillingInfo {
   planName?: string;
   planCode?: string;
   status?: string;
+  cancelAtPeriodEnd?: boolean;
+  currentPeriodEnd?: string;
   invoices: Invoice[];
 }
 
@@ -209,6 +222,45 @@ export default function BillingPage() {
     onError: (err: any) => toast.error(err?.response?.data?.error ?? err?.message ?? 'Invalid or expired coupon code'),
   });
 
+  const setDefaultMutation = useMutation({
+    mutationFn: (last4: string) => setDefaultPaymentMethod(last4),
+    onSuccess: () => {
+      toast.success('Default payment method updated');
+      queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error ?? 'Failed to update default payment method'),
+  });
+
+  const deleteMethodMutation = useMutation({
+    mutationFn: (last4: string) => deletePaymentMethod(last4),
+    onSuccess: () => {
+      toast.success('Payment method removed');
+      queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error ?? 'Failed to remove payment method'),
+  });
+
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const cancelMutation = useMutation({
+    mutationFn: cancelSubscription,
+    onSuccess: () => {
+      toast.success('Cancellation scheduled — your subscription remains active until the current period ends');
+      setShowCancelConfirm(false);
+      queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error ?? 'Failed to cancel subscription'),
+  });
+
+  const undoCancelMutation = useMutation({
+    mutationFn: undoCancelSubscription,
+    onSuccess: () => {
+      toast.success('Cancellation reversed — auto-renewal restored');
+      queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.error ?? 'Failed to reverse cancellation'),
+  });
+
   const formatDate = (d?: string) =>
     d ? new Date(d).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
@@ -324,68 +376,103 @@ export default function BillingPage() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Payment Method */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Payment Method</h2>
+      {/* Payment Methods — full-width card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold">Payment Methods</h2>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex gap-4">
+              <div className="h-44 w-72 bg-muted rounded-2xl animate-pulse" />
+              <div className="h-44 w-44 bg-muted/40 rounded-2xl animate-pulse" />
             </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2">
-                <div className="h-5 w-40 bg-muted rounded animate-pulse" />
-                <div className="h-4 w-28 bg-muted rounded animate-pulse" />
-              </div>
-            ) : data?.paymentMethod ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-14 rounded-md bg-muted flex items-center justify-center text-xs font-bold uppercase">
-                    {data.paymentMethod.brand}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">&bull;&bull;&bull;&bull; {data.paymentMethod.last4}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Expires {data.paymentMethod.expiryMonth}/{data.paymentMethod.expiryYear}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setupMutation.mutate()}
-                  disabled={setupMutation.isPending}
-                  style={{ borderColor: brandColor, color: brandColor }}
-                >
-                  {setupMutation.isPending ? 'Starting…' : 'Update Card'}
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4 py-6">
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <CreditCard className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium">No payment method on file</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add a card to enable subscription auto-renewal.
-                    A KES 5 verification charge will be refunded automatically after your card is saved.
+          ) : (
+            <PaymentMethodList
+              methods={(data?.paymentMethods ?? (data?.paymentMethod ? [data.paymentMethod] : [])) as any}
+              status={data?.status}
+              cancelAtPeriodEnd={data?.cancelAtPeriodEnd}
+              onAddMethod={() => setupMutation.mutate()}
+              onSetDefault={(last4) => setDefaultMutation.mutate(last4)}
+              onRemove={(last4) => deleteMethodMutation.mutate(last4)}
+              isPendingDefault={setDefaultMutation.isPending}
+              isPendingRemove={deleteMethodMutation.isPending}
+              isSetupPending={setupMutation.isPending}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cancellation banner / action */}
+      {data?.hasSubscription && (
+        <Card className="border-destructive/20">
+          <CardContent className="pt-4">
+            {data.cancelAtPeriodEnd ? (
+              <div className="flex items-start gap-3">
+                <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-destructive">Subscription cancellation scheduled</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Your subscription will remain active until{' '}
+                    <span className="font-medium">{data.currentPeriodEnd ? new Date(data.currentPeriodEnd).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }) : 'the end of your billing period'}</span>.
+                    No charge will be made after that date.
                   </p>
                 </div>
                 <Button
-                  onClick={() => setupMutation.mutate()}
-                  disabled={setupMutation.isPending}
-                  className="w-full font-semibold shadow-sm"
-                  style={{ backgroundColor: brandColor, color: brandTextColor }}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => undoCancelMutation.mutate()}
+                  disabled={undoCancelMutation.isPending}
+                  className="shrink-0"
                 >
-                  {setupMutation.isPending ? 'Setting up…' : '+ Add Payment Method'}
+                  {undoCancelMutation.isPending ? 'Restoring…' : 'Undo Cancellation'}
                 </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">
+                    Need to cancel? Your subscription stays active until your current period ends —{' '}
+                    {data.currentPeriodEnd
+                      ? new Date(data.currentPeriodEnd).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })
+                      : 'no immediate interruption'}.
+                  </p>
+                </div>
+                {!showCancelConfirm ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={() => setShowCancelConfirm(true)}
+                  >
+                    Cancel Subscription
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-destructive font-medium">Confirm cancellation?</span>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => cancelMutation.mutate()}
+                      disabled={cancelMutation.isPending}
+                    >
+                      {cancelMutation.isPending ? 'Cancelling…' : 'Yes, Cancel'}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowCancelConfirm(false)}>
+                      Keep Plan
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
         </Card>
+      )}
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
         {/* Auto-Renew Status */}
         <Card>
