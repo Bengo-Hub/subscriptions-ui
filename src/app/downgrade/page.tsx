@@ -21,9 +21,10 @@ interface Plan {
 
 interface CurrentSubscription {
   id: string;
-  planCode: string;
+  plan_code: string;
+  plan_name?: string;
   status: string;
-  currentPeriodEnd: string;
+  current_period_end: string;
 }
 
 function formatDate(iso: string): string {
@@ -96,7 +97,7 @@ function DowngradeContent() {
         ]);
         const target = unwrap(targetResp);
         // sub uses snake_case: plan_code (not planCode)
-        const subPlanCode = (sub as any)?.plan_code ?? sub?.planCode;
+        const subPlanCode = sub?.plan_code;
         const current = subPlanCode
           ? unwrap(await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${subPlanCode}`))
           : null;
@@ -307,7 +308,7 @@ function DowngradeContent() {
                       <p className="font-black text-sm">At period end</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Keep current plan until{' '}
-                        {currentSub ? formatDate(currentSub.currentPeriodEnd) : 'end of cycle'}.
+                        {currentSub?.current_period_end ? formatDate(currentSub.current_period_end) : 'end of cycle'}.
                         No charge today.
                       </p>
                     </div>

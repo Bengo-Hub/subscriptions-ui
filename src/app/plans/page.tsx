@@ -77,14 +77,15 @@ interface CurrentSubscription {
   current_period_end: string;
 }
 
-type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'MarketFlow';
+type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Complete' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'MarketFlow';
 type BillingTab = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
 
-const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
-const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
+const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Complete', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
+const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'Complete', 'POS', 'TruLoad', 'Inventory', 'ERP', 'Logistics', 'MarketFlow'];
 
 function planService(code: string | null | undefined): ServiceTab {
   if (!code) return 'All';
+  if (code.startsWith('COMPLETE_')) return 'Complete';
   if (code.startsWith('ORDERING_') || /^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
   if (code.startsWith('POS_')) return 'POS';
   if (code.startsWith('INVENTORY_')) return 'Inventory';
@@ -100,7 +101,8 @@ function stripServicePrefix(planCode: string | null | undefined, service: Servic
   let stripped = planCode;
   switch (service) {
     case 'Ordering': stripped = planCode.replace(/_YEARLY$/, ''); break;
-    case 'POS': stripped = planCode.replace(/^POS_/, ''); break;
+    case 'Complete': stripped = planCode.replace(/^COMPLETE_/, '').replace(/_YEARLY$/, ''); break;
+    case 'POS': stripped = planCode.replace(/^POS_SUITE_/, '').replace(/^POS_/, ''); break;
     case 'Inventory': stripped = planCode.replace(/^INVENTORY_/, ''); break;
     case 'ERP': stripped = planCode.replace(/^ERP_/, ''); break;
     case 'Logistics': stripped = planCode.replace(/^LOGISTICS_/, ''); break;

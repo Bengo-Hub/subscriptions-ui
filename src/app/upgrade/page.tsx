@@ -22,10 +22,11 @@ interface Plan {
 
 interface CurrentSubscription {
   id: string;
-  planId: string;
-  planCode: string;
+  plan_code: string;
+  plan_name: string;
   status: string;
-  currentPeriodEnd: string;
+  current_period_end: string;
+  current_period_start?: string;
 }
 
 interface InitiateResult {
@@ -87,7 +88,7 @@ function UpgradeContent() {
         ]);
         const target = unwrap(targetResp);
         // sub uses snake_case: plan_code (not planCode)
-        const subPlanCode = (sub as any)?.plan_code ?? sub?.planCode;
+        const subPlanCode = sub?.plan_code;
         const current = subPlanCode
           ? unwrap(await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${subPlanCode}`))
           : null;
@@ -155,12 +156,13 @@ function UpgradeContent() {
     );
   }
 
-  const daysLeft = currentSub ? daysRemaining(currentSub.currentPeriodEnd) : 0;
+  const periodEnd = currentSub?.current_period_end ?? '';
+  const daysLeft = periodEnd ? daysRemaining(periodEnd) : 0;
   const priceDiff = targetPlan.basePrice - (currentPlan?.basePrice ?? 0);
-  const proratedAmount = currentSub
+  const proratedAmount = (currentSub && daysLeft > 0)
     ? Math.round((priceDiff / 30) * daysLeft)
     : targetPlan.basePrice;
-  const amountDue = currentSub ? proratedAmount : targetPlan.basePrice;
+  const amountDue = (currentSub && priceDiff > 0) ? proratedAmount : targetPlan.basePrice;
 
   return (
     <>
@@ -171,10 +173,11 @@ function UpgradeContent() {
           paymentIntentId={intentId}
           tenantSlug={user?.tenant_slug ?? ''}
           initiateUrl={initiateUrl}
-          amount={amountDue}
+          amount={Number.isFinite(amountDue) ? amountDue : targetPlan.basePrice}
           currency={targetPlan.currency || 'KES'}
           referenceType="subscription"
           customerEmail={user?.email}
+          allowedMethods="paystack,mpesa"
           onPaymentConfirmed={() => {
             setPaymentOpen(false);
             router.push('/usage?checkout=success');
@@ -328,17 +331,17 @@ function UpgradeContent() {
                       <span className="font-bold">{targetPlan.currency} {proratedAmount.toLocaleString()}</span>
                     </div>
                   )}
-                  {currentSub && (
+                  {currentSub && periodEnd && (
                     <div className="flex justify-between items-center py-2 text-xs text-muted-foreground">
                       <span>Next billing date</span>
-                      <span className="font-bold">{formatDate(currentSub.currentPeriodEnd)}</span>
+                      <span className="font-bold">{formatDate(periodEnd)}</span>
                     </div>
                   )}
                   <div className="border-t border-border pt-4 mt-4 flex justify-between items-end">
                     <div>
                       <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Due Today</span>
                       <p className="text-3xl font-black mt-1">
-                        {targetPlan.currency} {amountDue.toLocaleString()}
+                        {targetPlan.currency} {Number.isFinite(amountDue) ? amountDue.toLocaleString() : targetPlan.basePrice.toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -351,7 +354,8 @@ function UpgradeContent() {
                 )}
 
                 <Button
-                  className="w-full h-16 rounded-2xl font-black text-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  variant="primary"
+                  className="w-full h-16 rounded-2xl font-black text-xl transition-all hover:scale-[1.02] active:scale-[0.98] bg-primary text-white hover:bg-primary/90"
                   onClick={handleUpgrade}
                   disabled={initiating}
                 >

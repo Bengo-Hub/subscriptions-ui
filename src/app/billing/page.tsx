@@ -147,11 +147,13 @@ export default function BillingPage() {
 
   const [couponCode, setCouponCode] = useState('');
 
+  const billingEmail = settings?.billingEmail || user?.email || '';
+
   const setupMutation = useMutation({
     mutationFn: () =>
       apiClient.post<{ initiate_url: string; payment_intent_id: string }>(
         '/api/v1/subscription/payment-method/setup',
-        {},
+        billingEmail ? { billing_email: billingEmail } : {},
       ),
     onSuccess: (res) =>
       setPaymentSetup({ initiateUrl: res.initiate_url, intentId: res.payment_intent_id }),
@@ -205,10 +207,11 @@ export default function BillingPage() {
         paymentIntentId={paymentSetup.intentId}
         tenantSlug={user?.tenant_slug ?? ''}
         initiateUrl={paymentSetup.initiateUrl}
-        amount={0}
+        amount={1}
         currency="KES"
         referenceType="card_setup"
-        customerEmail={user?.email}
+        customerEmail={billingEmail || user?.email}
+        allowedMethods="paystack,mpesa"
         onPaymentConfirmed={() => {
           setPaymentSetup(null);
           queryClient.invalidateQueries({ queryKey: ['billing', tenantKey] });

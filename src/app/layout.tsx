@@ -1,17 +1,29 @@
 import '@/app/globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { DM_Sans, Outfit, JetBrains_Mono } from 'next/font/google';
 import { ReactNode } from 'react';
 import { AppShell } from '@/components/app-shell';
+import { ThemeProvider } from '@/components/theme-provider';
 
-const geistSans = Geist({
+const dmSans = DM_Sans({
     subsets: ['latin'],
-    variable: '--font-geist-sans',
+    variable: '--font-dm-sans',
+    display: 'swap',
+    weight: ['400', '500', '600', '700'],
 });
 
-const geistMono = Geist_Mono({
+const outfit = Outfit({
     subsets: ['latin'],
-    variable: '--font-geist-mono',
+    variable: '--font-outfit',
+    display: 'swap',
+    weight: ['400', '500', '600', '700', '800', '900'],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+    subsets: ['latin'],
+    variable: '--font-jetbrains',
+    display: 'swap',
+    weight: ['400', '500'],
 });
 
 export const metadata: Metadata = {
@@ -37,16 +49,27 @@ export const viewport: Viewport = {
     userScalable: true,
     viewportFit: 'cover',
     themeColor: [
-        { media: '(prefers-color-scheme: dark)', color: '#43170d' },
-        { color: '#6b2a1b' },
+        { media: '(prefers-color-scheme: dark)', color: '#1c0f02' },
+        { media: '(prefers-color-scheme: light)', color: '#ea8022' },
     ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
     return (
-        <html lang="en" suppressHydrationWarning>
-            <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-dvh overflow-x-hidden`}>
-                <AppShell>{children}</AppShell>
+        <html
+            lang="en"
+            suppressHydrationWarning
+            className={`${dmSans.variable} ${outfit.variable} ${jetbrainsMono.variable}`}
+        >
+            <body className="font-sans antialiased min-h-dvh overflow-x-hidden">
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="light"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <AppShell>{children}</AppShell>
+                </ThemeProvider>
             </body>
         </html>
     );

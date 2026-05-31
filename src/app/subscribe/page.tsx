@@ -168,6 +168,7 @@ function SubscribeContent() {
           currency={plan.currency || 'KES'}
           referenceType="subscription"
           customerEmail={user?.email}
+          allowedMethods="paystack,mpesa"
           onPaymentConfirmed={() => {
             setPaymentOpen(false);
             router.push('/usage?checkout=success');
