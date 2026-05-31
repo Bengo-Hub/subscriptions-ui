@@ -6,19 +6,19 @@ export const listConfigs = () =>
 
 export const createConfig = (req: ServiceConfigCreateRequest) =>
   apiClient.post<ServiceConfig>('/api/v1/admin/configs', {
-    config_key: req.configKey,
-    config_value: req.configValue,
-    config_type: req.configType ?? 'string',
+    configKey: req.configKey,
+    configValue: req.configValue,
+    configType: req.configType ?? 'string',
     description: req.description,
-    is_secret: req.isSecret ?? false,
+    isSecret: req.isSecret ?? false,
   })
 
 export const updateConfig = (id: string, req: ServiceConfigUpdateRequest) =>
   apiClient.put<ServiceConfig>(`/api/v1/admin/configs/${id}`, {
-    config_value: req.configValue,
-    config_type: req.configType,
+    configValue: req.configValue,
+    configType: req.configType,
     description: req.description,
-    is_secret: req.isSecret,
+    isSecret: req.isSecret,
   })
 
 export const deleteConfig = (id: string) =>

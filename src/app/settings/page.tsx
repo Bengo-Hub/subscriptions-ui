@@ -596,6 +596,14 @@ function IntegrationsSection() {
   const [testStatus, setTestStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
   const [saving, setSaving] = useState(false);
 
+  // Load existing configs to find allowed_origins for upsert
+  const { data: configData } = useQuery({
+    queryKey: ['admin-service-configs'],
+    queryFn: () => apiClient.get<{ data: ServiceConfig[]; total: number }>('/api/v1/admin/configs'),
+    staleTime: 60_000,
+  });
+  const allConfigs = configData?.data ?? [];
+
   const testAuthConnection = async () => {
     setTestStatus('loading');
     try {
@@ -610,10 +618,21 @@ function IntegrationsSection() {
     if (!allowedOrigins.trim()) { toast.success('No changes to save'); return; }
     setSaving(true);
     try {
-      await apiClient.put('/api/v1/admin/config/allowed_origins', {
-        config_value: allowedOrigins,
-        config_type: 'string',
-      });
+      const existing = allConfigs.find((c) => c.configKey === 'allowed_origins');
+      if (existing) {
+        await apiClient.put(`/api/v1/admin/configs/${existing.id}`, {
+          configValue: allowedOrigins,
+          configType: 'string',
+        });
+      } else {
+        await apiClient.post('/api/v1/admin/configs', {
+          configKey: 'allowed_origins',
+          configValue: allowedOrigins,
+          configType: 'string',
+          description: 'Allowed CORS origins (comma-separated)',
+          isSecret: false,
+        });
+      }
       toast.success('Integrations settings saved');
     } catch {
       toast.error('Failed to save');
