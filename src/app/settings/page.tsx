@@ -584,7 +584,7 @@ function TenantSettingsView({ viewingTenant }: { viewingTenant?: { id: string; n
 // ── Integrations Section ──────────────────────────────────────────────────────
 
 const AUTH_API_URL_DEFAULT = process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexitsolutions.com';
-const SUBS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://subscriptionsapi.codevertexitsolutions.com';
+const SUBS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pricingapi.codevertexitsolutions.com';
 
 function IntegrationsSection() {
   const { tenant } = useTenantBranding();
