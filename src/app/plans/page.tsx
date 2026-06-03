@@ -86,11 +86,11 @@ interface CurrentSubscription {
   current_period_end: string;
 }
 
-type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Complete' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'MarketFlow';
+type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Complete' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'Transporter Portal' | 'MarketFlow';
 type BillingTab = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
 
-const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Complete', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'MarketFlow'];
-const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'Complete', 'POS', 'TruLoad', 'Inventory', 'ERP', 'Logistics', 'MarketFlow'];
+const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Complete', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'Transporter Portal', 'MarketFlow'];
+const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'Complete', 'POS', 'TruLoad', 'Transporter Portal', 'Inventory', 'ERP', 'Logistics', 'MarketFlow'];
 
 function planService(code: string | null | undefined): ServiceTab {
   if (!code) return 'All';
@@ -100,7 +100,11 @@ function planService(code: string | null | undefined): ServiceTab {
   if (code.startsWith('INVENTORY_')) return 'Inventory';
   if (code.startsWith('ERP_')) return 'ERP';
   if (code.startsWith('LOGISTICS_')) return 'Logistics';
-  if (code.startsWith('TRULOAD_') || code.startsWith('TRANSPORTER_')) return 'TruLoad';
+  // Transporter portal (data-consumer) plans are billed under the TruLoad service
+  // but are a distinct audience/use-case from the commercial weighbridge-operator
+  // plans, so they get their own tab. Check TRANSPORTER_ before TRULOAD_.
+  if (code.startsWith('TRANSPORTER_')) return 'Transporter Portal';
+  if (code.startsWith('TRULOAD_')) return 'TruLoad';
   if (code.startsWith('MARKETFLOW_')) return 'MarketFlow';
   return 'All';
 }
@@ -115,7 +119,8 @@ function stripServicePrefix(planCode: string | null | undefined, service: Servic
     case 'Inventory': stripped = planCode.replace(/^INVENTORY_/, ''); break;
     case 'ERP': stripped = planCode.replace(/^ERP_/, ''); break;
     case 'Logistics': stripped = planCode.replace(/^LOGISTICS_/, ''); break;
-    case 'TruLoad': stripped = planCode.replace(/^TRULOAD_/, '').replace(/^TRANSPORTER_/, '').replace(/_YEARLY$/, ''); break;
+    case 'TruLoad': stripped = planCode.replace(/^TRULOAD_/, '').replace(/_YEARLY$/, ''); break;
+    case 'Transporter Portal': stripped = planCode.replace(/^TRANSPORTER_/, '').replace(/_YEARLY$/, ''); break;
     case 'MarketFlow': stripped = planCode.replace(/^MARKETFLOW_/, '').replace(/_YEARLY$/, ''); break;
   }
   return stripped.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
@@ -245,6 +250,16 @@ const FEATURE_INFO: Record<string, { label: string; category: string }> = {
   multi_department:         { label: 'Multi-Department Structure',           category: 'ERP' },
   approval_workflows:       { label: 'Approval Workflows',                   category: 'ERP' },
   custom_workflows:         { label: 'Custom Workflows',                     category: 'ERP' },
+  // Transporter Portal (data-consumer self-service — see truload-docs/portal)
+  portal_access:            { label: 'Transporter Portal Access',             category: 'Transporter Portal' },
+  ticket_download:          { label: 'Weight Ticket Downloads (PDF)',         category: 'Transporter Portal' },
+  email_notifications:      { label: 'Email Notifications',                   category: 'Transporter Portal' },
+  multi_site_access:        { label: 'Cross-Site (Multi-Tenant) History',     category: 'Transporter Portal' },
+  data_export:              { label: 'CSV / Bulk Data Export',                category: 'Transporter Portal' },
+  driver_reports:           { label: 'Driver Trip Reports',                   category: 'Transporter Portal' },
+  vehicle_trends:           { label: 'Vehicle Utilisation Trends',            category: 'Transporter Portal' },
+  consignment_tracking:     { label: 'Consignment Tracking',                  category: 'Transporter Portal' },
+  analytics:                { label: 'Advanced Fleet Analytics',              category: 'Transporter Portal' },
   // Branding (all tiers — auth-ui branding tab syncs logo/colors to all services)
   custom_branding:          { label: 'Custom Branding (Logo, Colors, Font)',  category: 'Platform & API' },
   // Platform / API
@@ -334,6 +349,8 @@ const COMPARISON_FEATURES = [
   'dedicated_account_manager',
   'hr_management', 'payroll', 'leave_management', 'asset_management',
   'approval_workflows', 'custom_workflows',
+  'portal_access', 'ticket_download', 'email_notifications', 'multi_site_access',
+  'data_export', 'driver_reports', 'vehicle_trends', 'consignment_tracking', 'analytics',
   'custom_branding',
   'basic_analytics', 'advanced_analytics', 'api_access', 'webhooks',
   'custom_integrations', 'audit_trail', 'priority_support', 'premium_support',
@@ -671,6 +688,8 @@ function TenantPlansView() {
     const map: Record<string, ServiceTab> = {
       ordering: 'Ordering', pos: 'POS', inventory: 'Inventory',
       erp: 'ERP', logistics: 'Logistics', truload: 'TruLoad', marketflow: 'MarketFlow',
+      transporter: 'Transporter Portal', portal: 'Transporter Portal',
+      transporter_portal: 'Transporter Portal', 'transporter-portal': 'Transporter Portal',
     };
     return map[serviceParam.toLowerCase()] ?? 'Ordering';
   };
@@ -695,6 +714,26 @@ function TenantPlansView() {
   const allPlans: Plan[] = plansResponse?.data ?? [];
   const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
+
+  // Real annual savings for the active service: max % saved across each annual
+  // plan vs its monthly counterpart (matched by tierOrder). Different services
+  // are priced differently (e.g. transporter annual ≈10 months ⇒ ~17%, commercial
+  // ≈11 months ⇒ ~8%), so this is computed rather than hardcoded.
+  const annualSavingsPct = (() => {
+    let best = 0;
+    for (const annual of servicePlans) {
+      if (!isAnnualPlan(annual) || isOneTimePlan(annual)) continue;
+      const monthly = servicePlans.find(
+        (p) => !isAnnualPlan(p) && !isOneTimePlan(p) && p.tierOrder === annual.tierOrder,
+      );
+      const monthlyTotal = (monthly?.basePrice ?? 0) * 12;
+      if (!monthly || monthlyTotal <= 0) continue;
+      const pct = 1 - (annual.basePrice ?? 0) / monthlyTotal;
+      if (pct > best) best = pct;
+    }
+    return Math.round(best * 100);
+  })();
+  const hasAnnualSavings = annualSavingsPct > 0;
   const displayPlans = servicePlans
     .filter((p) => {
       if (billingTab === 'ONE_TIME') return isOneTimePlan(p);
@@ -783,7 +822,7 @@ function TenantPlansView() {
               )}
             >
               {tab === 'MONTHLY' ? 'Monthly' : tab === 'ANNUAL' ? (
-                <>Annual <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">SAVE 17%</span></>
+                <>Annual {hasAnnualSavings && <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">SAVE {annualSavingsPct}%</span>}</>
               ) : 'One-Time'}
             </button>
           ))}
@@ -1158,7 +1197,7 @@ function TenantPlansView() {
         })()}
 
         {/* Annual savings CTA */}
-        {billingTab !== 'ANNUAL' && billingTab !== 'ONE_TIME' && (
+        {billingTab !== 'ANNUAL' && billingTab !== 'ONE_TIME' && hasAnnualSavings && (
           <Card className="rounded-2xl border border-border mb-12 overflow-hidden">
             <CardContent className="p-8">
               <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -1167,9 +1206,9 @@ function TenantPlansView() {
                     <Zap className="h-5 w-5 text-primary" />
                     <span className="text-xs font-bold uppercase tracking-widest text-primary">Annual Billing</span>
                   </div>
-                  <h3 className="text-2xl font-black text-foreground mb-3">Save up to 17% annually</h3>
+                  <h3 className="text-2xl font-black text-foreground mb-3">Save up to {annualSavingsPct}% annually</h3>
                   <p className="text-muted-foreground leading-relaxed mb-6">
-                    Switch to annual billing and get the equivalent of one month free. Cancel anytime.
+                    Switch to annual billing and save on every plan. Cancel anytime.
                   </p>
                   <Button
                     variant="outline"
