@@ -30,15 +30,18 @@ interface Tenant {
   planCode?: string;
 }
 
-type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad';
-const SERVICE_TABS: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad'];
+type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'Transporter Portal';
+const SERVICE_TABS: ServiceTab[] = ['All', 'Ordering', 'POS', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'Transporter Portal'];
 
 function planService(code: string): ServiceTab {
   if (code.startsWith('POS_')) return 'POS';
   if (code.startsWith('INVENTORY_')) return 'Inventory';
   if (code.startsWith('ERP_')) return 'ERP';
   if (code.startsWith('LOGISTICS_')) return 'Logistics';
-  if (code.startsWith('TRULOAD_') || code.startsWith('TRANSPORTER_')) return 'TruLoad';
+  // Transporter portal plans are billed under TruLoad but target a distinct
+  // audience (data consumers), so they are surfaced as their own group.
+  if (code.startsWith('TRANSPORTER_')) return 'Transporter Portal';
+  if (code.startsWith('TRULOAD_')) return 'TruLoad';
   if (/^(STARTER|GROWTH|PROFESSIONAL)/.test(code)) return 'Ordering';
   return 'All';
 }
