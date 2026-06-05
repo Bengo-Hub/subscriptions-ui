@@ -118,6 +118,16 @@ class ApiClient {
   public delete<T>(url: string, data?: any): Promise<T> {
     return this.instance.delete<T>(url, { data }).then((res: AxiosResponse<T>) => res.data);
   }
+
+  /** Fetch a binary (e.g. PDF) as a Blob, parsing the filename from Content-Disposition. */
+  public async getBlob(url: string, fallbackName = 'download.pdf', params?: any): Promise<{ blob: Blob; fileName: string }> {
+    const res = await this.instance.get(url, { params, responseType: 'blob' });
+    let fileName = fallbackName;
+    const cd = (res.headers?.['content-disposition'] as string | undefined) ?? '';
+    const m = /filename="?([^"]+)"?/.exec(cd);
+    if (m) fileName = m[1];
+    return { blob: res.data as Blob, fileName };
+  }
 }
 
 export const apiClient = new ApiClient();

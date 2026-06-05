@@ -17,7 +17,12 @@ import {
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Pencil, Search, Users, X } from 'lucide-react';
+import { Download, FileText, Loader2, Pencil, Search, Send, Users, X } from 'lucide-react';
+import {
+  useDownloadInvoicePdf,
+  useGenerateInvoice,
+  useResendInvoice,
+} from '@/hooks/useSubscriptionInvoices';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -95,6 +100,10 @@ export default function PlatformSubscriptionsPage() {
     },
     onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to update subscription'),
   });
+
+  const generateInvoice = useGenerateInvoice();
+  const resendInvoice = useResendInvoice();
+  const downloadInvoice = useDownloadInvoicePdf();
 
   const openEdit = (sub: TenantSubscription) => {
     setEditing(sub);
@@ -238,15 +247,50 @@ export default function PlatformSubscriptionsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right pr-6">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEdit(sub)}
-                          className="h-8 w-8 rounded-lg hover:bg-blue-500/10 hover:text-blue-500"
-                          title="Edit subscription"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!sub.tenantId || generateInvoice.isPending}
+                            onClick={() => sub.tenantId && generateInvoice.mutate({ tenantId: sub.tenantId })}
+                            className="h-8 w-8 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-600"
+                            title="Generate & email invoice"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!sub.tenantId || resendInvoice.isPending}
+                            onClick={() => sub.tenantId && resendInvoice.mutate({ tenantId: sub.tenantId })}
+                            className="h-8 w-8 rounded-lg hover:bg-amber-500/10 hover:text-amber-600"
+                            title="Resend latest invoice email"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={!sub.tenantId || downloadInvoice.isPending}
+                            onClick={() =>
+                              sub.tenantId &&
+                              downloadInvoice.mutate({ tenantId: sub.tenantId, fileName: `${sub.tenantSlug}-invoice.pdf` })
+                            }
+                            className="h-8 w-8 rounded-lg hover:bg-indigo-500/10 hover:text-indigo-600"
+                            title="Download latest invoice PDF"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEdit(sub)}
+                            className="h-8 w-8 rounded-lg hover:bg-blue-500/10 hover:text-blue-500"
+                            title="Edit subscription"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
