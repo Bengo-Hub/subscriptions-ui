@@ -21,6 +21,8 @@ import {
   TableRow,
 } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
+import { listFeatureCatalog } from '@/lib/api/feature-catalog';
+import type { FeatureDefinition } from '@/types/feature-catalog';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -41,7 +43,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useState, type Dispatch, type SetStateAction } from 'react';
 import { toast } from 'sonner';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
@@ -72,6 +74,8 @@ interface Plan {
   isPublic: boolean;
   tierOrder: number;
   tierLimits: Record<string, any>;
+  planType?: 'TIERED' | 'STANDALONE_SERVICE' | 'BUNDLE' | 'CUSTOM';
+  serviceTag?: string;
   freeTrialDays: number;
   discountRules: DiscountRule[];
   features?: PlanFeature[];
@@ -358,12 +362,133 @@ const COMPARISON_FEATURES = [
 
 // ─── Admin (platform owner) view ─────────────────────────────────────────────
 
-const emptyForm: Partial<Plan> = { name: '', planCode: '', description: '', basePrice: 0, billingCycle: 'MONTHLY', currency: 'KES', isActive: true, isPublic: true, tierOrder: 1, tierLimits: {}, freeTrialDays: 14, discountRules: [] };
+const emptyForm: Partial<Plan> = { name: '', planCode: '', description: '', basePrice: 0, billingCycle: 'MONTHLY', currency: 'KES', isActive: true, isPublic: true, tierOrder: 1, tierLimits: {}, planType: 'TIERED', serviceTag: '', freeTrialDays: 14, discountRules: [] };
+
+// Service tags as stored on plans / in the feature catalog (service_tag column).
+const SERVICE_TAGS = ['ordering', 'pos', 'inventory', 'treasury', 'logistics', 'erp', 'marketflow', 'truload', 'transporter_portal', 'isp_billing', 'projects', 'platform'] as const;
+const PLAN_TYPES = ['TIERED', 'STANDALONE_SERVICE', 'BUNDLE', 'CUSTOM'] as const;
+const serviceTagLabel = (t: string) => t.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 type TierLimitEntry = { key: string; value: string };
 const toLimitEntries = (limits: Record<string, any>): TierLimitEntry[] => Object.entries(limits).map(([k, v]) => ({ key: k, value: String(v) }));
 const fromLimitEntries = (entries: TierLimitEntry[]) => Object.fromEntries(entries.filter((e) => e.key.trim()).map(({ key, value }) => { const n = Number(value); return [key.trim(), isNaN(n) ? value : n]; }));
 
 type FeatureEntry = { featureCode: string; isIncluded: boolean; limitValue: string; overageUnitPrice: string };
+
+// ─── Catalog-driven feature/limit picker ─────────────────────────────────────
+// Loads the platform feature catalog for a chosen service, grouped by category,
+// and lets the platform owner toggle features (→ featureEntries) and limits
+// (→ tierEntries) in/out of the plan. Keeps the manual editors below as a fallback.
+function CatalogFeaturePicker({
+  catalog,
+  isLoading,
+  selectedService,
+  onSelectService,
+  featureEntries,
+  setFeatureEntries,
+  tierEntries,
+  setTierEntries,
+}: {
+  catalog: FeatureDefinition[];
+  isLoading: boolean;
+  selectedService: string;
+  onSelectService: (s: string) => void;
+  featureEntries: FeatureEntry[];
+  setFeatureEntries: Dispatch<SetStateAction<FeatureEntry[]>>;
+  tierEntries: TierLimitEntry[];
+  setTierEntries: Dispatch<SetStateAction<TierLimitEntry[]>>;
+}) {
+  const services = Array.from(new Set(catalog.map((c) => c.serviceTag))).sort();
+  const forService = catalog.filter((c) => c.serviceTag === selectedService);
+  const byCategory = forService.reduce<Record<string, FeatureDefinition[]>>((acc, f) => {
+    (acc[f.category] ??= []).push(f);
+    return acc;
+  }, {});
+
+  const hasFeature = (code: string) => featureEntries.some((e) => e.featureCode === code && e.isIncluded);
+  const hasLimit = (code: string) => tierEntries.some((e) => e.key === code);
+
+  const toggleFeature = (f: FeatureDefinition) => {
+    setFeatureEntries((prev) => {
+      if (prev.some((e) => e.featureCode === f.featureCode)) {
+        return prev.filter((e) => e.featureCode !== f.featureCode);
+      }
+      return [...prev, { featureCode: f.featureCode, isIncluded: true, limitValue: '', overageUnitPrice: '0' }];
+    });
+  };
+
+  const toggleLimit = (f: FeatureDefinition) => {
+    setTierEntries((prev) => {
+      if (prev.some((e) => e.key === f.featureCode)) {
+        return prev.filter((e) => e.key !== f.featureCode);
+      }
+      const def = f.defaultLimit != null ? String(f.defaultLimit) : '-1';
+      return [...prev, { key: f.featureCode, value: def }];
+    });
+  };
+
+  const inPlanCount = forService.filter((f) => (f.kind === 'LIMIT' ? hasLimit(f.featureCode) : hasFeature(f.featureCode))).length;
+
+  return (
+    <div className="space-y-3 pt-2 border-t border-border">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Add Features from Catalog</label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{inPlanCount} of {forService.length} in plan</span>
+          <select
+            value={selectedService}
+            onChange={(e) => onSelectService(e.target.value)}
+            className="h-9 rounded-lg border border-input bg-transparent px-3 text-xs font-medium"
+          >
+            {services.length === 0 && <option value="">No services</option>}
+            {services.map((s) => (
+              <option key={s} value={s}>{serviceTagLabel(s)}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground italic">Loading catalog…</p>
+      ) : forService.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">No catalog features for this service. Run the seed to populate the catalog, or use the manual editors below.</p>
+      ) : (
+        <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+          {Object.entries(byCategory).map(([category, defs]) => (
+            <div key={category} className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-foreground/80 sticky top-0 bg-card py-1">{category}</p>
+              <div className="grid sm:grid-cols-2 gap-1.5">
+                {defs.map((f) => {
+                  const isLimit = f.kind === 'LIMIT';
+                  const active = isLimit ? hasLimit(f.featureCode) : hasFeature(f.featureCode);
+                  return (
+                    <label
+                      key={f.featureCode}
+                      className={cn('flex items-start gap-2 rounded-lg border px-2.5 py-1.5 cursor-pointer transition-colors', active ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-accent/40')}
+                      title={f.description || f.featureCode}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={active}
+                        onChange={() => (isLimit ? toggleLimit(f) : toggleFeature(f))}
+                        className="h-3.5 w-3.5 rounded mt-0.5 shrink-0"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-xs font-medium truncate">{f.label}</span>
+                        <span className="block text-[10px] text-muted-foreground font-mono truncate">
+                          {f.featureCode}{isLimit ? ` · limit${f.unit ? ' ' + f.unit : ''}` : ''}{f.isRateLimited ? ' · metered' : ''}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AdminPlansView() {
   const qc = useQueryClient();
@@ -373,11 +498,20 @@ function AdminPlansView() {
   const [form, setForm] = useState<Partial<Plan>>(emptyForm);
   const [tierEntries, setTierEntries] = useState<TierLimitEntry[]>([]);
   const [featureEntries, setFeatureEntries] = useState<FeatureEntry[]>([]);
+  const [catalogService, setCatalogService] = useState<string>('ordering');
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans-admin'],
     queryFn: () => apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans', { limit: 500 }).then((r) => r.data ?? []),
   });
+
+  // Platform feature/limit catalog — powers the service-grouped feature picker.
+  const { data: catalogData, isLoading: catalogLoading } = useQuery({
+    queryKey: ['feature-catalog'],
+    queryFn: () => listFeatureCatalog().then((r) => r.features ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+  const catalog = catalogData ?? [];
 
   const plans = (data ?? []).filter((p) => serviceTab === 'All' || planService(p.planCode) === serviceTab);
 
@@ -397,7 +531,7 @@ function AdminPlansView() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to delete plan'),
   });
 
-  const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setFeatureEntries([]); setShowForm(true); };
+  const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setFeatureEntries([]); setCatalogService('ordering'); setShowForm(true); };
 
   // Fetch plan by ID for fresh data (bypasses service list cache) so freeTrialDays and
   // feature overageUnitPrice are always current even right after an update.
@@ -408,6 +542,7 @@ function AdminPlansView() {
       const fresh = await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/${p.id}`);
       const planData: Plan = (fresh as any)?.plan ?? (fresh as Plan);
       setForm({ ...planData, freeTrialDays: planData.freeTrialDays, isPublic: planData.isPublic ?? true, discountRules: planData.discountRules ?? [] });
+      if (planData.serviceTag) setCatalogService(planData.serviceTag);
       setTierEntries(toLimitEntries(planData.tierLimits ?? {}));
       setFeatureEntries((planData.features ?? []).map((f) => ({
         featureCode: f.featureCode,
@@ -497,6 +632,23 @@ function AdminPlansView() {
                   <option value="ONE_TIME">One-Time</option>
                 </select>
               </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plan Type</label>
+                <select value={form.planType ?? 'TIERED'} onChange={(e) => setForm((p) => ({ ...p, planType: e.target.value as Plan['planType'] }))} className="flex h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm font-medium">
+                  {PLAN_TYPES.map((t) => <option key={t} value={t}>{serviceTagLabel(t.toLowerCase())}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Service</label>
+                <select
+                  value={form.serviceTag ?? ''}
+                  onChange={(e) => { const v = e.target.value; setForm((p) => ({ ...p, serviceTag: v })); if (v) setCatalogService(v); }}
+                  className="flex h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm font-medium"
+                >
+                  <option value="">— Bundle / Platform-wide —</option>
+                  {SERVICE_TAGS.map((t) => <option key={t} value={t}>{serviceTagLabel(t)}</option>)}
+                </select>
+              </div>
             </div>
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -532,6 +684,19 @@ function AdminPlansView() {
                 </div>
               </div>
             </div>
+
+            {/* Catalog-driven feature/limit picker (service-grouped, categorized) */}
+            <CatalogFeaturePicker
+              catalog={catalog}
+              isLoading={catalogLoading}
+              selectedService={catalogService}
+              onSelectService={setCatalogService}
+              featureEntries={featureEntries}
+              setFeatureEntries={setFeatureEntries}
+              tierEntries={tierEntries}
+              setTierEntries={setTierEntries}
+            />
+
             <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Tier Limits</label>
@@ -595,6 +760,33 @@ function AdminPlansView() {
                     title="Overage unit price (KES)"
                   />
                   <Button variant="ghost" size="icon" onClick={() => setFeatureEntries((p) => p.filter((_, idx) => idx !== i))} className="h-9 w-9 rounded-lg hover:text-destructive shrink-0"><X className="h-3.5 w-3.5" /></Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Discount rules */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Discount Rules</label>
+                <Button variant="outline" size="sm" onClick={() => setForm((p) => ({ ...p, discountRules: [...(p.discountRules ?? []), { type: 'ANNUAL_DISCOUNT', value: 0 }] }))} className="h-8 rounded-lg text-xs">
+                  <Plus className="h-3 w-3 mr-1" /> Add Discount
+                </Button>
+              </div>
+              {(form.discountRules ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No discount rules.</p>
+              ) : (form.discountRules ?? []).map((d, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    value={d.type}
+                    onChange={(e) => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).map((en, idx) => idx === i ? { ...en, type: e.target.value as DiscountRule['type'] } : en) }))}
+                    className="h-9 rounded-lg border border-input bg-transparent px-2 text-xs font-medium flex-1"
+                  >
+                    <option value="ANNUAL_DISCOUNT">Annual</option>
+                    <option value="LOYALTY_DISCOUNT">Loyalty</option>
+                    <option value="NEW_CUSTOMER">New Customer</option>
+                  </select>
+                  <Input type="number" placeholder="% off" value={d.value} onChange={(e) => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).map((en, idx) => idx === i ? { ...en, value: Number(e.target.value) } : en) }))} className="h-9 rounded-lg font-mono text-xs w-28" title="Percentage off" />
+                  <Button variant="ghost" size="icon" onClick={() => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).filter((_, idx) => idx !== i) }))} className="h-9 w-9 rounded-lg hover:text-destructive shrink-0"><X className="h-3.5 w-3.5" /></Button>
                 </div>
               ))}
             </div>
