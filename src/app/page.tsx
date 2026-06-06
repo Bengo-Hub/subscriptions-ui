@@ -34,6 +34,9 @@ interface Subscription {
   cancelled_at?: string | null;
   features: string[];
   limits: Record<string, number>;
+  billing_mode?: 'recurring' | 'one_time' | 'service_charge';
+  plan_type?: string;
+  is_perpetual?: boolean;
 }
 
 // Dashboard usage summary: { orders: {used, limit}, riders: {used, limit}, ... }
@@ -235,7 +238,11 @@ export default function DashboardPage() {
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Renewal</p>
                   <p className="text-sm font-medium mt-1">
-                    {subscription.cancelled_at ? (
+                    {subscription.is_perpetual ? (
+                      <span>Perpetual licence — never expires</span>
+                    ) : subscription.billing_mode === 'service_charge' ? (
+                      <span>Pay-as-you-go (service charge)</span>
+                    ) : subscription.cancelled_at ? (
                       <span className="text-destructive">Cancels on {formatDate(subscription.current_period_end)}</span>
                     ) : (
                       <span>Auto-renews {formatDate(subscription.current_period_end)}</span>

@@ -49,8 +49,9 @@ import { toast } from 'sonner';
 // ─── Shared types ────────────────────────────────────────────────────────────
 
 interface DiscountRule {
-  type: 'ANNUAL_DISCOUNT' | 'LOYALTY_DISCOUNT' | 'NEW_CUSTOMER';
-  value: number;
+  // Aligned with backend plans.applyDiscountRules (type + percentage).
+  type: 'YEARLY' | 'LOYALTY' | 'NEW_CUSTOMER';
+  percentage: number;
   description?: string;
 }
 
@@ -768,7 +769,7 @@ function AdminPlansView() {
             <div className="space-y-3 pt-2 border-t border-border">
               <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Discount Rules</label>
-                <Button variant="outline" size="sm" onClick={() => setForm((p) => ({ ...p, discountRules: [...(p.discountRules ?? []), { type: 'ANNUAL_DISCOUNT', value: 0 }] }))} className="h-8 rounded-lg text-xs">
+                <Button variant="outline" size="sm" onClick={() => setForm((p) => ({ ...p, discountRules: [...(p.discountRules ?? []), { type: 'YEARLY', percentage: 0 }] }))} className="h-8 rounded-lg text-xs">
                   <Plus className="h-3 w-3 mr-1" /> Add Discount
                 </Button>
               </div>
@@ -781,11 +782,11 @@ function AdminPlansView() {
                     onChange={(e) => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).map((en, idx) => idx === i ? { ...en, type: e.target.value as DiscountRule['type'] } : en) }))}
                     className="h-9 rounded-lg border border-input bg-transparent px-2 text-xs font-medium flex-1"
                   >
-                    <option value="ANNUAL_DISCOUNT">Annual</option>
-                    <option value="LOYALTY_DISCOUNT">Loyalty</option>
+                    <option value="YEARLY">Annual</option>
+                    <option value="LOYALTY">Loyalty</option>
                     <option value="NEW_CUSTOMER">New Customer</option>
                   </select>
-                  <Input type="number" placeholder="% off" value={d.value} onChange={(e) => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).map((en, idx) => idx === i ? { ...en, value: Number(e.target.value) } : en) }))} className="h-9 rounded-lg font-mono text-xs w-28" title="Percentage off" />
+                  <Input type="number" placeholder="% off" value={d.percentage} onChange={(e) => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).map((en, idx) => idx === i ? { ...en, percentage: Number(e.target.value) } : en) }))} className="h-9 rounded-lg font-mono text-xs w-28" title="Percentage off" />
                   <Button variant="ghost" size="icon" onClick={() => setForm((p) => ({ ...p, discountRules: (p.discountRules ?? []).filter((_, idx) => idx !== i) }))} className="h-9 w-9 rounded-lg hover:text-destructive shrink-0"><X className="h-3.5 w-3.5" /></Button>
                 </div>
               ))}
@@ -821,7 +822,7 @@ function AdminPlansView() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-border/50">
-                    {['Plan', 'Code', 'Service', 'Price', 'Cycle', 'Limits', 'Status', ''].map((h) => (
+                    {['Plan', 'Code', 'Service', 'Type', 'Price', 'Cycle', 'Limits', 'Status', ''].map((h) => (
                       <TableHead key={h} className={cn('py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground', h === '' && 'text-right pr-6')}>{h}</TableHead>
                     ))}
                   </TableRow>
@@ -836,6 +837,10 @@ function AdminPlansView() {
                       <TableCell><code className="text-xs bg-accent px-2 py-0.5 rounded font-mono">{p.planCode ?? '—'}</code></TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">{planService(p.planCode)}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[10px] font-medium text-muted-foreground">{(p.planType ?? 'TIERED').replace('_', ' ').toLowerCase()}</span>
+                        {p.billingCycle === 'ONE_TIME' && <span className="ml-1 text-[9px] font-bold uppercase text-purple-600 dark:text-purple-400">· perpetual</span>}
                       </TableCell>
                       <TableCell className="font-semibold tabular-nums">{(p.basePrice ?? 0).toLocaleString()}</TableCell>
                       <TableCell>

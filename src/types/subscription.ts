@@ -1,5 +1,7 @@
 export type SubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED'
 export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'ONE_TIME'
+export type BillingMode = 'recurring' | 'one_time' | 'service_charge'
+export type PlanType = 'TIERED' | 'STANDALONE_SERVICE' | 'BUNDLE' | 'CUSTOM'
 
 export interface Subscription {
   id: string
@@ -8,6 +10,11 @@ export interface Subscription {
   planName: string
   status: SubscriptionStatus
   billingCycle: BillingCycle
+  // Billing scenario resolved by subscriptions-api (snake_case on the raw response):
+  // billing_mode/plan_type/is_perpetual. is_perpetual=true → one-time licence that never renews.
+  billing_mode?: BillingMode
+  plan_type?: PlanType
+  is_perpetual?: boolean
   trialEndsAt?: string
   currentPeriodStart: string
   currentPeriodEnd: string

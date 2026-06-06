@@ -1,9 +1,11 @@
 export type PlanType = 'TIERED' | 'STANDALONE_SERVICE' | 'BUNDLE' | 'CUSTOM'
 export type PlanBillingCycle = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'ONE_TIME'
 
+// Matches the backend pricing engine (plans.applyDiscountRules), which switches on
+// type ∈ {YEARLY, LOYALTY, NEW_CUSTOMER} and reads a `percentage` field.
 export interface DiscountRule {
-  type: 'ANNUAL_DISCOUNT' | 'LOYALTY_DISCOUNT' | 'NEW_CUSTOMER'
-  value: number
+  type: 'YEARLY' | 'LOYALTY' | 'NEW_CUSTOMER'
+  percentage: number
   description?: string
 }
 

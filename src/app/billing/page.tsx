@@ -76,6 +76,10 @@ interface BillingInfo {
   status?: string;
   cancelAtPeriodEnd?: boolean;
   currentPeriodEnd?: string;
+  // Billing scenario (from subscriptions-api): hide renewal/auto-renew for perpetual licences.
+  billingMode?: 'recurring' | 'one_time' | 'service_charge';
+  planType?: string;
+  isPerpetual?: boolean;
   invoices: Invoice[];
 }
 
@@ -483,6 +487,8 @@ export default function BillingPage() {
                 <h2 className="font-semibold">Auto-Renewal</h2>
               </div>
               {(() => {
+                // Perpetual licences and service-charge tenants never auto-renew — hide the toggle.
+                if (data?.isPerpetual || data?.billingMode === 'service_charge') return null;
                 const pm = data?.paymentMethod;
                 const supportsAutoCharge = pm?.type === 'card' || pm?.type === 'mobile_money';
                 const autoRenew = settings?.autoRenew ?? true;
@@ -512,6 +518,22 @@ export default function BillingPage() {
           </CardHeader>
           <CardContent>
             {(() => {
+              if (data?.isPerpetual) {
+                return (
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                    <p>This is a one-time perpetual licence — it never renews and will not be charged again.</p>
+                  </div>
+                );
+              }
+              if (data?.billingMode === 'service_charge') {
+                return (
+                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                    <p>Pay-as-you-go plan — charged per transaction, no fixed renewal.</p>
+                  </div>
+                );
+              }
               const pm = data?.paymentMethod;
               const supportsAutoCharge = pm?.type === 'card' || pm?.type === 'mobile_money';
               const autoRenew = settings?.autoRenew ?? true;
@@ -573,7 +595,7 @@ export default function BillingPage() {
               <div className="space-y-2">
                 <p className="text-3xl font-bold">{formatKes(preview.estimated_total_kes)}</p>
                 <p className="text-xs text-muted-foreground">
-                  Due on {formatDate(data?.nextRenewalDate)}
+                  {data?.isPerpetual ? 'Perpetual licence — no renewal' : data?.nextRenewalDate ? `Due on ${formatDate(data?.nextRenewalDate)}` : 'Charged per usage'}
                 </p>
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground border-t pt-3">
                   <div className="flex justify-between">
