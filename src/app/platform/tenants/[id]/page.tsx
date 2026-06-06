@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/base';
 import { useAuthStore } from '@/store/auth';
 import { useAdminTenantUsage, useOverrideMetric } from '@/hooks/useAdminUsage';
-import { useAdminTenantAddons, useCancelAdminAddon, useCreateAdminAddon, useUpdateAdminAddon } from '@/hooks/useCustomAddons';
+import { useAdminTenantAddons, useCreateAdminAddon, useDeleteAdminAddon, useSetAdminAddonStatus } from '@/hooks/useCustomAddons';
 import { useGiftCredits } from '@/hooks/useBilling';
 import { useExtendTrial } from '@/hooks/useAdminTenants';
 import { useQuery } from '@tanstack/react-query';
@@ -68,7 +68,8 @@ export default function TenantDetailPage() {
 
   const overrideMutation = useOverrideMetric();
   const createAddonMutation = useCreateAdminAddon();
-  const cancelAddonMutation = useCancelAdminAddon();
+  const setAddonStatusMutation = useSetAdminAddonStatus();
+  const deleteAddonMutation = useDeleteAdminAddon();
   const giftMutation = useGiftCredits();
   const extendTrialMutation = useExtendTrial();
 
@@ -314,16 +315,39 @@ export default function TenantDetailPage() {
                     <TableCell className="text-right tabular-nums">{a.quantity}</TableCell>
                     <TableCell><Badge variant={a.status === 'active' ? 'success' : 'outline'}>{a.status}</Badge></TableCell>
                     <TableCell className="text-right pr-4">
-                      {a.status !== 'cancelled' && (
+                      <div className="flex items-center justify-end gap-1">
+                        {a.status !== 'active' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 rounded-lg text-xs hover:text-emerald-600"
+                            disabled={setAddonStatusMutation.isPending}
+                            onClick={() => setAddonStatusMutation.mutate({ tenantId, addonId: a.id, status: 'active' })}
+                          >
+                            Reactivate
+                          </Button>
+                        )}
+                        {a.status !== 'cancelled' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 rounded-lg text-xs hover:text-amber-600"
+                            disabled={setAddonStatusMutation.isPending}
+                            onClick={() => { if (confirm(`Cancel add-on "${a.name}"?`)) setAddonStatusMutation.mutate({ tenantId, addonId: a.id, status: 'cancelled' }); }}
+                          >
+                            Cancel
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-7 rounded-lg text-xs hover:text-destructive"
-                          onClick={() => { if (confirm(`Cancel addon "${a.name}"?`)) cancelAddonMutation.mutate({ tenantId, addonId: a.id }); }}
+                          disabled={deleteAddonMutation.isPending}
+                          onClick={() => { if (confirm(`Permanently delete add-on "${a.name}"? This cannot be undone.`)) deleteAddonMutation.mutate({ tenantId, addonId: a.id }); }}
                         >
-                          Cancel
+                          Delete
                         </Button>
-                      )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

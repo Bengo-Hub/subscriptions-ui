@@ -3,15 +3,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  cancelAdminAddon,
   createAdminAddon,
+  deleteAdminAddon,
   getAdminTenantAddons,
   getMyAddons,
   listPlanAddons,
   purchasePlanAddon,
   removePlanAddon,
+  setAdminAddonStatus,
   updateAdminAddon,
 } from '@/lib/api/addons'
+import type { AddonStatus } from '@/types/addon'
 import type { CustomAddonCreateRequest, CustomAddonUpdateRequest } from '@/types/addon'
 import { useTenantFilterStore } from '@/store/tenant-filter'
 
@@ -114,14 +116,31 @@ export function useUpdateAdminAddon() {
   })
 }
 
-export function useCancelAdminAddon() {
+// Cancel / reactivate / pause a tenant add-on via status change.
+export function useSetAdminAddonStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tenantId, addonId, status }: { tenantId: string; addonId: string; status: AddonStatus }) =>
+      setAdminAddonStatus(tenantId, addonId, status),
+    onSuccess: (_, { tenantId, status }) => {
+      qc.invalidateQueries({ queryKey: ['admin-tenant-addons', tenantId] })
+      qc.invalidateQueries({ queryKey: ['billing', tenantId] })
+      toast.success(status === 'active' ? 'Add-on reactivated' : status === 'cancelled' ? 'Add-on cancelled' : 'Add-on paused')
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? e.message),
+  })
+}
+
+// Permanently delete a tenant add-on.
+export function useDeleteAdminAddon() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ tenantId, addonId }: { tenantId: string; addonId: string }) =>
-      cancelAdminAddon(tenantId, addonId),
+      deleteAdminAddon(tenantId, addonId),
     onSuccess: (_, { tenantId }) => {
       qc.invalidateQueries({ queryKey: ['admin-tenant-addons', tenantId] })
-      toast.success('Addon cancelled')
+      qc.invalidateQueries({ queryKey: ['billing', tenantId] })
+      toast.success('Add-on deleted')
     },
     onError: (e: any) => toast.error(e?.response?.data?.error ?? e.message),
   })

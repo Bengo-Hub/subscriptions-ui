@@ -62,7 +62,15 @@ export const updateAdminAddon = (tenantId: string, addonId: string, req: CustomA
     },
   )
 
-export const cancelAdminAddon = (tenantId: string, addonId: string) =>
+// Soft state change: cancel / reactivate / pause via PATCH status.
+export const setAdminAddonStatus = (tenantId: string, addonId: string, status: 'active' | 'paused' | 'cancelled') =>
+  apiClient.patch<CustomAddon>(
+    `/api/v1/admin/tenants/${tenantId}/custom-addons/${addonId}`,
+    { status },
+  )
+
+// Permanently removes the add-on (hard delete).
+export const deleteAdminAddon = (tenantId: string, addonId: string) =>
   apiClient.delete<{ status: string }>(
     `/api/v1/admin/tenants/${tenantId}/custom-addons/${addonId}`,
   )
