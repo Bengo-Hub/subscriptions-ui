@@ -18,8 +18,9 @@ import { useAuthStore } from '@/store/auth';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
+import { PdfPreview, useDocumentPreview } from '@bengo-hub/shared-ui-lib/documents';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { AlertCircle, Calendar, CheckCircle2, CreditCard, Download, Gift, Layers, Loader2, Package, Receipt, RefreshCw, Tag, TrendingUp, Trash2, Wallet, XCircle, Zap } from 'lucide-react';
 import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
@@ -153,6 +154,34 @@ export default function BillingPage() {
     queryKey: ['billing', tenantKey],
     queryFn: () => apiClient.get<BillingInfo>('/api/v1/billing'),
   });
+
+  // Preview-first invoice PDFs: open the shared modal (Download / Print / Open-in-tab)
+  // instead of navigating straight to the file. The invoice pdfUrl points at the
+  // public treasury endpoint (a different origin), so we fetch it as a simple,
+  // credential-less request; if that is blocked (e.g. CORS) we fall back to the
+  // previous behaviour of opening the URL in a new tab so the action never breaks.
+  const lastPdfUrlRef = useRef<string | null>(null);
+  const { openPreview, previewProps } = useDocumentPreview({
+    onError: () => {
+      if (lastPdfUrlRef.current) {
+        window.open(lastPdfUrlRef.current, '_blank', 'noopener,noreferrer');
+      }
+    },
+  });
+
+  const previewInvoice = (inv: Invoice) => {
+    if (!inv.pdfUrl) return;
+    lastPdfUrlRef.current = inv.pdfUrl;
+    const fileName = `invoice-${inv.id}.pdf`;
+    openPreview(
+      async () => {
+        const res = await fetch(inv.pdfUrl as string, { credentials: 'omit' });
+        if (!res.ok) throw new Error(`Failed to load invoice PDF (${res.status})`);
+        return res.blob();
+      },
+      { fileName, title: inv.description || 'Invoice' }
+    );
+  };
 
   const { data: settings } = useSubscriptionSettings();
   const settingsMutation = useUpdateSubscriptionSettings();
@@ -894,11 +923,14 @@ export default function BillingPage() {
                     </TableCell>
                     <TableCell>
                       {inv.pdfUrl && (
-                        <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer">
-                          <Button variant="ghost" size="icon">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </a>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => previewInvoice(inv)}
+                          title="Preview / download invoice PDF"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>
@@ -911,6 +943,7 @@ export default function BillingPage() {
         </CardContent>
       </Card>
     </div>
+    <PdfPreview {...previewProps} />
     </>
   );
 }
