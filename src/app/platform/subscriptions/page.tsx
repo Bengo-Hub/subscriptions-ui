@@ -19,10 +19,11 @@ import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, Loader2, Pencil, Search, Send, Users, X } from 'lucide-react';
 import {
-  useDownloadInvoicePdf,
   useGenerateInvoice,
   useResendInvoice,
 } from '@/hooks/useSubscriptionInvoices';
+import { downloadSubscriptionInvoicePdf } from '@/lib/api/subscriptionInvoices';
+import { PdfPreview, useDocumentPreview } from '@bengo-hub/shared-ui-lib/documents';
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -103,7 +104,20 @@ export default function PlatformSubscriptionsPage() {
 
   const generateInvoice = useGenerateInvoice();
   const resendInvoice = useResendInvoice();
-  const downloadInvoice = useDownloadInvoicePdf();
+
+  // Preview-first PDF flow: open the shared modal (which offers Download / Print /
+  // Open-in-tab) instead of forcing a direct browser download.
+  const { openPreview, previewProps } = useDocumentPreview({ onError: (m) => toast.error(m) });
+
+  const previewLatestInvoice = (sub: TenantSubscription) => {
+    if (!sub.tenantId) return;
+    const tenantId = sub.tenantId;
+    const fileName = `${sub.tenantSlug}-invoice.pdf`;
+    openPreview(
+      () => downloadSubscriptionInvoicePdf(tenantId, fileName).then((r) => r.blob),
+      { fileName, title: `${sub.tenantName} — Latest Invoice` }
+    );
+  };
 
   const openEdit = (sub: TenantSubscription) => {
     setEditing(sub);
@@ -271,13 +285,10 @@ export default function PlatformSubscriptionsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            disabled={!sub.tenantId || downloadInvoice.isPending}
-                            onClick={() =>
-                              sub.tenantId &&
-                              downloadInvoice.mutate({ tenantId: sub.tenantId, fileName: `${sub.tenantSlug}-invoice.pdf` })
-                            }
+                            disabled={!sub.tenantId}
+                            onClick={() => previewLatestInvoice(sub)}
                             className="h-8 w-8 rounded-lg hover:bg-indigo-500/10 hover:text-indigo-600"
-                            title="Download latest invoice PDF"
+                            title="Preview / download latest invoice PDF"
                           >
                             <Download className="h-3.5 w-3.5" />
                           </Button>
@@ -411,6 +422,8 @@ export default function PlatformSubscriptionsPage() {
           </Card>
         </div>
       )}
+
+      <PdfPreview {...previewProps} />
     </div>
   );
 }
