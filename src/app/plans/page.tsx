@@ -43,7 +43,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState, type Dispatch, type SetStateAction } from 'react';
+import { Suspense, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import { toast } from 'sonner';
 
 // ─── Shared types ────────────────────────────────────────────────────────────
@@ -148,218 +148,54 @@ const cycleColor: Record<string, string> = {
   ONE_TIME: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
 };
 
-// ─── Feature & Limit Registry ─────────────────────────────────────────────────
-// Each feature_code in plan_features maps to a human label + display category.
-// NATS note in LIMIT_INFO shows which event the subscriptions-service listens to
-// when counting usage against that limit (for ops/billing transparency).
+// ─── Catalog-derived feature & limit registry ────────────────────────────────
+// The platform feature/limit catalog (feature_definitions, served by
+// GET /api/v1/features/catalog) is the single source of truth for every feature
+// and limit, tagged per service and typed (FEATURE | LIMIT). buildCatalogMaps
+// turns a fetched catalog into the lookup maps this page renders from — labels,
+// categories, units, overage/internal flags, and comparison order — so they stay
+// in sync with the backend instead of being hard-coded here.
 
-const FEATURE_INFO: Record<string, { label: string; category: string }> = {
-  // Payments & Gateways
-  mpesa_integration:        { label: 'M-Pesa (Daraja) Integration',          category: 'Payments & Gateways' },
-  paystack_integration:     { label: 'Paystack Gateway',                     category: 'Payments & Gateways' },
-  mpesa_pos:                { label: 'M-Pesa POS Payments',                  category: 'Payments & Gateways' },
-  paystack_gateway:         { label: 'Paystack Online Gateway',              category: 'Payments & Gateways' },
-  payment_collection:       { label: 'Online Payment Collection',            category: 'Payments & Gateways' },
-  payment_links:            { label: 'Shareable Payment Links',              category: 'Payments & Gateways' },
-  wallet_management:        { label: 'Digital Wallet Management',            category: 'Payments & Gateways' },
-  multi_currency:           { label: 'Multi-Currency Support',               category: 'Payments & Gateways' },
-  bulk_payouts:             { label: 'Bulk Payouts',                         category: 'Payments & Gateways' },
-  escrow_management:        { label: 'Escrow Management',                    category: 'Payments & Gateways' },
-  payout_schedules:         { label: 'Automated Payout Schedules',           category: 'Payments & Gateways' },
-  invoice_generation:       { label: 'Invoice & Quotation Generation',       category: 'Payments & Gateways' },
-  basic_reconciliation:     { label: 'Basic Bank Reconciliation',            category: 'Payments & Gateways' },
-  reconciliation:           { label: 'Full Bank Reconciliation',             category: 'Payments & Gateways' },
-  ar_tracking:              { label: 'Accounts Receivable (AR) Tracking',    category: 'Payments & Gateways' },
-  ap_tracking:              { label: 'Accounts Payable (AP) Tracking',       category: 'Payments & Gateways' },
-  ledger_posting:           { label: 'Double-Entry Ledger Posting',          category: 'Payments & Gateways' },
-  tax_codes:                { label: 'Tax Code Management (VAT/EAC)',         category: 'Payments & Gateways' },
-  equity_payouts:           { label: 'Equity & Royalty Payouts',             category: 'Payments & Gateways' },
-  etims_integration:        { label: 'KRA eTIMS Integration (Auto Tax Transmission)', category: 'Payments & Gateways' },
-  customer_management:      { label: 'Customer Ledger',                      category: 'Payments & Gateways' },
-  vendor_management:        { label: 'Vendor Management',                    category: 'Payments & Gateways' },
-  // Ordering
-  online_ordering:          { label: 'Online Ordering Storefront',           category: 'Ordering' },
-  rider_app:                { label: 'Rider Mobile App',                     category: 'Ordering' },
-  admin_dashboard:          { label: 'Admin Dashboard',                      category: 'Ordering' },
-  delivery_zones:           { label: 'Delivery Zone & Fee Management',       category: 'Ordering' },
-  scheduled_delivery:       { label: 'Scheduled / Timed Deliveries',         category: 'Ordering' },
-  promo_codes:              { label: 'Promo Codes & Discounts',              category: 'Ordering' },
-  group_ordering:           { label: 'Group & Collaborative Orders',         category: 'Ordering' },
-  loyalty_program:          { label: 'Loyalty Points Program',               category: 'Ordering' },
-  wallet:                   { label: 'Customer Wallet Balance',              category: 'Ordering' },
-  custom_domain:            { label: 'Custom Domain',                        category: 'Ordering' },
-  multi_outlet:             { label: 'Multi-Outlet / Branch Management',     category: 'Ordering' },
-  pos_integration:          { label: 'POS ↔ Online Order Integration',       category: 'Ordering' },
-  hotel_module:             { label: 'Hotel & Hospitality Module',           category: 'Ordering' },
-  route_optimization:       { label: 'Route Optimization',                   category: 'Ordering' },
-  api_webhooks:             { label: 'API & Outbound Webhook Events',        category: 'Ordering' },
-  white_labeling:           { label: 'White-Label Storefront',               category: 'Ordering' },
-  // POS
-  pos_terminal:             { label: 'POS Terminal Software',                category: 'POS' },
-  order_management:         { label: 'Order Management',                     category: 'POS' },
-  receipt_printing:         { label: 'Receipt Printing',                     category: 'POS' },
-  daily_reports:            { label: 'Daily Reports & Till Closure',         category: 'POS' },
-  shift_reports:            { label: 'Shift Reports',                        category: 'POS' },
-  table_management:         { label: 'Table & Floor Management',             category: 'POS' },
-  kds:                      { label: 'Kitchen Display System (KDS)',          category: 'POS' },
-  offline_sync:             { label: 'Offline Mode & Auto-Sync',             category: 'POS' },
-  multi_cashier:            { label: 'Multi-Cashier Support',                category: 'POS' },
-  // Logistics
-  rider_management:         { label: 'Rider Fleet Management',               category: 'Logistics' },
-  delivery_assignment:      { label: 'Delivery Task Assignment',             category: 'Logistics' },
-  live_tracking:            { label: 'Live GPS Rider Tracking',              category: 'Logistics' },
-  basic_dispatch:           { label: 'Dispatch Management',                  category: 'Logistics' },
-  route_optimisation:       { label: 'Route Optimisation (Valhalla engine)', category: 'Logistics' },
-  driver_analytics:         { label: 'Driver Performance Analytics',         category: 'Logistics' },
-  performance_reports:      { label: 'Fleet Performance Reports',            category: 'Logistics' },
-  // Inventory
-  stock_tracking:           { label: 'Real-Time Stock Tracking',             category: 'Inventory' },
-  low_stock_alerts:         { label: 'Low-Stock Alerts',                     category: 'Inventory' },
-  purchase_orders:          { label: 'Purchase Orders & GRN',                category: 'Inventory' },
-  basic_reports:            { label: 'Basic Inventory Reports',              category: 'Inventory' },
-  multi_warehouse:          { label: 'Multi-Warehouse Management',           category: 'Inventory' },
-  batch_expiry_tracking:    { label: 'Batch & Expiry Tracking (FIFO)',       category: 'Inventory' },
-  supplier_portal:          { label: 'Supplier Portal',                      category: 'Inventory' },
-  barcode_scanning:         { label: 'Barcode / QR Scanning',               category: 'Inventory' },
-  bulk_import:              { label: 'Bulk CSV Import',                      category: 'Inventory' },
-  // CRM & Marketing
-  contact_management:       { label: 'CRM Contact Management',               category: 'CRM & Marketing' },
-  lead_management:          { label: 'Lead Management',                      category: 'CRM & Marketing' },
-  basic_campaigns:          { label: 'Email & SMS Campaigns',                category: 'CRM & Marketing' },
-  unlimited_campaigns:      { label: 'Unlimited Campaigns',                  category: 'CRM & Marketing' },
-  landing_pages:            { label: 'Landing Pages',                        category: 'CRM & Marketing' },
-  email_sequences:          { label: 'Email Drip Sequences',                 category: 'CRM & Marketing' },
-  ai_chat_agent:            { label: 'AI Chat Agent (RAG-powered)',           category: 'CRM & Marketing' },
-  lead_scoring:             { label: 'AI Lead Scoring',                      category: 'CRM & Marketing' },
-  funnel_builder:           { label: 'Marketing Funnel Builder',             category: 'CRM & Marketing' },
-  automation_workflows:     { label: 'Marketing Automation Workflows',       category: 'CRM & Marketing' },
-  deal_pipeline:            { label: 'Sales Deal Pipeline (CRM)',            category: 'CRM & Marketing' },
-  whatsapp_integration:     { label: 'WhatsApp Business Integration',        category: 'CRM & Marketing' },
-  ticketing:                { label: 'Helpdesk Ticketing',                   category: 'CRM & Marketing' },
-  helpdesk:                 { label: 'Helpdesk Portal',                      category: 'CRM & Marketing' },
-  sla_policies:             { label: 'SLA Policies',                         category: 'CRM & Marketing' },
-  knowledge_base:           { label: 'Knowledge Base',                       category: 'CRM & Marketing' },
-  testimonials:             { label: 'Testimonials & Reviews',               category: 'CRM & Marketing' },
-  profile_pages:            { label: 'Public Business Profile Pages',        category: 'CRM & Marketing' },
-  shortlinks:               { label: 'Branded URL Shortlinks',               category: 'CRM & Marketing' },
-  white_label:              { label: 'White Label',                          category: 'CRM & Marketing' },
-  dedicated_account_manager:{ label: 'Dedicated Account Manager',            category: 'CRM & Marketing' },
-  // ERP
-  hr_management:            { label: 'HR Management',                        category: 'ERP' },
-  payroll:                  { label: 'Payroll Processing',                   category: 'ERP' },
-  basic_procurement:        { label: 'Purchase Requisitions',                category: 'ERP' },
-  leave_management:         { label: 'Leave Management',                     category: 'ERP' },
-  asset_management:         { label: 'Asset Management',                     category: 'ERP' },
-  budgeting:                { label: 'Budget Planning',                      category: 'ERP' },
-  advanced_reports:         { label: 'Advanced Reporting',                   category: 'ERP' },
-  multi_department:         { label: 'Multi-Department Structure',           category: 'ERP' },
-  approval_workflows:       { label: 'Approval Workflows',                   category: 'ERP' },
-  custom_workflows:         { label: 'Custom Workflows',                     category: 'ERP' },
-  // Transporter Portal (data-consumer self-service — see truload-docs/portal)
-  portal_access:            { label: 'Transporter Portal Access',             category: 'Transporter Portal' },
-  ticket_download:          { label: 'Weight Ticket Downloads (PDF)',         category: 'Transporter Portal' },
-  email_notifications:      { label: 'Email Notifications',                   category: 'Transporter Portal' },
-  multi_site_access:        { label: 'Cross-Site (Multi-Tenant) History',     category: 'Transporter Portal' },
-  data_export:              { label: 'CSV / Bulk Data Export',                category: 'Transporter Portal' },
-  driver_reports:           { label: 'Driver Trip Reports',                   category: 'Transporter Portal' },
-  vehicle_trends:           { label: 'Vehicle Utilisation Trends',            category: 'Transporter Portal' },
-  consignment_tracking:     { label: 'Consignment Tracking',                  category: 'Transporter Portal' },
-  analytics:                { label: 'Advanced Fleet Analytics',              category: 'Transporter Portal' },
-  // Branding (all tiers — auth-ui branding tab syncs logo/colors to all services)
-  custom_branding:          { label: 'Custom Branding (Logo, Colors, Font)',  category: 'Platform & API' },
-  // Platform / API
-  basic_analytics:          { label: 'Analytics Dashboard',                  category: 'Platform & API' },
-  advanced_analytics:       { label: 'Advanced Analytics (Superset)',        category: 'Platform & API' },
-  api_access:               { label: 'REST API Access',                      category: 'Platform & API' },
-  webhooks:                 { label: 'Outbound Webhook Subscriptions',       category: 'Platform & API' },
-  custom_integrations:      { label: 'Custom Third-Party Integrations',      category: 'Platform & API' },
-  audit_trail:              { label: 'Audit Trail',                          category: 'Platform & API' },
-  priority_support:         { label: 'Priority Support',                     category: 'Platform & API' },
-  premium_support:          { label: 'Premium Support (SLA)',                category: 'Platform & API' },
-  sms_notifications:        { label: 'SMS Notifications (via notifications-api)', category: 'Platform & API' },
-  push_notifications:       { label: 'Push Notifications (via notifications-api)', category: 'Platform & API' },
+type FeatureInfo = { label: string; category: string; serviceTag: string };
+type LimitInfo = { label: string; unit?: string; nats?: string; isOverage: boolean; serviceTag: string };
+type CatalogMaps = {
+  featureInfo: Record<string, FeatureInfo>;
+  limitInfo: Record<string, LimitInfo>;
+  internal: Set<string>;
+  comparisonFeatures: string[];
 };
 
-/** Maps tierLimits keys to display labels, units, and the NATS subject the
- *  subscriptions-service listens to when counting usage against this limit. */
-const LIMIT_INFO: Record<string, { label: string; unit?: string; nats?: string; isOverage?: boolean }> = {
-  max_orders_per_day:              { label: 'Max Orders',                    unit: '/ day',   nats: 'ordering.order.created' },
-  max_admins:                      { label: 'Admins',                        unit: '',        nats: 'auth.user.created (admin)' },
-  max_staff:                       { label: 'Staff Members',                 unit: '',        nats: 'auth.user.created (staff)' },
-  max_cashiers:                    { label: 'Cashiers',                      unit: '',        nats: 'auth.user.created (cashier)' },
-  max_outlets:                     { label: 'Outlets / Branches',            unit: '',        nats: 'auth.outlet.created' },
-  max_riders:                      { label: 'Riders',                        unit: '',        nats: 'logistics.fleet.member_invited' },
-  api_calls_per_month:             { label: 'API Calls',                     unit: '/ month' },
-  webhook_calls_per_day:           { label: 'Webhook Calls',                 unit: '/ day',   nats: 'ordering.webhook.dispatched' },
-  email_notifications_per_day:     { label: 'Emails',                        unit: '/ day',   nats: 'notifications.email.sent' },
-  sms_notifications_per_day:       { label: 'SMS',                           unit: '/ day',   nats: 'notifications.sms.sent' },
-  live_tracking_requests_per_day:  { label: 'Live Tracking Requests',        unit: '/ day',   nats: 'logistics.task.eta_updated' },
-  routing_requests_per_day:        { label: 'Route Calculations',            unit: '/ day' },
-  max_devices:                     { label: 'POS Devices',                   unit: '',        nats: 'pos.device.registered' },
-  max_tables:                      { label: 'Tables',                        unit: '',        nats: 'pos.table.created' },
-  inventory_max_sku:               { label: 'Products (SKUs)',               unit: '',        nats: 'inventory.product.created' },
-  inventory_max_warehouses:        { label: 'Warehouses',                    unit: '',        nats: 'inventory.warehouse.created' },
-  max_suppliers:                   { label: 'Suppliers',                     unit: '' },
-  max_transactions_per_month:      { label: 'Payment Transactions',          unit: '/ month', nats: 'pos.transaction.created' },
-  max_wallets:                     { label: 'Digital Wallets',               unit: '' },
-  max_payment_links:               { label: 'Payment Links',                 unit: '' },
-  max_currencies:                  { label: 'Currencies',                    unit: '' },
-  max_bulk_payout_rows:            { label: 'Bulk Payout Rows',              unit: '' },
-  max_contacts:                    { label: 'CRM Contacts',                  unit: '',        nats: 'marketflow.contact.created' },
-  max_leads:                       { label: 'CRM Leads',                     unit: '',        nats: 'marketflow.lead.created' },
-  max_campaigns:                   { label: 'Campaigns',                     unit: '',        nats: 'marketflow.campaign.created' },
-  max_sequences:                   { label: 'Email Sequences',               unit: '' },
-  max_funnels:                     { label: 'Marketing Funnels',             unit: '' },
-  ai_credits_monthly:              { label: 'AI Chat Credits',               unit: '/ month' },
-  max_integrations:                { label: 'Third-Party Integrations (Zapier, Make, etc.)', unit: '' },
-  max_tickets:                     { label: 'Support Tickets',               unit: '' },
-  max_agents:                      { label: 'Support Agents',                unit: '' },
-  max_employees:                   { label: 'Employees (ERP)',               unit: '',        nats: 'erp.employee.created' },
-  max_departments:                 { label: 'Departments (ERP)',             unit: '' },
-  max_weighings_month:             { label: 'Weighings',                     unit: '/ month', nats: 'truload.weighing.created' },
-  max_stations:                    { label: 'Weighbridge Stations',          unit: '' },
-  max_warehouses:                  { label: 'Warehouses',                    unit: '' },
-  max_products:                    { label: 'Products',                      unit: '' },
-  history_days:                    { label: 'Ticket History',                unit: 'days' },
-  max_sites:                       { label: 'Weighbridge Sites',             unit: '' },
-  max_users:                       { label: 'Users',                         unit: '' },
-  // Overage — rendered in a separate section at the bottom
-  overage_rider_price_per_month:        { label: 'Extra Rider Overage',           unit: 'KES / rider / month', isOverage: true },
-  overage_orders_price_per_100_month:   { label: 'Orders Overage (per 100)',       unit: 'KES / month',         isOverage: true },
-};
+const EMPTY_CATALOG_MAPS: CatalogMaps = { featureInfo: {}, limitInfo: {}, internal: new Set(), comparisonFeatures: [] };
 
-// Internal gateway-access feature codes — not user-facing in the comparison table
-const INTERNAL_FEATURE_CODES = new Set([
-  'basic_inventory_access', 'basic_logistics_access', 'basic_treasury_access',
-]);
-
-// Ordered list of feature codes to highlight in the comparison table.
-// Only codes that exist in at least one plan and have a FEATURE_INFO entry are shown.
-const COMPARISON_FEATURES = [
-  'mpesa_integration', 'paystack_integration', 'mpesa_pos', 'paystack_gateway',
-  'payment_collection', 'payment_links', 'multi_currency', 'bulk_payouts',
-  'escrow_management', 'payout_schedules', 'invoice_generation',
-  'basic_reconciliation', 'reconciliation', 'ar_tracking', 'ap_tracking',
-  'ledger_posting', 'tax_codes', 'etims_integration', 'equity_payouts',
-  'online_ordering', 'delivery_zones', 'scheduled_delivery', 'promo_codes',
-  'group_ordering', 'loyalty_program', 'custom_domain', 'multi_outlet',
-  'hotel_module', 'route_optimization', 'white_labeling', 'api_webhooks',
-  'pos_terminal', 'table_management', 'kds', 'offline_sync', 'multi_cashier', 'receipt_printing',
-  'rider_management', 'live_tracking', 'route_optimisation', 'driver_analytics',
-  'stock_tracking', 'low_stock_alerts', 'purchase_orders', 'multi_warehouse',
-  'batch_expiry_tracking', 'supplier_portal', 'barcode_scanning', 'bulk_import',
-  'contact_management', 'lead_management', 'basic_campaigns', 'unlimited_campaigns',
-  'ai_chat_agent', 'whatsapp_integration', 'deal_pipeline', 'funnel_builder',
-  'automation_workflows', 'ticketing', 'knowledge_base', 'profile_pages', 'white_label',
-  'dedicated_account_manager',
-  'hr_management', 'payroll', 'leave_management', 'asset_management',
-  'approval_workflows', 'custom_workflows',
-  'portal_access', 'ticket_download', 'email_notifications', 'multi_site_access',
-  'data_export', 'driver_reports', 'vehicle_trends', 'consignment_tracking', 'analytics',
-  'custom_branding',
-  'basic_analytics', 'advanced_analytics', 'api_access', 'webhooks',
-  'custom_integrations', 'audit_trail', 'priority_support', 'premium_support',
-];
+// Build the lookup maps from a fetched catalog. Internal gateway-access codes
+// (category 'Cross-Service Access') are hidden from the comparison table; overage
+// limits (category 'Overage') render in their own section; Add-ons are excluded
+// from the comparison list. Comparison order follows service_tag then sort_order.
+function buildCatalogMaps(catalog: FeatureDefinition[]): CatalogMaps {
+  const featureInfo: Record<string, FeatureInfo> = {};
+  const limitInfo: Record<string, LimitInfo> = {};
+  const internal = new Set<string>();
+  const comparisonFeatures: string[] = [];
+  const sorted = [...catalog].sort(
+    (a, b) => a.serviceTag.localeCompare(b.serviceTag) || a.sortOrder - b.sortOrder,
+  );
+  for (const c of sorted) {
+    if (c.kind === 'LIMIT') {
+      limitInfo[c.featureCode] = {
+        label: c.label,
+        unit: c.unit,
+        nats: c.natsEvent,
+        isOverage: c.category === 'Overage',
+        serviceTag: c.serviceTag,
+      };
+      continue;
+    }
+    featureInfo[c.featureCode] = { label: c.label, category: c.category, serviceTag: c.serviceTag };
+    if (c.category === 'Cross-Service Access') internal.add(c.featureCode);
+    else if (c.category !== 'Add-ons') comparisonFeatures.push(c.featureCode);
+  }
+  return { featureInfo, limitInfo, internal, comparisonFeatures };
+}
 
 // ─── Admin (platform owner) view ─────────────────────────────────────────────
 
@@ -398,12 +234,18 @@ function CatalogFeaturePicker({
   tierEntries: TierLimitEntry[];
   setTierEntries: Dispatch<SetStateAction<TierLimitEntry[]>>;
 }) {
-  const services = Array.from(new Set(catalog.map((c) => c.serviceTag))).sort();
-  const forService = catalog.filter((c) => c.serviceTag === selectedService);
-  const byCategory = forService.reduce<Record<string, FeatureDefinition[]>>((acc, f) => {
-    (acc[f.category] ??= []).push(f);
+  // 'all' (the default) shows every service grouped under its own heading; a
+  // specific tag scopes to that service. Either way entries are grouped service →
+  // category so features and limits load together under the right service label.
+  const services = ['all', ...Array.from(new Set(catalog.map((c) => c.serviceTag))).sort()];
+  const isAll = selectedService === 'all';
+  const scoped = isAll ? catalog : catalog.filter((c) => c.serviceTag === selectedService);
+  const byService = scoped.reduce<Record<string, Record<string, FeatureDefinition[]>>>((acc, f) => {
+    const svc = (acc[f.serviceTag] ??= {});
+    (svc[f.category] ??= []).push(f);
     return acc;
   }, {});
+  const serviceOrder = Object.keys(byService).sort();
 
   const hasFeature = (code: string) => featureEntries.some((e) => e.featureCode === code && e.isIncluded);
   const hasLimit = (code: string) => tierEntries.some((e) => e.key === code);
@@ -427,22 +269,22 @@ function CatalogFeaturePicker({
     });
   };
 
-  const inPlanCount = forService.filter((f) => (f.kind === 'LIMIT' ? hasLimit(f.featureCode) : hasFeature(f.featureCode))).length;
+  const inPlanCount = scoped.filter((f) => (f.kind === 'LIMIT' ? hasLimit(f.featureCode) : hasFeature(f.featureCode))).length;
 
   return (
     <div className="space-y-3 pt-2 border-t border-border">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Add Features from Catalog</label>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{inPlanCount} of {forService.length} in plan</span>
+          <span className="text-xs text-muted-foreground">{inPlanCount} of {scoped.length} in plan</span>
           <select
             value={selectedService}
             onChange={(e) => onSelectService(e.target.value)}
             className="h-9 rounded-lg border border-input bg-transparent px-3 text-xs font-medium"
           >
-            {services.length === 0 && <option value="">No services</option>}
+            {services.length <= 1 && <option value="all">No services</option>}
             {services.map((s) => (
-              <option key={s} value={s}>{serviceTagLabel(s)}</option>
+              <option key={s} value={s}>{s === 'all' ? 'All Services' : serviceTagLabel(s)}</option>
             ))}
           </select>
         </div>
@@ -450,39 +292,48 @@ function CatalogFeaturePicker({
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground italic">Loading catalog…</p>
-      ) : forService.length === 0 ? (
+      ) : scoped.length === 0 ? (
         <p className="text-sm text-muted-foreground italic">No catalog features for this service. Run the seed to populate the catalog, or use the manual editors below.</p>
       ) : (
-        <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-          {Object.entries(byCategory).map(([category, defs]) => (
-            <div key={category} className="space-y-1.5">
-              <p className="text-[11px] font-semibold text-foreground/80 sticky top-0 bg-card py-1">{category}</p>
-              <div className="grid sm:grid-cols-2 gap-1.5">
-                {defs.map((f) => {
-                  const isLimit = f.kind === 'LIMIT';
-                  const active = isLimit ? hasLimit(f.featureCode) : hasFeature(f.featureCode);
-                  return (
-                    <label
-                      key={f.featureCode}
-                      className={cn('flex items-start gap-2 rounded-lg border px-2.5 py-1.5 cursor-pointer transition-colors', active ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-accent/40')}
-                      title={f.description || f.featureCode}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={active}
-                        onChange={() => (isLimit ? toggleLimit(f) : toggleFeature(f))}
-                        className="h-3.5 w-3.5 rounded mt-0.5 shrink-0"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-xs font-medium truncate">{f.label}</span>
-                        <span className="block text-[10px] text-muted-foreground font-mono truncate">
-                          {f.featureCode}{isLimit ? ` · limit${f.unit ? ' ' + f.unit : ''}` : ''}{f.isRateLimited ? ' · metered' : ''}
-                        </span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
+        <div className="space-y-5 max-h-96 overflow-y-auto pr-1">
+          {serviceOrder.map((svc) => (
+            <div key={svc} className="space-y-2">
+              {isAll && (
+                <p className="text-xs font-bold uppercase tracking-wide text-primary sticky top-0 bg-card py-1 border-b border-border/60">
+                  {serviceTagLabel(svc)}
+                </p>
+              )}
+              {Object.entries(byService[svc]).map(([category, defs]) => (
+                <div key={category} className="space-y-1.5">
+                  <p className={cn('text-[11px] font-semibold text-foreground/80 py-1', !isAll && 'sticky top-0 bg-card')}>{category}</p>
+                  <div className="grid sm:grid-cols-2 gap-1.5">
+                    {defs.map((f) => {
+                      const isLimit = f.kind === 'LIMIT';
+                      const active = isLimit ? hasLimit(f.featureCode) : hasFeature(f.featureCode);
+                      return (
+                        <label
+                          key={f.featureCode}
+                          className={cn('flex items-start gap-2 rounded-lg border px-2.5 py-1.5 cursor-pointer transition-colors', active ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-accent/40')}
+                          title={f.description || f.featureCode}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={active}
+                            onChange={() => (isLimit ? toggleLimit(f) : toggleFeature(f))}
+                            className="h-3.5 w-3.5 rounded mt-0.5 shrink-0"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-xs font-medium truncate">{f.label}</span>
+                            <span className="block text-[10px] text-muted-foreground font-mono truncate">
+                              {f.featureCode}{isLimit ? ` · limit${f.unit ? ' ' + f.unit : ''}` : ''}{f.isRateLimited ? ' · metered' : ''}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -499,7 +350,7 @@ function AdminPlansView() {
   const [form, setForm] = useState<Partial<Plan>>(emptyForm);
   const [tierEntries, setTierEntries] = useState<TierLimitEntry[]>([]);
   const [featureEntries, setFeatureEntries] = useState<FeatureEntry[]>([]);
-  const [catalogService, setCatalogService] = useState<string>('ordering');
+  const [catalogService, setCatalogService] = useState<string>('all');
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans-admin'],
@@ -532,7 +383,7 @@ function AdminPlansView() {
     onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to delete plan'),
   });
 
-  const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setFeatureEntries([]); setCatalogService('ordering'); setShowForm(true); };
+  const openCreate = () => { setEditingPlan(null); setForm(emptyForm); setTierEntries([]); setFeatureEntries([]); setCatalogService('all'); setShowForm(true); };
 
   // Fetch plan by ID for fresh data (bypasses service list cache) so freeTrialDays and
   // feature overageUnitPrice are always current even right after an update.
@@ -543,7 +394,9 @@ function AdminPlansView() {
       const fresh = await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/${p.id}`);
       const planData: Plan = (fresh as any)?.plan ?? (fresh as Plan);
       setForm({ ...planData, freeTrialDays: planData.freeTrialDays, isPublic: planData.isPublic ?? true, discountRules: planData.discountRules ?? [] });
-      if (planData.serviceTag) setCatalogService(planData.serviceTag);
+      // Default the catalog picker to "All Services" so every service's features/limits
+      // are visible and grouped — bundle plans (e.g. COMPLETE_*) span multiple services.
+      setCatalogService('all');
       setTierEntries(toLimitEntries(planData.tierLimits ?? {}));
       setFeatureEntries((planData.features ?? []).map((f) => ({
         featureCode: f.featureCode,
@@ -908,6 +761,19 @@ function TenantPlansView() {
     staleTime: 300_000,
   });
 
+  // Platform feature/limit catalog — drives the comparison table's labels, units,
+  // categories and overage/internal flags (shared query key dedupes with the admin view).
+  const { data: catalogData } = useQuery({
+    queryKey: ['feature-catalog'],
+    queryFn: () => listFeatureCatalog().then((r) => r.features ?? []),
+    staleTime: 5 * 60 * 1000,
+  });
+  const catalog = catalogData ?? [];
+  const { featureInfo, limitInfo, internal, comparisonFeatures } = useMemo(
+    () => (catalog.length ? buildCatalogMaps(catalog) : EMPTY_CATALOG_MAPS),
+    [catalog],
+  );
+
   const allPlans: Plan[] = plansResponse?.data ?? [];
   const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
@@ -1184,9 +1050,9 @@ function TenantPlansView() {
                           </div>
                         )}
                         {limitsToShow
-                          .filter(([key]) => !LIMIT_INFO[key]?.isOverage)
+                          .filter(([key]) => !limitInfo[key]?.isOverage)
                           .map(([key, val]) => {
-                            const info = LIMIT_INFO[key];
+                            const info = limitInfo[key];
                             const label = info
                               ? `${info.label}${info.unit ? ` ${info.unit}` : ''}`
                               : key.replace(/_/g, ' ');
@@ -1234,34 +1100,35 @@ function TenantPlansView() {
           </div>
         )}
 
-        {/* Feature comparison table */}
-        {!plansLoading && displayPlans.length > 1 && (() => {
+        {/* Feature comparison table (catalog-driven — gated on the catalog being loaded
+            so labels/categories render from feature_definitions, not raw codes) */}
+        {!plansLoading && catalog.length > 0 && displayPlans.length > 1 && (() => {
           // ── Limits (numeric, NATS-tracked) ──────────────────────────────────
           const allLimitKeys = Array.from(
             new Set(displayPlans.flatMap((p) => Object.keys(p.tierLimits ?? {})))
-          ).filter((k) => !LIMIT_INFO[k]?.isOverage);
+          ).filter((k) => !limitInfo[k]?.isOverage);
 
           const overageKeys = Array.from(
             new Set(displayPlans.flatMap((p) => Object.keys(p.tierLimits ?? {})))
-          ).filter((k) => LIMIT_INFO[k]?.isOverage);
+          ).filter((k) => limitInfo[k]?.isOverage);
 
           // ── Boolean features (✓ / —) ─────────────────────────────────────
           const planFeatureSets = displayPlans.map(
             (p) => new Set(
               (p.features ?? [])
-                .filter((f) => f.isIncluded && !INTERNAL_FEATURE_CODES.has(f.featureCode))
+                .filter((f) => f.isIncluded && !internal.has(f.featureCode))
                 .map((f) => f.featureCode)
             )
           );
-          const visibleFeatureCodes = COMPARISON_FEATURES.filter(
-            (code) => FEATURE_INFO[code] && planFeatureSets.some((s) => s.has(code))
+          const visibleFeatureCodes = comparisonFeatures.filter(
+            (code) => featureInfo[code] && planFeatureSets.some((s) => s.has(code))
           );
 
-          // Group feature codes by category (preserving COMPARISON_FEATURES order)
+          // Group feature codes by category (preserving comparisonFeatures order: service_tag then sort_order)
           const featureCategories: string[] = [];
           const featuresByCategory: Record<string, string[]> = {};
           for (const code of visibleFeatureCodes) {
-            const cat = FEATURE_INFO[code]?.category ?? 'Other';
+            const cat = featureInfo[code]?.category ?? 'Other';
             if (!featuresByCategory[cat]) {
               featuresByCategory[cat] = [];
               featureCategories.push(cat);
@@ -1301,7 +1168,7 @@ function TenantPlansView() {
                         <>
                           <SectionHeader title="Usage Limits" />
                           {allLimitKeys.map((key) => {
-                            const info = LIMIT_INFO[key];
+                            const info = limitInfo[key];
                             const label = info
                               ? `${info.label}${info.unit ? ` (${info.unit})` : ''}`
                               : key.replace(/_/g, ' ');
@@ -1337,7 +1204,7 @@ function TenantPlansView() {
                             <tr key={code} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                               <td className="py-3 px-6">
                                 <span className="text-sm font-medium text-foreground">
-                                  {FEATURE_INFO[code]?.label ?? code}
+                                  {featureInfo[code]?.label ?? code}
                                 </span>
                               </td>
                               {planFeatureSets.map((featureSet, pi) => (
@@ -1358,7 +1225,7 @@ function TenantPlansView() {
                         <>
                           <SectionHeader title="Overage & Usage Rates" />
                           {overageKeys.map((key) => {
-                            const info = LIMIT_INFO[key];
+                            const info = limitInfo[key];
                             return (
                               <tr key={key} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                                 <td className="py-3 px-6">
