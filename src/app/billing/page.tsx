@@ -198,6 +198,12 @@ export default function BillingPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: referral } = useQuery({
+    queryKey: ['referral-code', tenantKey],
+    queryFn: () => apiClient.get<{ referral_code: string }>('/api/v1/subscription/referral-code'),
+    staleTime: 10 * 60 * 1000,
+  });
+
   const [paymentSetup, setPaymentSetup] = useState<{
     initiateUrl: string;
     intentId: string;
@@ -883,6 +889,37 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Refer & Earn */}
+      {referral?.referral_code && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Gift className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Refer &amp; Earn</h2>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-3">
+              Share your referral code. When a business you refer subscribes and pays, you earn subscription credit applied automatically at your next renewal.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 rounded-lg border bg-muted/40 px-3 py-2 font-mono text-sm tracking-wider">
+                {referral.referral_code}
+              </code>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard?.writeText(referral.referral_code);
+                  toast.success('Referral code copied');
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Invoice History */}
       <Card>
