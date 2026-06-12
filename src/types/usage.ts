@@ -16,6 +16,8 @@ export interface UsageAlert {
 
 export interface AdminUsageMetric {
   metricType: string
+  /** Human-readable form of metricType for display (e.g. "Sms Sent"). */
+  label?: string
   period: string
   used: number
   limit: number

@@ -224,7 +224,7 @@ export default function TenantDetailPage() {
               <TableBody>
                 {metrics.map((m) => (
                   <TableRow key={m.metricType}>
-                    <TableCell className="font-mono text-sm">{m.metricType}</TableCell>
+                    <TableCell className="text-sm font-medium">{m.label ?? m.metricType}</TableCell>
                     <TableCell className="text-right tabular-nums">{m.used}</TableCell>
                     <TableCell className="text-right tabular-nums">{m.limit === 0 ? '∞' : m.limit}</TableCell>
                     <TableCell className="text-right text-sm text-muted-foreground">{m.period}</TableCell>
