@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
 import { listFeatureCatalog } from '@/lib/api/feature-catalog';
+import { fetchTenantBySlug } from '@/lib/tenant-api';
 import type { FeatureDefinition } from '@/types/feature-catalog';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/auth';
@@ -91,44 +92,71 @@ interface CurrentSubscription {
   current_period_end: string;
 }
 
-type ServiceTab = 'All' | 'Ordering' | 'POS' | 'Complete' | 'Inventory' | 'ERP' | 'Logistics' | 'TruLoad' | 'Transporter Portal' | 'MarketFlow';
 type BillingTab = 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
 
-const SERVICE_TABS_ALL: ServiceTab[] = ['All', 'Ordering', 'POS', 'Complete', 'Inventory', 'ERP', 'Logistics', 'TruLoad', 'Transporter Portal', 'MarketFlow'];
-const SERVICE_TABS_TENANT: ServiceTab[] = ['Ordering', 'Complete', 'POS', 'TruLoad', 'Transporter Portal', 'Inventory', 'ERP', 'Logistics', 'MarketFlow'];
-
-function planService(code: string | null | undefined): ServiceTab {
-  if (!code) return 'All';
-  if (code.startsWith('COMPLETE_')) return 'Complete';
-  if (code.startsWith('ORDERING_') || /^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'Ordering';
-  if (code.startsWith('POS_')) return 'POS';
-  if (code.startsWith('INVENTORY_')) return 'Inventory';
-  if (code.startsWith('ERP_')) return 'ERP';
-  if (code.startsWith('LOGISTICS_')) return 'Logistics';
-  // Transporter portal (data-consumer) plans are billed under the TruLoad service
-  // but are a distinct audience/use-case from the commercial weighbridge-operator
-  // plans, so they get their own tab. Check TRANSPORTER_ before TRULOAD_.
-  if (code.startsWith('TRANSPORTER_')) return 'Transporter Portal';
-  if (code.startsWith('TRULOAD_')) return 'TruLoad';
-  if (code.startsWith('MARKETFLOW_')) return 'MarketFlow';
-  return 'All';
+// ─── Dynamic plan grouping ───────────────────────────────────────────────────
+// Tabs and grouping are DERIVED from the first underscore segment of each plan
+// code (e.g. POWERSUITE_GROWTH → "POWERSUITE", ISP_HOTSPOT_STARTER → "ISP"), so
+// newly seeded plan families show up automatically without any code change.
+function planGroup(code: string | null | undefined): string {
+  if (!code) return 'OTHER';
+  // Legacy bare tier codes (STARTER/GROWTH/PROFESSIONAL) are Ordering plans.
+  if (/^(STARTER|GROWTH|PROFESSIONAL)(_YEARLY)?$/.test(code)) return 'ORDERING';
+  return (code.split('_')[0] || 'OTHER').toUpperCase();
 }
 
-function stripServicePrefix(planCode: string | null | undefined, service: ServiceTab): string {
+// Friendly tab labels; unknown groups title-case their segment automatically.
+const GROUP_LABEL: Record<string, string> = {
+  ORDERING: 'Ordering', POS: 'POS', POWERSUITE: 'PowerSuite', INVENTORY: 'Inventory',
+  ERP: 'ERP', LOGISTICS: 'Logistics', TRULOAD: 'TruLoad', TRANSPORTER: 'Transporter Portal',
+  MARKETFLOW: 'MarketFlow', TREASURY: 'Treasury', PROJECTS: 'Projects', ISP: 'ISP Billing',
+};
+function groupLabel(g: string): string {
+  if (g === 'All') return 'All';
+  return GROUP_LABEL[g] ?? (g.charAt(0) + g.slice(1).toLowerCase());
+}
+
+// Preferred tab order; groups not listed are appended alphabetically.
+const GROUP_ORDER = ['POWERSUITE', 'ORDERING', 'POS', 'INVENTORY', 'ERP', 'LOGISTICS', 'TRULOAD', 'TRANSPORTER', 'MARKETFLOW', 'TREASURY', 'PROJECTS', 'ISP'];
+function sortGroups(groups: string[]): string[] {
+  return [...groups].sort((a, b) => {
+    const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+// Tenant use-case → relevant plan groups. Unknown / 'other' → all groups.
+const USECASE_GROUPS: Record<string, string[]> = {
+  isp: ['ISP', 'POWERSUITE'],
+  hotspot: ['ISP', 'POWERSUITE'],
+  hospitality: ['ORDERING', 'POS', 'INVENTORY', 'POWERSUITE'],
+  retail: ['ORDERING', 'POS', 'INVENTORY', 'POWERSUITE'],
+  quick_service: ['ORDERING', 'POS', 'INVENTORY', 'POWERSUITE'],
+  grocery: ['ORDERING', 'POS', 'INVENTORY', 'POWERSUITE'],
+  food_delivery: ['ORDERING', 'POS', 'INVENTORY', 'LOGISTICS', 'POWERSUITE'],
+  e_commerce: ['ORDERING', 'INVENTORY', 'POWERSUITE'],
+  pharmacy: ['POS', 'INVENTORY', 'POWERSUITE'],
+  services: ['POS', 'INVENTORY', 'POWERSUITE'],
+  warehouse: ['INVENTORY', 'POWERSUITE'],
+  warehousing: ['INVENTORY', 'POWERSUITE'],
+  manufacturing: ['INVENTORY', 'ERP', 'POWERSUITE'],
+  logistics: ['LOGISTICS', 'POWERSUITE'],
+  weighbridge: ['TRULOAD', 'TRANSPORTER'],
+  commercial_weighing: ['TRULOAD', 'TRANSPORTER'],
+  axle_load_enforcement: ['TRULOAD', 'TRANSPORTER'],
+  fbo: ['MARKETFLOW', 'POWERSUITE'],
+};
+
+// Strip the leading group segment (+ _YEARLY / redundant SUITE_) to a tier label.
+function planTierLabel(planCode: string | null | undefined, group: string): string {
   if (!planCode) return '—';
-  let stripped = planCode;
-  switch (service) {
-    case 'Ordering': stripped = planCode.replace(/_YEARLY$/, ''); break;
-    case 'Complete': stripped = planCode.replace(/^COMPLETE_/, '').replace(/_YEARLY$/, ''); break;
-    case 'POS': stripped = planCode.replace(/^POS_SUITE_/, '').replace(/^POS_/, ''); break;
-    case 'Inventory': stripped = planCode.replace(/^INVENTORY_/, ''); break;
-    case 'ERP': stripped = planCode.replace(/^ERP_/, ''); break;
-    case 'Logistics': stripped = planCode.replace(/^LOGISTICS_/, ''); break;
-    case 'TruLoad': stripped = planCode.replace(/^TRULOAD_/, '').replace(/_YEARLY$/, ''); break;
-    case 'Transporter Portal': stripped = planCode.replace(/^TRANSPORTER_/, '').replace(/_YEARLY$/, ''); break;
-    case 'MarketFlow': stripped = planCode.replace(/^MARKETFLOW_/, '').replace(/_YEARLY$/, ''); break;
-  }
-  return stripped.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  let s = planCode.replace(new RegExp('^' + group + '_'), '').replace(/_YEARLY$/, '');
+  s = s.replace(/^SUITE_/, ''); // POS bundles read better without "Suite"
+  if (!s) s = planCode;
+  return s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 }
 
 function isOneTimePlan(p: Plan) {
@@ -344,7 +372,7 @@ function CatalogFeaturePicker({
 
 function AdminPlansView() {
   const qc = useQueryClient();
-  const [serviceTab, setServiceTab] = useState<ServiceTab>('All');
+  const [serviceTab, setServiceTab] = useState<string>('All');
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [form, setForm] = useState<Partial<Plan>>(emptyForm);
@@ -365,7 +393,9 @@ function AdminPlansView() {
   });
   const catalog = catalogData ?? [];
 
-  const plans = (data ?? []).filter((p) => serviceTab === 'All' || planService(p.planCode) === serviceTab);
+  const plans = (data ?? []).filter((p) => serviceTab === 'All' || planGroup(p.planCode) === serviceTab);
+  // Admin tabs are derived from the groups actually present (never hardcoded).
+  const adminTabs = ['All', ...sortGroups([...new Set((data ?? []).map((p) => planGroup(p.planCode)))])];
 
   const createMutation = useMutation({
     mutationFn: (body: Partial<Plan>) => apiClient.post('/api/v1/admin/plans', body),
@@ -447,10 +477,10 @@ function AdminPlansView() {
 
       {/* Service tabs */}
       <div className="flex gap-1 p-1 bg-accent/50 rounded-2xl w-fit flex-wrap">
-        {SERVICE_TABS_ALL.map((t) => (
+        {adminTabs.map((t) => (
           <button key={t} onClick={() => setServiceTab(t)}
             className={cn('px-4 py-1.5 rounded-xl text-xs font-semibold transition-all', serviceTab === t ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-            {t}
+            {groupLabel(t)}
           </button>
         ))}
       </div>
@@ -689,7 +719,7 @@ function AdminPlansView() {
                       </TableCell>
                       <TableCell><code className="text-xs bg-accent px-2 py-0.5 rounded font-mono">{p.planCode ?? '—'}</code></TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">{planService(p.planCode)}</Badge>
+                        <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wide">{groupLabel(planGroup(p.planCode))}</Badge>
                       </TableCell>
                       <TableCell>
                         <span className="text-[10px] font-medium text-muted-foreground">{(p.planType ?? 'TIERED').replace('_', ' ').toLowerCase()}</span>
@@ -733,20 +763,20 @@ function TenantPlansView() {
   const serviceParam = searchParams.get('service');
   const planParam = searchParams.get('plan');
 
-  const initialService = (): ServiceTab => {
-    if (!serviceParam) return 'Ordering';
-    const map: Record<string, ServiceTab> = {
-      ordering: 'Ordering', pos: 'POS', inventory: 'Inventory',
-      erp: 'ERP', logistics: 'Logistics', truload: 'TruLoad', marketflow: 'MarketFlow',
-      transporter: 'Transporter Portal', portal: 'Transporter Portal',
-      transporter_portal: 'Transporter Portal', 'transporter-portal': 'Transporter Portal',
-    };
-    return map[serviceParam.toLowerCase()] ?? 'Ordering';
-  };
-
-  const [activeService, setActiveService] = useState<ServiceTab>(initialService);
+  const [activeService, setActiveService] = useState<string>('');
   const [billingTab, setBillingTab] = useState<BillingTab>('MONTHLY');
   const highlightPlanCode = planParam ?? null;
+
+  // The current tenant's use case decides which plan groups are relevant.
+  const { data: tenantBrand } = useQuery({
+    queryKey: ['tenant-brand'],
+    queryFn: () => {
+      const slug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
+      return slug ? fetchTenantBySlug(slug) : Promise.resolve(null);
+    },
+    staleTime: 300_000,
+  });
+  const useCase = (tenantBrand?.useCase ?? 'other').toLowerCase();
 
   const { data: currentSub } = useQuery({
     queryKey: ['current-subscription'],
@@ -775,7 +805,26 @@ function TenantPlansView() {
   );
 
   const allPlans: Plan[] = plansResponse?.data ?? [];
-  const servicePlans = allPlans.filter((p) => planService(p.planCode) === activeService);
+
+  // Visible groups = use-case-relevant groups ∪ already-subscribed group(s),
+  // limited to groups that actually have plans. Unknown use case → all groups.
+  const groupsPresent = [...new Set(allPlans.map((p) => planGroup(p.planCode)))];
+  const subscribedGroup = currentSub?.plan_code ? planGroup(currentSub.plan_code) : null;
+  const allowedGroups = USECASE_GROUPS[useCase];
+  const visibleGroups = sortGroups(
+    groupsPresent.filter((g) => !allowedGroups || allowedGroups.includes(g) || g === subscribedGroup),
+  );
+
+  // Resolve the active tab to a visible group (honour ?service= when relevant).
+  const paramGroup = serviceParam
+    ? planGroup(serviceParam.replace(/-/g, '_').toUpperCase() + '_')
+    : null;
+  const defaultGroup = (paramGroup && visibleGroups.includes(paramGroup))
+    ? paramGroup
+    : (visibleGroups[0] ?? 'ORDERING');
+  const activeGroup = activeService && visibleGroups.includes(activeService) ? activeService : defaultGroup;
+
+  const servicePlans = allPlans.filter((p) => planGroup(p.planCode) === activeGroup);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
 
   // Real annual savings for the active service: max % saved across each annual
@@ -855,18 +904,18 @@ function TenantPlansView() {
       <div className="max-w-7xl mx-auto px-6 pt-8">
         {/* Service tabs */}
         <div className="flex flex-wrap gap-1 p-1.5 bg-muted/50 border border-border rounded-2xl w-fit mb-6">
-          {SERVICE_TABS_TENANT.map((tab) => (
+          {visibleGroups.map((tab) => (
             <button
               key={tab}
               onClick={() => { setActiveService(tab); setBillingTab('MONTHLY'); }}
               className={cn(
                 'px-4 py-2 rounded-xl text-sm font-semibold transition-all',
-                activeService === tab
+                activeGroup === tab
                   ? 'bg-card text-foreground shadow-sm border border-border'
                   : 'text-muted-foreground hover:text-foreground hover:bg-card/50',
               )}
             >
-              {tab}
+              {groupLabel(tab)}
             </button>
           ))}
         </div>
@@ -924,7 +973,7 @@ function TenantPlansView() {
               const isExpired = isExpiredCurrent(plan.planCode);
               const isHighlighted = !isCurrent && plan.planCode === highlightPlanCode;
               const recommended = isRecommended(plan.planCode) && !isCurrent && !isHighlighted;
-              const displayName = stripServicePrefix(plan.planCode, activeService);
+              const displayName = planTierLabel(plan.planCode, activeGroup);
               const prevPlan = planIdx > 0 ? displayPlans[planIdx - 1] : undefined;
 
               const allLimitEntries = Object.entries(plan.tierLimits ?? {});
@@ -956,7 +1005,7 @@ function TenantPlansView() {
               } else if (!currentSub) {
                 btnLabel = 'Get Started';
                 btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
-              } else if (!curSubPlan || planService(plan.planCode) !== planService(currentPlanCode)) {
+              } else if (!curSubPlan || planGroup(plan.planCode) !== planGroup(currentPlanCode)) {
                 // No current plan found, or different service group — treat as fresh subscribe
                 btnLabel = 'Subscribe';
                 btnAction = () => router.push(`/subscribe?plan=${plan.planCode}`);
@@ -1038,14 +1087,14 @@ function TenantPlansView() {
                       <div className="flex-1 mb-6 space-y-2">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground pb-2 border-b border-border">
                           {prevPlan
-                            ? `Everything in ${stripServicePrefix(prevPlan.planCode, activeService)}, plus:`
+                            ? `Everything in ${planTierLabel(prevPlan.planCode, activeGroup)}, plus:`
                             : "What's included"}
                         </p>
                         {prevPlan && (
                           <div className="flex items-center gap-2 py-1 opacity-60">
                             <Check className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                             <span className="text-sm text-muted-foreground">
-                              All {stripServicePrefix(prevPlan.planCode, activeService)} features
+                              All {planTierLabel(prevPlan.planCode, activeGroup)} features
                             </span>
                           </div>
                         )}
@@ -1157,7 +1206,7 @@ function TenantPlansView() {
                         <th className="py-4 px-6 text-xs font-bold uppercase tracking-widest text-muted-foreground w-1/2">Feature</th>
                         {displayPlans.map((p) => (
                           <th key={p.id} className="py-4 px-4 text-xs font-bold uppercase tracking-widest text-muted-foreground text-center">
-                            {stripServicePrefix(p.planCode, activeService)}
+                            {planTierLabel(p.planCode, activeGroup)}
                           </th>
                         ))}
                       </tr>
