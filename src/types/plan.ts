@@ -25,6 +25,7 @@ export interface Plan {
   description: string
   billingCycle: PlanBillingCycle
   basePrice: number
+  setupFee: number
   currency: string
   isActive: boolean
   isPublic: boolean
@@ -43,6 +44,7 @@ export interface PlanCreateRequest {
   description?: string
   billingCycle: PlanBillingCycle
   basePrice: number
+  setupFee?: number
   currency?: string
   isActive?: boolean
   isPublic?: boolean
@@ -58,6 +60,7 @@ export interface PlanUpdateRequest {
   name?: string
   description?: string
   basePrice?: number
+  setupFee?: number
   currency?: string
   isActive?: boolean
   isPublic?: boolean

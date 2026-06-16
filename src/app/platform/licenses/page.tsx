@@ -62,6 +62,7 @@ const emptyCreateForm: PlanCreateRequest = {
   description: '',
   billingCycle: 'ONE_TIME',
   basePrice: 0,
+  setupFee: 0,
   isActive: false,
   isPublic: false,
   serviceTag: '',
@@ -122,7 +123,7 @@ export default function LicensesPage() {
   const openCreate = () => { setEditingId(null); setCreateForm(emptyCreateForm); setShowForm(true); };
   const openEdit = (p: Plan) => {
     setEditingId(p.id);
-    setEditForm({ name: p.name, description: p.description, basePrice: p.basePrice, isActive: p.isActive, isPublic: p.isPublic, freeTrialDays: p.freeTrialDays });
+    setEditForm({ name: p.name, description: p.description, basePrice: p.basePrice, setupFee: p.setupFee, isActive: p.isActive, isPublic: p.isPublic, freeTrialDays: p.freeTrialDays });
     setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditingId(null); };
@@ -195,6 +196,10 @@ export default function LicensesPage() {
                     <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Base Price (KES)</label>
                     <Input type="number" min={0} value={editForm.basePrice ?? 0} onChange={(e) => setEditForm((p) => ({ ...p, basePrice: Number(e.target.value) }))} className="h-11 rounded-xl" />
                   </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">One-time Setup Fee (KES)</label>
+                    <Input type="number" min={0} value={editForm.setupFee ?? 0} onChange={(e) => setEditForm((p) => ({ ...p, setupFee: Number(e.target.value) }))} className="h-11 rounded-xl" />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Description</label>
@@ -231,6 +236,12 @@ export default function LicensesPage() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Base Price (KES)</label>
                     <Input type="number" min={0} value={createForm.basePrice} onChange={(e) => setCreateForm((p) => ({ ...p, basePrice: Number(e.target.value) }))} className="h-11 rounded-xl" />
+                  </div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">One-time Setup Fee (KES)</label>
+                    <Input type="number" min={0} value={createForm.setupFee ?? 0} onChange={(e) => setCreateForm((p) => ({ ...p, setupFee: Number(e.target.value) }))} className="h-11 rounded-xl" />
                   </div>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
