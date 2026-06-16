@@ -5,11 +5,13 @@ import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Bell, Database, Globe, Link2, Loader2, Palette, Plus, Shield, Settings as SettingsIcon, Trash2 } from 'lucide-react';
+import { Bell, Database, Globe, HardDriveDownload, Link2, Loader2, Palette, Plus, Shield, Settings as SettingsIcon, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useMe } from '@/hooks/useMe'
 import { useTenantFilterStore } from '@/store/tenant-filter';
+import { useBackupSettings, useUpdateBackupSettings } from '@/hooks/useBackupSettings';
+import type { BackupSettings } from '@/lib/api/backups';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -338,7 +340,7 @@ function PlatformSettingsView() {
 
 // ── Tenant: Subscription Settings ─────────────────────────────────────────────
 
-type SettingsTab = 'renewal' | 'notifications' | 'billing';
+type SettingsTab = 'renewal' | 'notifications' | 'billing' | 'backups';
 
 function TenantSettingsView({ viewingTenant }: { viewingTenant?: { id: string; name: string } | null }) {
   const queryClient = useQueryClient();
@@ -376,10 +378,29 @@ function TenantSettingsView({ viewingTenant }: { viewingTenant?: { id: string; n
     setForm((prev) => ({ ...prev, [key]: !merged[key] }));
   };
 
+  // ── Auto-backups (opt-in, per tenant) ──────────────────────────────────────
+  const { data: backupSettings, isLoading: backupsLoading } = useBackupSettings(tenantKey);
+  const updateBackups = useUpdateBackupSettings(tenantKey);
+  const [backupForm, setBackupForm] = useState<Partial<BackupSettings>>({});
+  const mergedBackups: BackupSettings = {
+    auto_enabled: false,
+    schedule_hour: 2,
+    retention_days: 4,
+    ...backupSettings,
+    ...backupForm,
+  };
+  const backupsDirty = Object.keys(backupForm).length > 0;
+  const hourLabel = (h: number) => {
+    const period = h < 12 ? 'AM' : 'PM';
+    const display = h % 12 === 0 ? 12 : h % 12;
+    return `${display}:00 ${period}`;
+  };
+
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'renewal', label: 'Renewal', icon: <Shield className="h-4 w-4" /> },
     { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
     { id: 'billing', label: 'Billing Contact', icon: <SettingsIcon className="h-4 w-4" /> },
+    { id: 'backups', label: 'Backups', icon: <HardDriveDownload className="h-4 w-4" /> },
   ];
 
   return (
@@ -540,6 +561,93 @@ function TenantSettingsView({ viewingTenant }: { viewingTenant?: { id: string; n
                     />
                     <p className="text-xs text-muted-foreground mt-1.5">Invoices, receipts, and payment alerts are sent here.</p>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {activeTab === 'backups' && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <HardDriveDownload className="h-5 w-5" style={{ color: brandColor }} />
+                    <h2 className="font-semibold">Automatic Backups</h2>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {backupsLoading ? (
+                    <div className="h-24 bg-muted rounded-xl animate-pulse" />
+                  ) : (
+                    <div className="space-y-5">
+                      <div className="flex items-center justify-between py-1">
+                        <div>
+                          <p className="text-sm font-medium">Enable Automatic Backups</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Off by default. When enabled, a backup of this tenant&apos;s data runs daily at the chosen hour.
+                          </p>
+                        </div>
+                        <BrandSwitch
+                          checked={mergedBackups.auto_enabled}
+                          onToggle={() =>
+                            setBackupForm((prev) => ({ ...prev, auto_enabled: !mergedBackups.auto_enabled }))
+                          }
+                          brandColor={brandColor}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium block mb-1.5">Daily Backup Time</label>
+                          <select
+                            className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                            value={mergedBackups.schedule_hour}
+                            disabled={!mergedBackups.auto_enabled}
+                            onChange={(e) =>
+                              setBackupForm((prev) => ({ ...prev, schedule_hour: Number(e.target.value) }))
+                            }
+                          >
+                            {Array.from({ length: 24 }).map((_, h) => (
+                              <option key={h} value={h}>{hourLabel(h)}</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-muted-foreground mt-1.5">Service-local time.</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium block mb-1.5">Retention (days)</label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={mergedBackups.retention_days}
+                            disabled={!mergedBackups.auto_enabled}
+                            onChange={(e) =>
+                              setBackupForm((prev) => ({ ...prev, retention_days: Number(e.target.value) }))
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground mt-1.5">Older backups are deleted.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-3 pt-1">
+                        {backupsDirty && (
+                          <span className="text-xs text-muted-foreground">Unsaved changes</span>
+                        )}
+                        <Button
+                          onClick={() =>
+                            updateBackups.mutate(mergedBackups, { onSuccess: () => setBackupForm({}) })
+                          }
+                          disabled={!backupsDirty || updateBackups.isPending}
+                          className="min-w-[120px] font-semibold shadow-sm"
+                          style={{ backgroundColor: brandColor, color: brandTextColor }}
+                        >
+                          {updateBackups.isPending ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Saving…
+                            </span>
+                          ) : 'Save Backups'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
