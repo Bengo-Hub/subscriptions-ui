@@ -1,6 +1,7 @@
 'use client';
 
 import { apiClient } from '@/lib/api/client';
+import { OfflineBar } from '@bengo-hub/shared-ui-lib/offline';
 import { useMe } from '@/hooks/useMe';
 import { useAuthStore } from '@/store/auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -67,5 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
     }
 
-    return <>{children}</>;
+    return (
+        <>
+            <OfflineBar availableOffline={['View cached data']} disabledOffline={['Edits', 'Billing actions']} />
+            {children}
+        </>
+    );
 }
