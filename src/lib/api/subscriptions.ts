@@ -19,10 +19,20 @@ export const initiateSubscription = (planCode: string, returnUrl?: string) =>
     { plan_code: planCode, return_url: returnUrl },
   )
 
-export const createSubscription = (planCode: string, bundleCode?: string) =>
+// Current subscription Terms & Conditions (version + markdown text) shown in the subscribe flow.
+export const getTerms = () =>
+  apiClient.get<{ version: string; content: string }>('/api/v1/terms')
+
+export const createSubscription = (
+  planCode: string,
+  opts?: { bundleCode?: string; termsVersion?: string; termsAccepted?: boolean },
+) =>
   apiClient.post<Subscription>('/api/v1/subscription', {
     plan_code: planCode,
-    bundle_code: bundleCode,
+    bundle_code: opts?.bundleCode,
+    // T&C acceptance is required server-side for tenant self-serve subscribes.
+    terms_version: opts?.termsVersion,
+    terms_accepted: opts?.termsAccepted,
   })
 
 export const changePlan = (newPlanCode: string, billingCycle?: string) =>

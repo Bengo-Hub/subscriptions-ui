@@ -49,6 +49,12 @@ function SubscribeContent() {
   const [initiating, setInitiating] = useState(false);
   const [paidIntentId, setPaidIntentId] = useState<string | null>(null);
 
+  // Subscription Terms & Conditions — must be accepted before subscribing.
+  const [termsVersion, setTermsVersion] = useState('');
+  const [termsContent, setTermsContent] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+
   useEffect(() => {
     if (status === 'idle') {
       const currentPath = window.location.pathname + window.location.search;
@@ -74,8 +80,19 @@ function SubscribeContent() {
       }
     }
 
+    async function fetchTerms() {
+      try {
+        const t = await apiClient.get<{ version: string; content: string }>('/api/v1/terms');
+        setTermsVersion(t.version);
+        setTermsContent(t.content);
+      } catch {
+        // Non-fatal: if terms can't load, the version stays empty and the gate stays closed.
+      }
+    }
+
     if (status === 'authenticated') {
       fetchPlan();
+      fetchTerms();
     }
   }, [planCode, status, router, redirectToSSO]);
 
@@ -85,10 +102,18 @@ function SubscribeContent() {
   // Start a free trial or free plan directly via POST /subscription
   const handleStartTrial = async () => {
     if (!plan) return;
+    if (!termsAccepted || !termsVersion) {
+      setError('Please accept the Terms & Conditions to continue.');
+      return;
+    }
     setInitiating(true);
     setError(null);
     try {
-      await apiClient.post('/api/v1/subscription', { plan_code: plan.planCode });
+      await apiClient.post('/api/v1/subscription', {
+        plan_code: plan.planCode,
+        terms_version: termsVersion,
+        terms_accepted: true,
+      });
       router.push('/usage?subscribed=true');
     } catch (err: any) {
       const msg = err.response?.data?.error ?? '';
@@ -104,6 +129,10 @@ function SubscribeContent() {
 
   const handleCheckout = async () => {
     if (!plan) return;
+    if (!termsAccepted || !termsVersion) {
+      setError('Please accept the Terms & Conditions to continue.');
+      return;
+    }
     setInitiating(true);
     setError(null);
 
@@ -111,6 +140,8 @@ function SubscribeContent() {
       const result = await apiClient.post<InitiateResult>('/api/v1/subscription/initiate', {
         plan_code: plan.planCode,
         return_url: `${window.location.origin}/usage?checkout=success`,
+        terms_version: termsVersion,
+        terms_accepted: true,
       });
 
       if (result.initiate_url && result.intent_id) {
@@ -301,10 +332,38 @@ function SubscribeContent() {
                   </div>
                 )}
 
+                {/* Terms & Conditions acceptance — required before subscribing */}
+                <div className="mb-4 rounded-2xl border border-border bg-muted/30 p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 accent-primary"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      I have read and accept the{' '}
+                      <button
+                        type="button"
+                        className="text-primary font-semibold underline underline-offset-2"
+                        onClick={() => setShowTerms((v) => !v)}
+                      >
+                        Terms &amp; Conditions
+                      </button>
+                      {termsVersion ? ` (v${termsVersion})` : ''}.
+                    </span>
+                  </label>
+                  {showTerms && (
+                    <pre className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-xl bg-background p-3 text-xs leading-relaxed text-muted-foreground">
+                      {termsContent || 'Loading terms…'}
+                    </pre>
+                  )}
+                </div>
+
                 <Button
                   className="w-full h-16 rounded-2xl font-black text-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   onClick={hasTrial || isFree ? handleStartTrial : handleCheckout}
-                  disabled={initiating}
+                  disabled={initiating || !termsAccepted || !termsVersion}
                 >
                   {initiating ? (
                     <>
