@@ -110,6 +110,7 @@ const GROUP_LABEL: Record<string, string> = {
   ORDERING: 'Ordering', POS: 'POS', POWERSUITE: 'PowerSuite', INVENTORY: 'Inventory',
   ERP: 'ERP', LOGISTICS: 'Logistics', TRULOAD: 'TruLoad', TRANSPORTER: 'Transporter Portal',
   MARKETFLOW: 'MarketFlow', TREASURY: 'Treasury', PROJECTS: 'Projects', ISP: 'ISP Billing',
+  LIBRARY: 'Library',
 };
 function groupLabel(g: string): string {
   if (g === 'All') return 'All';
@@ -117,7 +118,7 @@ function groupLabel(g: string): string {
 }
 
 // Preferred tab order; groups not listed are appended alphabetically.
-const GROUP_ORDER = ['POWERSUITE', 'ORDERING', 'POS', 'INVENTORY', 'ERP', 'LOGISTICS', 'TRULOAD', 'TRANSPORTER', 'MARKETFLOW', 'TREASURY', 'PROJECTS', 'ISP'];
+const GROUP_ORDER = ['POWERSUITE', 'ORDERING', 'POS', 'INVENTORY', 'ERP', 'LIBRARY', 'LOGISTICS', 'TRULOAD', 'TRANSPORTER', 'MARKETFLOW', 'TREASURY', 'PROJECTS', 'ISP'];
 function sortGroups(groups: string[]): string[] {
   return [...groups].sort((a, b) => {
     const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
