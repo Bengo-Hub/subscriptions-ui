@@ -15,12 +15,23 @@ interface Plan {
   planCode: string;
   name: string;
   description: string;
-  basePrice: number;
+  basePrice: number; // per MONTH
+  setupFee: number; // one-time setup/installation fee (0 = none)
   currency: string;
   billingCycle: string;
   freeTrialDays: number;
   tierLimits: Record<string, any>;
 }
+
+// Billing periods offered on every recurring plan. Price = months × monthly base price
+// (no automatic discount); periods of WAIVER_MONTHS+ months waive the one-time setup fee.
+const WAIVER_MONTHS = 6;
+const BILLING_PERIODS = [
+  { cycle: 'MONTHLY', months: 1, label: 'Monthly' },
+  { cycle: 'SEMI_ANNUAL', months: 6, label: '6 Months' },
+  { cycle: 'ANNUAL', months: 12, label: '12 Months' },
+] as const;
+type BillingCycle = (typeof BILLING_PERIODS)[number]['cycle'];
 
 interface InitiateResult {
   intent_id: string;
@@ -42,6 +53,7 @@ function SubscribeContent() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cycle, setCycle] = useState<BillingCycle>('MONTHLY');
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [intentId, setIntentId] = useState('');
@@ -99,6 +111,14 @@ function SubscribeContent() {
   const hasTrial = (plan?.freeTrialDays ?? 0) > 0;
   const isFree = (plan?.basePrice ?? 0) === 0;
 
+  // Billing-period derived pricing: price = months × monthly base (no discount);
+  // the one-time setup fee is WAIVED when paying for 6+ months up front.
+  const period = BILLING_PERIODS.find((p) => p.cycle === cycle) ?? BILLING_PERIODS[0];
+  const setupFee = plan?.setupFee ?? 0;
+  const setupFeeWaived = setupFee > 0 && period.months >= WAIVER_MONTHS;
+  const planSubtotal = (plan?.basePrice ?? 0) * period.months;
+  const totalDueNow = planSubtotal + (setupFee > 0 && !setupFeeWaived ? setupFee : 0);
+
   // Start a free trial or free plan directly via POST /subscription
   const handleStartTrial = async () => {
     if (!plan) return;
@@ -111,6 +131,7 @@ function SubscribeContent() {
     try {
       await apiClient.post('/api/v1/subscription', {
         plan_code: plan.planCode,
+        billing_cycle: cycle,
         terms_version: termsVersion,
         terms_accepted: true,
       });
@@ -139,6 +160,7 @@ function SubscribeContent() {
     try {
       const result = await apiClient.post<InitiateResult>('/api/v1/subscription/initiate', {
         plan_code: plan.planCode,
+        billing_cycle: cycle,
         return_url: `${window.location.origin}/usage?checkout=success`,
         terms_version: termsVersion,
         terms_accepted: true,
@@ -196,7 +218,7 @@ function SubscribeContent() {
           paymentIntentId={intentId}
           tenantSlug={user?.tenant_slug ?? ''}
           initiateUrl={initiateUrl}
-          amount={plan.basePrice}
+          amount={totalDueNow}
           currency={plan.currency || 'KES'}
           referenceType="subscription"
           customerEmail={user?.email}
@@ -283,13 +305,85 @@ function SubscribeContent() {
                 <h3 className="text-2xl font-black">Order Summary</h3>
               </CardHeader>
               <CardContent className="p-8">
+                {/* Billing period selector — Monthly / 6 Months / 12 Months on every plan */}
+                {!isFree && (
+                  <div className="mb-6">
+                    <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Billing Period</span>
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {BILLING_PERIODS.map((p) => {
+                        const selected = p.cycle === cycle;
+                        const waives = setupFee > 0 && p.months >= WAIVER_MONTHS;
+                        return (
+                          <button
+                            key={p.cycle}
+                            type="button"
+                            onClick={() => setCycle(p.cycle)}
+                            className={`relative rounded-2xl border p-3 text-center transition-all ${
+                              selected
+                                ? 'border-primary bg-primary/10 shadow-sm'
+                                : 'border-border bg-background hover:border-primary/40'
+                            }`}
+                          >
+                            <span className="block text-sm font-black">{p.label}</span>
+                            <span className="block text-[11px] text-muted-foreground font-medium mt-0.5">
+                              {plan.currency} {(plan.basePrice * p.months).toLocaleString()}
+                            </span>
+                            {waives && (
+                              <span className="mt-1 inline-block rounded-full bg-green-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-green-600">
+                                Setup fee waived
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Setup-fee waiver banner — the only incentive; no other discount applies when waived */}
+                {!isFree && setupFee > 0 && (
+                  <div
+                    className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm font-medium ${
+                      setupFeeWaived
+                        ? 'border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400'
+                        : 'border-primary/30 bg-primary/5 text-foreground'
+                    }`}
+                  >
+                    <Sparkles className={`h-4 w-4 mt-0.5 shrink-0 ${setupFeeWaived ? 'text-green-600' : 'text-primary'}`} />
+                    {setupFeeWaived ? (
+                      <span>
+                        Your one-time setup fee of <strong>{plan.currency} {setupFee.toLocaleString()}</strong> is{' '}
+                        <strong>waived</strong> because you're paying for {period.months} months up front.
+                      </span>
+                    ) : (
+                      <span>
+                        Pay for <strong>6 months or more</strong> and your one-time setup fee of{' '}
+                        <strong>{plan.currency} {setupFee.toLocaleString()}</strong> will be <strong>waived</strong>.
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-4 mb-8">
                   {hasTrial ? (
                     <>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
-                        <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}/mo after trial</span>
+                        <span className="text-muted-foreground font-medium">{plan.name} Plan ({period.label})</span>
+                        <span className="font-bold">{plan.currency} {planSubtotal.toLocaleString()} after trial</span>
                       </div>
+                      {setupFee > 0 && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-muted-foreground font-medium">One-time setup fee</span>
+                          {setupFeeWaived ? (
+                            <span className="font-bold">
+                              <span className="line-through text-muted-foreground mr-2">{plan.currency} {setupFee.toLocaleString()}</span>
+                              <span className="text-green-600 uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Waived</span>
+                            </span>
+                          ) : (
+                            <span className="font-bold">{plan.currency} {setupFee.toLocaleString()} after trial</span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex justify-between items-center py-2">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-primary" />
@@ -307,9 +401,22 @@ function SubscribeContent() {
                   ) : (
                     <>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-muted-foreground font-medium">{plan.name} Plan</span>
-                        <span className="font-bold">{plan.currency} {plan.basePrice.toLocaleString()}</span>
+                        <span className="text-muted-foreground font-medium">{plan.name} Plan ({period.label})</span>
+                        <span className="font-bold">{plan.currency} {planSubtotal.toLocaleString()}</span>
                       </div>
+                      {setupFee > 0 && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-muted-foreground font-medium">One-time setup fee</span>
+                          {setupFeeWaived ? (
+                            <span className="font-bold">
+                              <span className="line-through text-muted-foreground mr-2">{plan.currency} {setupFee.toLocaleString()}</span>
+                              <span className="text-green-600 uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Waived</span>
+                            </span>
+                          ) : (
+                            <span className="font-bold">{plan.currency} {setupFee.toLocaleString()}</span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex justify-between items-center py-2">
                         <span className="text-muted-foreground font-medium">Platform Fee</span>
                         <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>
@@ -318,7 +425,7 @@ function SubscribeContent() {
                         <div>
                           <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Total Due Now</span>
                           <p className="text-3xl font-black mt-1">
-                            {isFree ? 'Free' : `${plan.currency} ${plan.basePrice.toLocaleString()}`}
+                            {isFree ? 'Free' : `${plan.currency} ${totalDueNow.toLocaleString()}`}
                           </p>
                         </div>
                       </div>

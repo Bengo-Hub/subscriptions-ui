@@ -70,7 +70,8 @@ interface Plan {
   name: string;
   description: string;
   billingCycle: 'MONTHLY' | 'ANNUAL' | 'ONE_TIME';
-  basePrice: number;
+  basePrice: number; // per MONTH for recurring plans
+  setupFee?: number; // one-time setup/installation fee; waived on 6+ month billing periods
   currency: string;
   isActive: boolean;
   isPublic: boolean;
@@ -828,25 +829,9 @@ function TenantPlansView() {
   const servicePlans = allPlans.filter((p) => planGroup(p.planCode) === activeGroup);
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
 
-  // Real annual savings for the active service: max % saved across each annual
-  // plan vs its monthly counterpart (matched by tierOrder). Different services
-  // are priced differently (e.g. transporter annual ≈10 months ⇒ ~17%, commercial
-  // ≈11 months ⇒ ~8%), so this is computed rather than hardcoded.
-  const annualSavingsPct = (() => {
-    let best = 0;
-    for (const annual of servicePlans) {
-      if (!isAnnualPlan(annual) || isOneTimePlan(annual)) continue;
-      const monthly = servicePlans.find(
-        (p) => !isAnnualPlan(p) && !isOneTimePlan(p) && p.tierOrder === annual.tierOrder,
-      );
-      const monthlyTotal = (monthly?.basePrice ?? 0) * 12;
-      if (!monthly || monthlyTotal <= 0) continue;
-      const pct = 1 - (annual.basePrice ?? 0) / monthlyTotal;
-      if (pct > best) best = pct;
-    }
-    return Math.round(best * 100);
-  })();
-  const hasAnnualSavings = annualSavingsPct > 0;
+  // Billing periods (Monthly / 6 Months / 12 Months) are chosen at checkout on one
+  // recurring plan — the legacy per-cycle ANNUAL plan rows are retired, so only
+  // recurring (monthly-priced) and one-time plans are displayed.
   const displayPlans = servicePlans
     .filter((p) => {
       if (billingTab === 'ONE_TIME') return isOneTimePlan(p);
@@ -921,9 +906,10 @@ function TenantPlansView() {
           ))}
         </div>
 
-        {/* Billing cycle toggle */}
-        <div className="flex items-center gap-1 p-1 bg-muted/50 border border-border rounded-xl w-fit mb-8">
-          {(['MONTHLY', 'ANNUAL'] as BillingTab[]).concat(hasOneTime ? ['ONE_TIME'] : []).map((tab) => (
+        {/* Billing type toggle — the billing PERIOD (Monthly / 6 Months / 12 Months) is
+            chosen at checkout on one recurring plan; annual plan rows are retired. */}
+        <div className="flex items-center gap-1 p-1 bg-muted/50 border border-border rounded-xl w-fit mb-4">
+          {(['MONTHLY'] as BillingTab[]).concat(hasOneTime ? ['ONE_TIME'] : []).map((tab) => (
             <button
               key={tab}
               onClick={() => setBillingTab(tab)}
@@ -934,12 +920,22 @@ function TenantPlansView() {
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {tab === 'MONTHLY' ? 'Monthly' : tab === 'ANNUAL' ? (
-                <>Annual {hasAnnualSavings && <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">SAVE {annualSavingsPct}%</span>}</>
-              ) : 'One-Time'}
+              {tab === 'MONTHLY' ? 'Recurring' : 'One-Time'}
             </button>
           ))}
         </div>
+
+        {/* Setup-fee waiver banner — every recurring plan is available Monthly / 6 Months /
+            12 Months at checkout; 6+ months up front waives the one-time setup fee. */}
+        {billingTab !== 'ONE_TIME' && (
+          <div className="mb-8 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 max-w-3xl">
+            <Sparkles className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+            <p className="text-sm text-foreground font-medium">
+              Every plan is available <strong>Monthly</strong>, for <strong>6 Months</strong> or for <strong>12 Months</strong> — choose your billing period at checkout.
+              Pay for <strong>6 months or more</strong> and your <strong>one-time setup fee is waived</strong>.
+            </p>
+          </div>
+        )}
 
         {/* Plan cards */}
         {plansLoading ? (
@@ -1080,6 +1076,12 @@ function TenantPlansView() {
                         )}
                         {billingTab === 'ONE_TIME' && (
                           <p className="text-xs text-muted-foreground">One-time payment</p>
+                        )}
+                        {billingTab !== 'ONE_TIME' && (plan.setupFee ?? 0) > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            + KES {(plan.setupFee ?? 0).toLocaleString()} one-time setup fee
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold"> — waived on 6+ month billing</span>
+                          </p>
                         )}
                         <p className="text-sm text-muted-foreground mt-3 leading-relaxed min-h-10">{plan.description}</p>
                       </div>
@@ -1310,29 +1312,22 @@ function TenantPlansView() {
           );
         })()}
 
-        {/* Annual savings CTA */}
-        {billingTab !== 'ANNUAL' && billingTab !== 'ONE_TIME' && hasAnnualSavings && (
+        {/* Setup-fee waiver CTA — replaces the retired annual-plan-rows CTA */}
+        {billingTab !== 'ONE_TIME' && (
           <Card className="rounded-2xl border border-border mb-12 overflow-hidden">
             <CardContent className="p-8">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Zap className="h-5 w-5 text-primary" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-primary">Annual Billing</span>
+                    <span className="text-xs font-bold uppercase tracking-widest text-primary">Pay Up Front &amp; Save</span>
                   </div>
-                  <h3 className="text-2xl font-black text-foreground mb-3">Save up to {annualSavingsPct}% annually</h3>
+                  <h3 className="text-2xl font-black text-foreground mb-3">6+ months waives your setup fee</h3>
                   <p className="text-muted-foreground leading-relaxed mb-6">
-                    Switch to annual billing and save on every plan. Cancel anytime.
+                    Choose a 6-month or 12-month billing period at checkout and the one-time
+                    setup/installation fee is waived entirely. Monthly billing remains available
+                    on every plan — cancel anytime.
                   </p>
-                  <Button
-                    variant="outline"
-                    className="h-11 px-6 rounded-xl font-semibold"
-                    onClick={() => setBillingTab('ANNUAL')}
-                  >
-                    <Layout className="h-4 w-4 mr-2" />
-                    View Annual Plans
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
                 </div>
                 <div className="bg-muted/30 rounded-2xl p-6 border border-border">
                   <p className="text-sm font-semibold text-muted-foreground mb-4">Overage & usage rates</p>
