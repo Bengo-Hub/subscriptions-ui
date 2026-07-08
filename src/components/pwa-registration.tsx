@@ -49,7 +49,7 @@ export function PWARegistration() {
       setDeferredPrompt(null);
       promptRef.current = null;
       setShowInstall(false);
-      toast.success('BengoBox Subscriptions installed successfully!');
+      toast.success('Codevertex Subscriptions installed successfully!');
     };
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);

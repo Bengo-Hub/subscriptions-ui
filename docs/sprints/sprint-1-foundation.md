@@ -22,7 +22,7 @@ The `subscriptions-ui` repo is scaffolded with a full Next.js app. The subscript
 #### 1. Project Scaffolding
 - [ ] `npx create-next-app@latest` with App Router, TypeScript, Tailwind, ESLint
 - [ ] Install: `shadcn/ui`, `@tanstack/react-query`, `lucide-react`
-- [ ] Configure `tailwind.config.ts` with BengoBox design tokens (colors, fonts)
+- [ ] Configure `tailwind.config.ts` with Codevertex design tokens (colors, fonts)
 - [ ] Set up `lib/api/client.ts` — typed fetch wrapper with Bearer token injection
 - [ ] Set up `lib/api/subscriptions.ts`, `lib/api/plans.ts`, `lib/api/products.ts`
 - [ ] Set up `.env.local` with API URLs
@@ -123,5 +123,5 @@ The `subscriptions-ui` repo is scaffolded with a full Next.js app. The subscript
 
 - `subscriptions-api` deployed and accessible (done)
 - `shared-auth-client` JS SDK (or equivalent token management)
-- Design tokens from BengoBox design system
+- Design tokens from Codevertex design system
 - Domain `pricing.codevertexitsolutions.com` provisioned (subscriptions-ui production host in values.yaml)

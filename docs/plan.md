@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Admin interface for the BengoBox Subscription Service. Serves two audiences:
+Admin interface for the Codevertex Subscription Service. Serves two audiences:
 
 1. **Platform Admins** (Codevertex staff) — Manage plans, bundles, products, view all tenant subscriptions, override features, monitor usage across the platform
 2. **Tenant Admins** (Restaurant owners) — View their subscription status, see usage, upgrade/downgrade plans, manage product add-ons
@@ -15,7 +15,7 @@ Admin interface for the BengoBox Subscription Service. Serves two audiences:
 
 | Concern | Choice | Rationale |
 |---------|--------|-----------|
-| Framework | Next.js 14+ (App Router) | SSR, RSC, file-based routing — consistent with other BengoBox UIs |
+| Framework | Next.js 14+ (App Router) | SSR, RSC, file-based routing — consistent with other Codevertex UIs |
 | Language | TypeScript | Type safety across API contracts |
 | UI Library | shadcn/ui + Tailwind CSS | Consistent design system, accessible components |
 | State | TanStack Query (React Query) | Server-state caching, optimistic updates |

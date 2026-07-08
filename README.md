@@ -1,6 +1,6 @@
 # Subscriptions UI
 
-BengoBox subscriptions management UI. Plans, usage, billing, platform admin.
+Codevertex subscriptions management UI. Plans, usage, billing, platform admin.
 
 ## Dev
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Next.js 14+ application (App Router) providing the admin interface for BengoBox subscription management. Purely a frontend — all data is fetched from `subscriptions-api`.
+Next.js 14+ application (App Router) providing the admin interface for Codevertex subscription management. Purely a frontend — all data is fetched from `subscriptions-api`.
 
 ---
 
