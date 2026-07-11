@@ -21,6 +21,7 @@ interface UserProfile {
   tenant_slug?: string;
   is_platform_owner?: boolean;
   isSuperUser?: boolean;
+  email_verification?: import('@bengo-hub/shared-ui-lib/auth').EmailVerificationState;
 }
 
 interface Session {

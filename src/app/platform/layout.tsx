@@ -1,6 +1,7 @@
 'use client';
 
 import { useMe } from '@/hooks/useMe';
+import { VerifyEmailPrompt } from '@/components/auth/VerifyEmailPrompt';
 import { useRouter } from 'next/navigation';
 import { ReactNode, useEffect } from 'react';
 
@@ -30,5 +31,10 @@ export default function PlatformLayout({ children }: { children: ReactNode }) {
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <VerifyEmailPrompt />
+      {children}
+    </>
+  );
 }

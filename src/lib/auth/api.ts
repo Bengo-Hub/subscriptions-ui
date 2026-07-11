@@ -109,6 +109,7 @@ export async function fetchProfile(accessToken: string): Promise<{
   tenant_slug: string;
   is_platform_owner: boolean;
   isSuperUser: boolean;
+  email_verification?: import('@bengo-hub/shared-ui-lib/auth').EmailVerificationState;
 }> {
   const response = await fetch(`${SSO_BASE_URL}/api/v1/auth/me`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -131,5 +132,6 @@ export async function fetchProfile(accessToken: string): Promise<{
     tenant_slug: slug,
     is_platform_owner: data.is_platform_owner === true || slug === 'codevertex',
     isSuperUser: roles.includes('superuser'),
+    email_verification: data.email_verification,
   };
 }
