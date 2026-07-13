@@ -111,12 +111,22 @@ function SubscribeContent() {
   const hasTrial = (plan?.freeTrialDays ?? 0) > 0;
   const isFree = (plan?.basePrice ?? 0) === 0;
 
-  // Billing-period derived pricing: price = months × monthly base (no discount);
-  // the one-time setup fee is WAIVED when paying for 6+ months up front.
+  // The plan's billing_cycle (from the DB) is the single source of truth for HOW it is charged.
+  // A ONE_TIME (perpetual-licence) plan is billed once at its full base_price — no recurring
+  // period selector and no ×months multiplier. Every other cycle is a recurring plan priced per
+  // month across the tenant-chosen period. Nothing here assumes a plan is recurring.
+  const isOneTime = (plan?.billingCycle ?? '').toUpperCase() === 'ONE_TIME';
+
+  // Billing-period derived pricing (recurring only): price = months × monthly base (no discount);
+  // the setup fee is WAIVED when paying for 6+ months up front. For a one-time plan there is no
+  // period (months = 1, no waiver) and the cycle sent to the backend is the plan's own ONE_TIME.
   const period = BILLING_PERIODS.find((p) => p.cycle === cycle) ?? BILLING_PERIODS[0];
+  const periodMonths = isOneTime ? 1 : period.months;
+  const periodLabel = isOneTime ? 'One-time payment' : period.label;
+  const effectiveCycle = isOneTime ? 'ONE_TIME' : cycle;
   const setupFee = plan?.setupFee ?? 0;
-  const setupFeeWaived = setupFee > 0 && period.months >= WAIVER_MONTHS;
-  const planSubtotal = (plan?.basePrice ?? 0) * period.months;
+  const setupFeeWaived = !isOneTime && setupFee > 0 && period.months >= WAIVER_MONTHS;
+  const planSubtotal = (plan?.basePrice ?? 0) * periodMonths;
   const totalDueNow = planSubtotal + (setupFee > 0 && !setupFeeWaived ? setupFee : 0);
 
   // Start a free trial or free plan directly via POST /subscription
@@ -131,7 +141,7 @@ function SubscribeContent() {
     try {
       await apiClient.post('/api/v1/subscription', {
         plan_code: plan.planCode,
-        billing_cycle: cycle,
+        billing_cycle: effectiveCycle,
         terms_version: termsVersion,
         terms_accepted: true,
       });
@@ -160,7 +170,7 @@ function SubscribeContent() {
     try {
       const result = await apiClient.post<InitiateResult>('/api/v1/subscription/initiate', {
         plan_code: plan.planCode,
-        billing_cycle: cycle,
+        billing_cycle: effectiveCycle,
         return_url: `${window.location.origin}/usage?checkout=success`,
         terms_version: termsVersion,
         terms_accepted: true,
@@ -305,8 +315,9 @@ function SubscribeContent() {
                 <h3 className="text-2xl font-black">Order Summary</h3>
               </CardHeader>
               <CardContent className="p-8">
-                {/* Billing period selector — Monthly / 6 Months / 12 Months on every plan */}
-                {!isFree && (
+                {/* Billing period selector — Monthly / 6 Months / 12 Months. Recurring plans only;
+                    a ONE_TIME (perpetual-licence) plan is a single up-front charge, so no period. */}
+                {!isFree && !isOneTime && (
                   <div className="mb-6">
                     <span className="text-xs text-muted-foreground font-black uppercase tracking-widest">Billing Period</span>
                     <div className="grid grid-cols-3 gap-2 mt-2">
@@ -340,8 +351,21 @@ function SubscribeContent() {
                   </div>
                 )}
 
-                {/* Setup-fee waiver banner — the only incentive; no other discount applies when waived */}
-                {!isFree && setupFee > 0 && (
+                {/* One-time (perpetual licence) — single up-front payment, billed once, never renews. */}
+                {!isFree && isOneTime && (
+                  <div className="mb-6 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm font-medium text-foreground">
+                    <ShieldCheck className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                    <span>
+                      This is a <strong>one-time perpetual licence</strong> — pay{' '}
+                      <strong>{plan.currency} {(plan.basePrice ?? 0).toLocaleString()}</strong> once and own it. No
+                      monthly or recurring charges.
+                    </span>
+                  </div>
+                )}
+
+                {/* Setup-fee waiver banner — recurring plans only (the waiver is earned by paying 6+
+                    months up front, a concept that does not apply to a one-time licence). */}
+                {!isFree && !isOneTime && setupFee > 0 && (
                   <div
                     className={`mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm font-medium ${
                       setupFeeWaived
@@ -368,7 +392,7 @@ function SubscribeContent() {
                   {hasTrial ? (
                     <>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-muted-foreground font-medium">{plan.name} Plan ({period.label})</span>
+                        <span className="text-muted-foreground font-medium">{plan.name} Plan ({periodLabel})</span>
                         <span className="font-bold">{plan.currency} {planSubtotal.toLocaleString()} after trial</span>
                       </div>
                       {setupFee > 0 && (
@@ -401,7 +425,7 @@ function SubscribeContent() {
                   ) : (
                     <>
                       <div className="flex justify-between items-center py-2">
-                        <span className="text-muted-foreground font-medium">{plan.name} Plan ({period.label})</span>
+                        <span className="text-muted-foreground font-medium">{plan.name} Plan ({periodLabel})</span>
                         <span className="font-bold">{plan.currency} {planSubtotal.toLocaleString()}</span>
                       </div>
                       {setupFee > 0 && (
