@@ -2,8 +2,23 @@
 
 import { consumeState } from '@/lib/auth/pkce';
 import { useAuthStore } from '@/store/auth';
+import { SSOCallbackError } from '@bengo-hub/shared-ui-lib/auth';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+
+// The stored return URL was captured BEFORE the SSO hop. If the user switched
+// organisation mid-login (accounts org picker), its slug is stale — re-point
+// the first path segment at the org the token was issued for.
+function sanitizedReturnTo(raw: string | null, orgSlug: string | undefined): string | null {
+  if (!raw || !raw.startsWith('/')) return null;
+  if (!orgSlug) return raw;
+  const url = new URL(raw, window.location.origin);
+  const segments = url.pathname.split('/');
+  if (segments[1] && segments[1] !== orgSlug && segments[1] !== 'auth') {
+    segments[1] = orgSlug;
+  }
+  return segments.join('/') + url.search + url.hash;
+}
 
 function CallbackHandler() {
   const params = useParams();
@@ -11,6 +26,7 @@ function CallbackHandler() {
   const router = useRouter();
   const orgSlug = params?.orgSlug as string;
   const processed = useRef(false);
+  const [localError, setLocalError] = useState<{ code: string; description?: string | null } | null>(null);
 
   const handleSSOCallback = useAuthStore((s) => s.handleSSOCallback);
   const status = useAuthStore((s) => s.status);
@@ -22,12 +38,24 @@ function CallbackHandler() {
     if (processed.current) return;
     processed.current = true;
 
+    // SSO error redirects (?error=...) carry no code. Surface them instead of
+    // silently bouncing to the app root — that bounce re-initiated SSO and
+    // produced an endless redirect loop.
+    const oauthError = searchParams.get('error');
+    if (oauthError) {
+      setLocalError({ code: oauthError, description: searchParams.get('error_description') });
+      return;
+    }
+
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const savedState = consumeState();
 
     if (!code || !state || state !== savedState) {
-      router.replace(orgSlug ? `/${orgSlug}` : '/');
+      setLocalError({
+        code: 'invalid_callback',
+        description: 'The sign-in link is incomplete or expired. Please sign in again.',
+      });
       return;
     }
 
@@ -45,31 +73,26 @@ function CallbackHandler() {
     const returnTo = sessionStorage.getItem('sso_return_to');
     sessionStorage.removeItem('sso_return_to');
 
-    if (returnTo && returnTo.startsWith('/')) {
-      router.replace(returnTo);
+    const safeReturnTo = sanitizedReturnTo(returnTo, orgSlug);
+    if (safeReturnTo) {
+      router.replace(safeReturnTo);
     } else {
       router.replace(orgSlug ? `/${orgSlug}` : '/');
     }
   }, [status, user, router, orgSlug]);
 
-  // Error state
-  if (status === 'error' && error) {
+  // Error state — SSO redirect errors, malformed callbacks, or exchange failures
+  if (localError || (status === 'error' && error)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4 text-center px-4">
-          <div className="text-destructive text-lg font-semibold">Sign-in failed</div>
-          <p className="text-sm text-muted-foreground max-w-sm">{error}</p>
-          <button
-            onClick={() => {
-              processed.current = false;
-              router.replace(orgSlug ? `/${orgSlug}` : '/');
-            }}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium"
-          >
-            Try again
-          </button>
-        </div>
-      </div>
+      <SSOCallbackError
+        error={localError?.code || 'auth_error'}
+        errorDescription={localError?.description || error}
+        orgSlug={orgSlug}
+        onRetry={() => {
+          const dest = orgSlug ? `/${orgSlug}` : '/';
+          useAuthStore.getState().redirectToSSO(dest, orgSlug || undefined);
+        }}
+      />
     );
   }
 
