@@ -806,7 +806,10 @@ function TenantPlansView() {
     [catalog],
   );
 
-  const allPlans: Plan[] = plansResponse?.data ?? [];
+  // Tenant self-service view shows PUBLIC plans only — is_public=false rows (e.g. the
+  // SUPPORT_{FAM}_{TIER} annual-support plans, sold by the platform owner alongside
+  // licenses) never render here. The admin editor still lists them.
+  const allPlans: Plan[] = (plansResponse?.data ?? []).filter((p) => p.isPublic !== false);
 
   // Visible groups = use-case-relevant groups ∪ already-subscribed group(s),
   // limited to groups that actually have plans. Unknown use case → all groups.
