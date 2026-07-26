@@ -691,8 +691,8 @@ function TenantSettingsView({ viewingTenant }: { viewingTenant?: { id: string; n
 
 // ── Integrations Section ──────────────────────────────────────────────────────
 
-const AUTH_API_URL_DEFAULT = process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexitsolutions.com';
-const SUBS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pricingapi.codevertexitsolutions.com';
+const AUTH_API_URL_DEFAULT = process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexafrica.com';
+const SUBS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pricingapi.codevertexafrica.com';
 
 function IntegrationsSection() {
   const { tenant } = useTenantBranding();

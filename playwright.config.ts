@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const base = process.env.BASE_URL || 'https://pricing.codevertexitsolutions.com';
+const base = process.env.BASE_URL || 'https://pricing.codevertexafrica.com';
 
 /**
  * Playwright E2E config for subscriptions-ui.

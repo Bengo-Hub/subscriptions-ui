@@ -13,7 +13,7 @@ The UI makes no direct database connections. All data flows through REST APIs.
 
 ## Subscription API Integration
 
-**Base URL**: `https://pricingapi.codevertexitsolutions.com/api/v1`
+**Base URL**: `https://pricingapi.codevertexafrica.com/api/v1`
 **Local**: `http://localhost:4005/api/v1`
 
 ### Endpoints Used
@@ -107,7 +107,7 @@ API errors follow the format `{ "error": "message" }`. The client maps HTTP stat
 
 ## Auth Service Integration
 
-**SSO URL**: `https://sso.codevertexitsolutions.com`
+**SSO URL**: `https://sso.codevertexafrica.com`
 
 ### Authentication Flow
 
@@ -160,13 +160,13 @@ export default function RootLayout({ children }) {
 
 ```env
 # Subscription API
-NEXT_PUBLIC_SUBSCRIPTION_API_URL=https://pricingapi.codevertexitsolutions.com/api/v1
+NEXT_PUBLIC_SUBSCRIPTION_API_URL=https://pricingapi.codevertexafrica.com/api/v1
 
 # Auth / SSO
-NEXT_PUBLIC_AUTH_URL=https://sso.codevertexitsolutions.com
+NEXT_PUBLIC_AUTH_URL=https://sso.codevertexafrica.com
 
 # App
-NEXT_PUBLIC_APP_URL=https://pricing.codevertexitsolutions.com
+NEXT_PUBLIC_APP_URL=https://pricing.codevertexafrica.com
 ```
 
 Local development:
@@ -183,7 +183,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 The subscriptions-api allows CORS from configured origins. Ensure the UI domain is listed in the API's `HTTP_ALLOWED_ORIGINS` config:
 
 ```
-HTTP_ALLOWED_ORIGINS=https://pricing.codevertexitsolutions.com,http://localhost:3000
+HTTP_ALLOWED_ORIGINS=https://pricing.codevertexafrica.com,http://localhost:3000
 ```
 
 ---

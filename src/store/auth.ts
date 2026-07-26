@@ -188,7 +188,7 @@ export const useAuthStore = create<AuthState>()(
           try { localStorage.removeItem('is_platform_owner'); } catch { /* no-op */ }
           try { sessionStorage.clear(); } catch { /* no-op */ }
           const returnTo = encodeURIComponent(window.location.origin);
-          window.location.href = buildLogoutUrl(`https://accounts.codevertexitsolutions.com/login?return_to=${returnTo}`);
+          window.location.href = buildLogoutUrl(`https://accounts.codevertexafrica.com/login?return_to=${returnTo}`);
         }
       },
 

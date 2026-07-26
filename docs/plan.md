@@ -76,7 +76,7 @@ Admin interface for the Codevertex Subscription Service. Serves two audiences:
 
 ## API Dependencies
 
-All data comes from `subscriptions-api` at `https://pricingapi.codevertexitsolutions.com/api/v1`.
+All data comes from `subscriptions-api` at `https://pricingapi.codevertexafrica.com/api/v1`.
 
 | UI Page | API Endpoint | Method |
 |---------|-------------|--------|
@@ -97,9 +97,9 @@ All data comes from `subscriptions-api` at `https://pricingapi.codevertexitsolut
 ## Environment Variables
 
 ```env
-NEXT_PUBLIC_SUBSCRIPTION_API_URL=https://pricingapi.codevertexitsolutions.com/api/v1
-NEXT_PUBLIC_AUTH_URL=https://sso.codevertexitsolutions.com
-NEXT_PUBLIC_APP_URL=https://pricing.codevertexitsolutions.com
+NEXT_PUBLIC_SUBSCRIPTION_API_URL=https://pricingapi.codevertexafrica.com/api/v1
+NEXT_PUBLIC_AUTH_URL=https://sso.codevertexafrica.com
+NEXT_PUBLIC_APP_URL=https://pricing.codevertexafrica.com
 ```
 
 ---

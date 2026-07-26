@@ -9,7 +9,7 @@ export function Footer() {
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
                 <span>All Rights Reserved. Codevertex Africa Limited &copy; {new Date().getFullYear()}.</span>
                 <a
-                    href="https://codevertexitsolutions.com"
+                    href="https://codevertexafrica.com"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 group transition-all"

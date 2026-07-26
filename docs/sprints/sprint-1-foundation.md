@@ -5,13 +5,13 @@
 **Goal**: Scaffold the Next.js project, integrate auth, build plan catalog and tenant subscription dashboard
 **MVP Deadline**: March 17, 2026
 
-**Progress (March 7, 2026):** Full Next.js 16 app scaffold complete. SSO/PKCE, [orgSlug] routes, dashboard, plans (comparison matrix), usage, billing, settings, platform admin (plans CRUD, all subscriptions table). devops-k8s values.yaml created for subscription-ui (pricing.codevertexitsolutions.com). **RBAC:** useMe with 5 min TTL and gcTime; hasRole/hasPermission; sidebar uses useMe().hasRole for platform section; AuthProvider redirects 403 from /me to `/[orgSlug]/unauthorized`; 404 not-found page added. **Tenant/brand:** TenantBrandingProvider in [orgSlug] layout; fetches tenant from auth-api GET /api/v1/tenants/by-slug/{slug} (NEXT_PUBLIC_SSO_URL); applies theme; Settings page has "Tenant & Branding" section. **Remaining:** Wire to pricingapi; deploy.
+**Progress (March 7, 2026):** Full Next.js 16 app scaffold complete. SSO/PKCE, [orgSlug] routes, dashboard, plans (comparison matrix), usage, billing, settings, platform admin (plans CRUD, all subscriptions table). devops-k8s values.yaml created for subscription-ui (pricing.codevertexafrica.com). **RBAC:** useMe with 5 min TTL and gcTime; hasRole/hasPermission; sidebar uses useMe().hasRole for platform section; AuthProvider redirects 403 from /me to `/[orgSlug]/unauthorized`; 404 not-found page added. **Tenant/brand:** TenantBrandingProvider in [orgSlug] layout; fetches tenant from auth-api GET /api/v1/tenants/by-slug/{slug} (NEXT_PUBLIC_SSO_URL); applies theme; Settings page has "Tenant & Branding" section. **Remaining:** Wire to pricingapi; deploy.
 
 ---
 
 ## Context
 
-The `subscriptions-ui` repo is scaffolded with a full Next.js app. The subscriptions-api is already deployed at `pricingapi.codevertexitsolutions.com` with working endpoints for plans, subscriptions, features, and products. Remaining work: API data integration and production deploy.
+The `subscriptions-ui` repo is scaffolded with a full Next.js app. The subscriptions-api is already deployed at `pricingapi.codevertexafrica.com` with working endpoints for plans, subscriptions, features, and products. Remaining work: API data integration and production deploy.
 
 ---
 
@@ -100,7 +100,7 @@ The `subscriptions-ui` repo is scaffolded with a full Next.js app. The subscript
 
 - [ ] Project runs locally with `pnpm dev`
 - [ ] Auth flow works: login → redirect → JWT extraction → protected routes
-- [ ] Dashboard shows live data from `pricingapi.codevertexitsolutions.com` for `urban-loft` tenant
+- [ ] Dashboard shows live data from `pricingapi.codevertexafrica.com` for `urban-loft` tenant
 - [ ] Plan catalog displays all 3 tiers with accurate pricing and features
 - [ ] Plan change flow works end-to-end (select → confirm → API call → success)
 - [ ] Responsive: works on desktop (1024px+) and mobile (375px+)
@@ -124,4 +124,4 @@ The `subscriptions-ui` repo is scaffolded with a full Next.js app. The subscript
 - `subscriptions-api` deployed and accessible (done)
 - `shared-auth-client` JS SDK (or equivalent token management)
 - Design tokens from Codevertex design system
-- Domain `pricing.codevertexitsolutions.com` provisioned (subscriptions-ui production host in values.yaml)
+- Domain `pricing.codevertexafrica.com` provisioned (subscriptions-ui production host in values.yaml)

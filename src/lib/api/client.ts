@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://pricingapi.codevertexitsolutions.com';
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://pricingapi.codevertexafrica.com';
 
 class ApiClient {
   private instance: AxiosInstance;

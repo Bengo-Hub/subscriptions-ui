@@ -133,7 +133,7 @@ shadcn/ui components + Tailwind CSS. Key component patterns:
 
 1. User navigates to subscriptions-ui
 2. `shared-auth-client` JS SDK checks for valid session
-3. If no session → redirect to `sso.codevertexitsolutions.com/login?redirect=...`
+3. If no session → redirect to `sso.codevertexafrica.com/login?redirect=...`
 4. After SSO login → redirect back with JWT
 5. SDK stores token, extracts `tenant_id` and `roles` from claims
 6. App routes based on role (platform admin → admin routes, tenant admin → tenant routes)
@@ -152,7 +152,7 @@ subscriptions-ui (Next.js)
     │   └── POST/PUT to subscriptions-api
     │
     └── Auth
-        └── shared-auth-client → sso.codevertexitsolutions.com
+        └── shared-auth-client → sso.codevertexafrica.com
 ```
 
 The UI is a thin presentation layer. All business logic (state transitions, validation, feature gating) lives in `subscriptions-api`.

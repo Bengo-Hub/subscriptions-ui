@@ -3,7 +3,7 @@
  * Same pattern as pos-ui / notifications-ui: fetch tenant for branding (name, slug, metadata).
  */
 
-const AUTH_API_BASE = process.env.NEXT_PUBLIC_SSO_URL || process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexitsolutions.com';
+const AUTH_API_BASE = process.env.NEXT_PUBLIC_SSO_URL || process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexafrica.com';
 
 export interface TenantBrandMetadata {
   logo_url?: string;
