@@ -13,9 +13,9 @@ RUN npm install -g pnpm@10
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-ARG NEXT_PUBLIC_API_URL=https://pricingapi.codevertexitsolutions.com
-ARG NEXT_PUBLIC_SSO_URL=https://sso.codevertexitsolutions.com
-ARG NEXT_PUBLIC_NOTIFICATIONS_URL=https://notifications.codevertexitsolutions.com
+ARG NEXT_PUBLIC_API_URL=https://pricingapi.codevertexafrica.com
+ARG NEXT_PUBLIC_SSO_URL=https://sso.codevertexafrica.com
+ARG NEXT_PUBLIC_NOTIFICATIONS_URL=https://notifications.codevertexafrica.com
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SSO_URL=$NEXT_PUBLIC_SSO_URL
 ENV NEXT_PUBLIC_NOTIFICATIONS_URL=$NEXT_PUBLIC_NOTIFICATIONS_URL

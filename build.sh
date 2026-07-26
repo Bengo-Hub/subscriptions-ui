@@ -46,9 +46,9 @@ fi
 KUBE_CONFIG=${KUBE_CONFIG:-${KUBE_CONFIG_B64:-}}
 
 # Build-time env (can be overridden via GitHub Secrets)
-NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-"https://pricingapi.codevertexitsolutions.com"}
-NEXT_PUBLIC_SSO_URL=${NEXT_PUBLIC_SSO_URL:-"https://sso.codevertexitsolutions.com"}
-NEXT_PUBLIC_NOTIFICATIONS_URL=${NEXT_PUBLIC_NOTIFICATIONS_URL:-"https://notifications.codevertexitsolutions.com"}
+NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-"https://pricingapi.codevertexafrica.com"}
+NEXT_PUBLIC_SSO_URL=${NEXT_PUBLIC_SSO_URL:-"https://sso.codevertexafrica.com"}
+NEXT_PUBLIC_NOTIFICATIONS_URL=${NEXT_PUBLIC_NOTIFICATIONS_URL:-"https://notifications.codevertexafrica.com"}
 
 info "Building ${APP_NAME}:${GIT_COMMIT_ID}"
 
