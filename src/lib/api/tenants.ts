@@ -9,6 +9,7 @@ export interface AdminTenant {
   createdAt: string
   subscriptionStatus?: string
   planCode?: string
+  subscriptionExempt?: boolean
 }
 
 export const listAdminTenants = () =>
@@ -28,3 +29,12 @@ export const updateSubscriptionStatus = (
   status: string,
 ) =>
   apiClient.put<{ status: string }>(`/api/v1/admin/subscriptions/${subscriptionId}/status`, { status })
+
+// Grants/revokes a tenant's blanket subscription exemption (every feature unlocked, no
+// limits, no billing) — platform-admin only. Distinct from the built-in codevertex /
+// codevertex-demo exemption, which is always-on and not toggleable here.
+export const setTenantExemption = (tenantId: string, exempt: boolean) =>
+  apiClient.patch<{ tenantId: string; exempt: boolean }>(
+    `/api/v1/admin/tenants/${tenantId}/exemption`,
+    { exempt },
+  )

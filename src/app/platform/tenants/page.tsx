@@ -15,9 +15,10 @@ import {
   TableRow,
 } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
+import { setTenantExemption } from '@/lib/api/tenants';
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Loader2, RefreshCw, Search, Shield, UserX, Zap } from 'lucide-react';
+import { Building2, Loader2, RefreshCw, Search, Shield, ShieldCheck, UserX, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -29,6 +30,7 @@ interface Tenant {
   planCode?: string;
   planName?: string;
   subscriptionId?: string;
+  subscriptionExempt?: boolean;
 }
 
 interface Plan {
@@ -130,7 +132,20 @@ export default function TenantsPage() {
     statusMutation.mutate({ subId: modal.tenant.subscriptionId, status: modal.selectedStatus });
   };
 
-  const busy = assignMutation.isPending || statusMutation.isPending;
+  const exemptMutation = useMutation({
+    mutationFn: ({ tenantId, exempt }: { tenantId: string; exempt: boolean }) =>
+      setTenantExemption(tenantId, exempt),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['platform-tenants'] });
+      toast.success(vars.exempt ? 'Tenant granted subscription exemption' : 'Exemption revoked');
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || 'Failed to update exemption'),
+  });
+
+  // codevertex / codevertex-demo are always exempt platform-side and cannot be toggled here.
+  const isBuiltInExempt = (slug: string) => slug === 'codevertex' || slug === 'codevertex-demo';
+
+  const busy = assignMutation.isPending || statusMutation.isPending || exemptMutation.isPending;
 
   const statusBadge = (status?: string) => {
     const s = (status?.toUpperCase() ?? 'UNKNOWN') as SubscriptionStatus;
@@ -216,7 +231,16 @@ export default function TenantsPage() {
                             <span className="text-sm text-muted-foreground italic">No plan assigned</span>
                           )}
                         </TableCell>
-                        <TableCell>{statusBadge(t.subscriptionStatus)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            {statusBadge(t.subscriptionStatus)}
+                            {t.subscriptionExempt && (
+                              <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                                Exempt
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right pr-6">
                           <div className="flex gap-2 justify-end">
                             <Button
@@ -233,6 +257,17 @@ export default function TenantsPage() {
                                 className="h-8 rounded-lg text-xs font-semibold gap-1.5"
                               >
                                 <Shield className="h-3.5 w-3.5" /> Status
+                              </Button>
+                            )}
+                            {!isBuiltInExempt(t.slug) && (
+                              <Button
+                                size="sm" variant={t.subscriptionExempt ? 'default' : 'outline'}
+                                onClick={() => exemptMutation.mutate({ tenantId: t.id, exempt: !t.subscriptionExempt })}
+                                disabled={busy}
+                                className="h-8 rounded-lg text-xs font-semibold gap-1.5"
+                                title={t.subscriptionExempt ? 'Revoke subscription exemption' : 'Grant subscription exemption (unlocks every feature, bypasses billing)'}
+                              >
+                                <ShieldCheck className="h-3.5 w-3.5" /> {t.subscriptionExempt ? 'Revoke Exempt' : 'Grant Exempt'}
                               </Button>
                             )}
                           </div>
