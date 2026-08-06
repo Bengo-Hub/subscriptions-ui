@@ -261,7 +261,7 @@ export default function TenantsPage() {
                             )}
                             {!isBuiltInExempt(t.slug) && (
                               <Button
-                                size="sm" variant={t.subscriptionExempt ? 'default' : 'outline'}
+                                size="sm" variant={t.subscriptionExempt ? 'primary' : 'outline'}
                                 onClick={() => exemptMutation.mutate({ tenantId: t.id, exempt: !t.subscriptionExempt })}
                                 disabled={busy}
                                 className="h-8 rounded-lg text-xs font-semibold gap-1.5"
