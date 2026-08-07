@@ -17,7 +17,7 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useTenantFilterStore } from '@/store/tenant-filter';
-import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
+import { TreasuryPaymentModal, formatCurrency as sharedFormatCurrency } from '@bengo-hub/shared-ui-lib';
 import { PdfPreview, useDocumentPreview } from '@bengo-hub/shared-ui-lib/documents';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef } from 'react';
@@ -303,13 +303,11 @@ export default function BillingPage() {
   const formatDate = (d?: string) =>
     d ? new Date(d).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-  const formatKes = (amount?: number) =>
-    amount != null ? `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : '—';
+  // Centralized in shared-ui-lib — both were local copies with inconsistent decimal-place rules.
+  const formatKes = (amount?: number) => (amount != null ? sharedFormatCurrency(amount) : '—');
 
   const formatCurrency = (amount?: number, currency = 'KES') =>
-    amount != null
-      ? new Intl.NumberFormat('en-KE', { style: 'currency', currency, minimumFractionDigits: 0 }).format(amount)
-      : '—';
+    amount != null ? sharedFormatCurrency(amount, currency) : '—';
 
   const invoiceStatusVariant = (s: string) => {
     switch (s) {

@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 import { useQuery } from '@tanstack/react-query';
+import { formatCurrency as sharedFormatCurrency } from '@bengo-hub/shared-ui-lib';
 import {
   ArrowRight,
   BarChart3,
@@ -59,8 +60,8 @@ interface PlatformStats {
   churnedCount?: number;
 }
 
-const fmtKES = (n?: number) =>
-  n != null ? `KES ${new Intl.NumberFormat('en-KE').format(n)}` : '—';
+// Centralized in shared-ui-lib — was a local hardcoded-"KES" copy duplicated in platform/page.tsx.
+const fmtKES = (n?: number) => (n != null ? sharedFormatCurrency(n) : '—');
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);

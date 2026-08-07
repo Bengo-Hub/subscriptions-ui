@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/auth';
 import { useQuery } from '@tanstack/react-query';
 import { BadgePercent, BarChart3, Building2, KeyRound, Package, Shield, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
+import { formatCurrency as sharedFormatCurrency } from '@bengo-hub/shared-ui-lib';
 
 interface PlatformStats {
   totalPlans: number;
@@ -18,8 +19,8 @@ interface PlatformStats {
   churnedCount?: number;
 }
 
-const fmtKES = (n?: number) =>
-  n != null ? `KES ${new Intl.NumberFormat('en-KE').format(n)}` : '—';
+// Centralized in shared-ui-lib — was a local hardcoded-"KES" copy duplicated in app/page.tsx.
+const fmtKES = (n?: number) => (n != null ? sharedFormatCurrency(n) : '—');
 
 const adminSections = [
   {

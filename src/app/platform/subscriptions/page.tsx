@@ -18,6 +18,7 @@ import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileText, Loader2, Pencil, Search, Send, Users, X } from 'lucide-react';
+import { formatCurrency as sharedFormatCurrency } from '@bengo-hub/shared-ui-lib';
 import {
   useGenerateInvoice,
   useResendInvoice,
@@ -152,8 +153,8 @@ export default function PlatformSubscriptionsPage() {
 
   const formatDate = (d?: string) =>
     d ? new Date(d).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
-  const formatKes = (amount?: number) =>
-    amount != null ? `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0 })}` : '—';
+  // Centralized in shared-ui-lib — was a local hardcoded-"KES" copy.
+  const formatKes = (amount?: number) => (amount != null ? sharedFormatCurrency(amount) : '—');
 
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
 
