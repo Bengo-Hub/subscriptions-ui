@@ -142,8 +142,8 @@ export function TableHead({ children, className }: { children: ReactNode; classN
   );
 }
 
-export function TableCell({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)}>{children}</td>;
+export function TableCell({ children, className, colSpan }: { children: ReactNode; className?: string; colSpan?: number }) {
+  return <td colSpan={colSpan} className={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)}>{children}</td>;
 }
 
 export function Progress({

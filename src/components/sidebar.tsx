@@ -10,6 +10,7 @@ import {
     KeyRound,
     LayoutDashboard,
     LogOut,
+    Mail,
     Settings,
     Sliders,
     Sparkles,
@@ -45,6 +46,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         { label: 'Plans', icon: Sparkles, href: '/plans', active: pathname.startsWith('/plans') },
         { label: 'Usage', icon: Gauge, href: '/usage', active: pathname.startsWith('/usage') },
         { label: 'Billing', icon: CreditCard, href: '/billing', active: pathname.startsWith('/billing') },
+        { label: 'Email Hosting', icon: Mail, href: '/email-hosting', active: pathname.startsWith('/email-hosting') },
         { label: 'Settings', icon: Settings, href: '/settings', active: pathname.startsWith('/settings') },
     ];
 
