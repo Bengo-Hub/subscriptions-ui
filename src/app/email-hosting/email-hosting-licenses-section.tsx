@@ -10,9 +10,35 @@ import {
   useUnassignEmailLicense,
 } from '@/hooks/useEmailHosting';
 import type { EmailLicense, EmailLicenseStatus } from '@/lib/api/email-hosting';
-import { Loader2, Mail, Plus, ShieldOff, UserMinus, Users, X } from 'lucide-react';
+import { Check, Loader2, Mail, Plus, ShieldOff, UserMinus, Users, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+// Only real, enforced-today features are shown to a buyer here — the two
+// ROADMAP flags in features_json (smime_encryption, email_retention_archival,
+// see cmd/seed/email_hosting.go's own header comment) are deliberately
+// excluded from this customer-facing checklist, not just hidden by falsy
+// value, since showing an unbuilt feature during a purchase decision would
+// overpromise regardless of its current true/false value.
+const FEATURE_LABELS: Record<string, string> = {
+  custom_domain: 'Custom domain support',
+  forwarding: 'Email forwarding',
+  autoresponder: 'Auto-responder / vacation reply',
+  calendar: 'Calendar (CalDAV)',
+  contacts: 'Contacts (CardDAV)',
+  shared_mailboxes: 'Shared mailboxes',
+  custom_sieve_filters: 'Custom mail filters',
+  migration_assistance: 'Migration assistance',
+  priority_support: 'Priority support',
+  admin_delegation: 'Admin delegation',
+};
+
+function planFeatureList(features: Record<string, unknown> | undefined): string[] {
+  if (!features) return [];
+  return Object.entries(FEATURE_LABELS)
+    .filter(([key]) => features[key] === true)
+    .map(([, label]) => label);
+}
 
 function statusBadge(status: EmailLicenseStatus) {
   const styles: Record<EmailLicenseStatus, string> = {
@@ -57,6 +83,9 @@ export function EmailHostingLicensesSection({
     const available = licenses.filter((l) => l.status === 'AVAILABLE').length;
     return { total: licenses.length, assigned, available };
   }, [licenses]);
+
+  const selectedPlan = useMemo(() => plans.find((p) => p.code === purchasePlanCode), [plans, purchasePlanCode]);
+  const selectedPlanFeatures = useMemo(() => planFeatureList(selectedPlan?.features_json), [selectedPlan]);
 
   async function handlePurchase() {
     if (!purchasePlanCode || purchaseQuantity <= 0) return;
@@ -184,6 +213,25 @@ export function EmailHostingLicensesSection({
                 Buy now
               </Button>
             </div>
+            {selectedPlan && (
+              <div className="rounded-xl bg-accent/40 p-3">
+                <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
+                  {selectedPlan.name} — {selectedPlan.storage_per_user_gb} GB storage,{' '}
+                  {selectedPlan.max_aliases < 0 ? 'unlimited' : selectedPlan.max_aliases} aliases
+                </p>
+                <ul className="grid grid-cols-2 gap-1 text-sm">
+                  {selectedPlanFeatures.length === 0 ? (
+                    <li className="col-span-2 text-muted-foreground">No add-on features on this tier.</li>
+                  ) : (
+                    selectedPlanFeatures.map((f) => (
+                      <li key={f} className="flex items-center gap-1.5">
+                        <Check className="h-3.5 w-3.5 text-emerald-600" /> {f}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

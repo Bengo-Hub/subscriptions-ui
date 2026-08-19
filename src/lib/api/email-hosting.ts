@@ -71,6 +71,14 @@ export const upgradeEmailLicense = (licenseId: string, planCode: string) =>
 export const suspendEmailLicense = (licenseId: string, reason?: string) =>
   apiClient.put<EmailLicense>(`/api/v1/email/licenses/${licenseId}/suspend`, { reason })
 
+export interface MailboxUsage {
+  email: string
+  used_bytes: number
+  allocated_bytes: number
+}
+
+export const getEmailUsageSummary = () => apiClient.get<MailboxUsage[]>('/api/v1/email/usage-summary')
+
 export const listEmailDomains = () => apiClient.get<EmailDomain[]>('/api/v1/email/domains')
 
 export const createEmailDomain = (domain: string) =>

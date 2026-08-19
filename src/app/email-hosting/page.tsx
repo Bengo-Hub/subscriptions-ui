@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/auth';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 import { EmailHostingLicensesSection } from './email-hosting-licenses-section';
 import { EmailHostingDomainsSection } from './email-hosting-domains-section';
+import { EmailHostingOrgHeader } from './email-hosting-org-header';
+import { EmailHostingStorageUsage } from './email-hosting-storage-usage';
 
 type Section = 'licenses' | 'domains';
 
@@ -38,6 +40,8 @@ export default function EmailHostingPage() {
         </p>
       </header>
 
+      <EmailHostingOrgHeader />
+
       <div className="flex w-fit gap-2 rounded-2xl bg-accent/50 p-1.5">
         {tabs.map((t) => (
           <button
@@ -52,7 +56,12 @@ export default function EmailHostingPage() {
         ))}
       </div>
 
-      {section === 'licenses' && <EmailHostingLicensesSection onIntent={setIntent} />}
+      {section === 'licenses' && (
+        <>
+          <EmailHostingLicensesSection onIntent={setIntent} />
+          <EmailHostingStorageUsage />
+        </>
+      )}
       {section === 'domains' && <EmailHostingDomainsSection />}
 
       {intent && (

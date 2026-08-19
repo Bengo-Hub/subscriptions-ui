@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   assignEmailLicense,
   createEmailDomain,
+  getEmailUsageSummary,
   listEmailDomains,
   listEmailLicenses,
   listEmailPlans,
@@ -31,6 +32,14 @@ export function useEmailPlans() {
 export function useEmailLicenses() {
   const tenantKey = useTenantKey()
   return useQuery({ queryKey: ['email-licenses', tenantKey], queryFn: listEmailLicenses, staleTime: 30_000 })
+}
+
+export function useEmailUsageSummary() {
+  const tenantKey = useTenantKey()
+  // Real Stalwart usage data, low-frequency change — a longer staleTime
+  // avoids hammering email-provisioner's live JMAP account scan on every
+  // dashboard visit.
+  return useQuery({ queryKey: ['email-usage-summary', tenantKey], queryFn: getEmailUsageSummary, staleTime: 5 * 60_000 })
 }
 
 export function useEmailDomains() {
