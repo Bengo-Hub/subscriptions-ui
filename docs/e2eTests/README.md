@@ -20,7 +20,7 @@ Local runs open the browser (headed). Set `CI=true` for headless. Env vars:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `BASE_URL` | Subscriptions UI origin | `https://pricing.codevertexafrica.com` |
-| `E2E_LOGIN_EMAIL` | SSO login email | `demo@bengobox.dev` |
+| `E2E_LOGIN_EMAIL` | SSO login email | `admin@demo.codevertexafrica.com` |
 | `E2E_LOGIN_PASSWORD` | SSO login password | (set in env) |
 
 Artifacts: `playwright-report/`, `test-results/` (gitignored).
