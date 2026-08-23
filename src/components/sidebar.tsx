@@ -7,6 +7,7 @@ import {
     Building2,
     CreditCard,
     Gauge,
+    Handshake,
     KeyRound,
     LayoutDashboard,
     LogOut,
@@ -47,6 +48,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         { label: 'Usage', icon: Gauge, href: '/usage', active: pathname.startsWith('/usage') },
         { label: 'Billing', icon: CreditCard, href: '/billing', active: pathname.startsWith('/billing') },
         { label: 'Email Hosting', icon: Mail, href: '/email-hosting', active: pathname.startsWith('/email-hosting') },
+        { label: 'Partner Portal', icon: Handshake, href: '/partner', active: pathname.startsWith('/partner') },
         { label: 'Settings', icon: Settings, href: '/settings', active: pathname.startsWith('/settings') },
     ];
 
