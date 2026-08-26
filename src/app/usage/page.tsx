@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantFilterStore } from '@/store/tenant-filter';
+import { TokenWalletCard } from '@/components/usage/TokenWalletCard';
 import {
   AlertTriangle,
   BarChart3,
@@ -98,6 +99,9 @@ export default function UsagePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* External eTIMS API token wallet — only renders once a tenant context is resolved */}
+      <TokenWalletCard />
 
       {/* Usage Meters */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
