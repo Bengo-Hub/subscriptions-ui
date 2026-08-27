@@ -27,6 +27,11 @@ export interface CustomAddonCreateRequest {
   unitPriceKes: number
   quantity?: number
   notes?: string
+  // Provisioning parameters for addons fulfilled outside subscriptions-api — e.g.
+  // { sms_credits: 5000 } for service_addon_type "sms_bundle", or
+  // { whatsapp_plan_id: "<uuid>" } for "whatsapp_plan". Passed through verbatim to the
+  // custom_addon.activated event notifications-api's worker consumes.
+  metadata?: Record<string, unknown>
 }
 
 export interface CustomAddonUpdateRequest {
@@ -37,4 +42,5 @@ export interface CustomAddonUpdateRequest {
   quantity?: number
   status?: AddonStatus
   notes?: string
+  metadata?: Record<string, unknown>
 }

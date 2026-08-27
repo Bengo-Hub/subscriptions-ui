@@ -45,6 +45,7 @@ export const createAdminAddon = (tenantId: string, req: CustomAddonCreateRequest
       unit_price_kes: req.unitPriceKes,
       quantity: req.quantity ?? 1,
       notes: req.notes,
+      metadata: req.metadata,
     },
   )
 
@@ -59,6 +60,7 @@ export const updateAdminAddon = (tenantId: string, addonId: string, req: CustomA
       quantity: req.quantity,
       status: req.status,
       notes: req.notes,
+      metadata: req.metadata,
     },
   )
 

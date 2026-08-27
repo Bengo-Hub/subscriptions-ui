@@ -69,7 +69,7 @@ export function Badge({
 }: {
   children: ReactNode;
   className?: string;
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'outline';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'outline' | 'partial';
 }) {
   const variants = {
     default: 'bg-primary/10 text-primary border-primary/20',
@@ -77,6 +77,7 @@ export function Badge({
     warning: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
     error: 'bg-red-500/10 text-red-500 border-red-500/20',
     outline: 'bg-transparent text-muted-foreground border-border',
+    partial: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   };
 
   return (

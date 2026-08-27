@@ -58,8 +58,9 @@ interface Invoice {
   id: string;
   date: string;
   amount: number;
+  amountPaid?: number;
   currency: string;
-  status: 'paid' | 'pending' | 'failed' | 'void';
+  status: 'paid' | 'pending' | 'partial' | 'failed' | 'void';
   description: string;
   pdfUrl?: string;
 }
@@ -312,6 +313,7 @@ export default function BillingPage() {
   const invoiceStatusVariant = (s: string) => {
     switch (s) {
       case 'paid': return 'success' as const;
+      case 'partial': return 'partial' as const;
       case 'pending': return 'warning' as const;
       case 'failed': return 'error' as const;
       default: return 'outline' as const;
@@ -952,7 +954,14 @@ export default function BillingPage() {
                   <TableRow key={inv.id}>
                     <TableCell className="font-medium">{formatDate(inv.date)}</TableCell>
                     <TableCell>{inv.description}</TableCell>
-                    <TableCell className="font-semibold">{formatCurrency(inv.amount, inv.currency)}</TableCell>
+                    <TableCell className="font-semibold">
+                      {formatCurrency(inv.amount, inv.currency)}
+                      {inv.status === 'partial' && inv.amountPaid != null && (
+                        <p className="text-xs font-normal text-muted-foreground mt-0.5">
+                          Paid {formatCurrency(inv.amountPaid, inv.currency)} of {formatCurrency(inv.amount, inv.currency)}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={invoiceStatusVariant(inv.status)}>{inv.status}</Badge>
                     </TableCell>
