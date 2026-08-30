@@ -24,6 +24,12 @@ export interface Subscription {
   limits: Record<string, number>
   metadata: Record<string, unknown>
   appliedDiscount?: number
+  // active_products is the product_code of every currently-active ProductSubscription (see
+  // subscriptions-api's ActiveProductCodes). exempt marks platform/demo/service-charge/explicitly
+  // -exempt tenants, who bypass all gating. Both snake_case on the raw response (this type mixes
+  // cases to match the actual backend field names — see billing_mode/plan_type above).
+  active_products?: string[]
+  exempt?: boolean
 }
 
 export interface SubscriptionSettings {

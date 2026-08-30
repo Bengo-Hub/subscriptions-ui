@@ -5,7 +5,9 @@ import { apiClient } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantFilterStore } from '@/store/tenant-filter';
+import { useSubscription } from '@/hooks/useSubscription';
 import { TokenWalletCard } from '@/components/usage/TokenWalletCard';
+import { SubscriptionProvider, FeatureGate } from '@bengo-hub/shared-ui-lib/subscription';
 import {
   AlertTriangle,
   BarChart3,
@@ -50,6 +52,14 @@ export default function UsagePage() {
     queryKey: ['usage', tenantKey],
     queryFn: () => apiClient.get<UsageResponse>('/api/v1/usage'),
   });
+
+  // The eTIMS API token wallet is a distinct, standalone product (ETIMS_API_BASIC/GROWTH/SCALE,
+  // or the ETIMS_API_BUNDLED cross-sell overlay — see subscriptions-api's cmd/seed/etims_api.go),
+  // not something every tenant gets. Gate its card the same way shared-ui-lib gates every other
+  // subscription feature: hidden entirely unless the tenant's plan carries etims_api_access or
+  // the tenant is exempt (platform owner / demo / service-charge). Without this, any tenant could
+  // see the card and create a real payment intent for a product they never subscribed to.
+  const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
 
   const pct = (used: number, limit: number) => (limit > 0 ? Math.round((used / limit) * 100) : 0);
   const variant = (used: number, limit: number) => {
@@ -100,8 +110,21 @@ export default function UsagePage() {
         </Card>
       )}
 
-      {/* External eTIMS API token wallet — only renders once a tenant context is resolved */}
-      <TokenWalletCard />
+      {/* External eTIMS API token wallet — only for tenants who actually activated that product
+          (own plan or an active overlay carries etims_api_access), or are exempt. See the
+          useSubscription() call above for why. */}
+      <SubscriptionProvider
+        value={{
+          features: subscription?.features ?? [],
+          limits: subscription?.limits ?? {},
+          isExempt: subscription?.exempt ?? false,
+          isLoading: subscriptionLoading,
+        }}
+      >
+        <FeatureGate feature="etims_api_access">
+          <TokenWalletCard />
+        </FeatureGate>
+      </SubscriptionProvider>
 
       {/* Usage Meters */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
