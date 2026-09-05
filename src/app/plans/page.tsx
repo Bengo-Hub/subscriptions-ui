@@ -79,6 +79,11 @@ interface Plan {
   tierLimits: Record<string, any>;
   planType?: 'TIERED' | 'STANDALONE_SERVICE' | 'BUNDLE' | 'CUSTOM';
   serviceTag?: string;
+  // Business vertical this plan targets (retail, hospitality, pharmacy, ...) —
+  // disambiguates plans that share a serviceTag/group but serve different verticals
+  // (e.g. POWERSUITE_HOSP_* vs POWERSUITE_DUKA_* both group as "POWERSUITE"). Absent
+  // = not vertical-specific, matches any tenant.
+  useCase?: string | null;
   freeTrialDays: number;
   discountRules: DiscountRule[];
   features?: PlanFeature[];
@@ -111,7 +116,7 @@ const GROUP_LABEL: Record<string, string> = {
   ORDERING: 'Ordering', POS: 'POS', POWERSUITE: 'PowerSuite', INVENTORY: 'Inventory',
   ERP: 'ERP', LOGISTICS: 'Logistics', TRULOAD: 'TruLoad', TRANSPORTER: 'Transporter Portal',
   MARKETFLOW: 'MarketFlow', TREASURY: 'Treasury', PROJECTS: 'Projects', ISP: 'ISP Billing',
-  LIBRARY: 'Library',
+  LIBRARY: 'Library', AFYA: 'Codevertex Afya',
 };
 function groupLabel(g: string): string {
   if (g === 'All') return 'All';
@@ -119,7 +124,7 @@ function groupLabel(g: string): string {
 }
 
 // Preferred tab order; groups not listed are appended alphabetically.
-const GROUP_ORDER = ['POWERSUITE', 'ORDERING', 'POS', 'INVENTORY', 'ERP', 'LIBRARY', 'LOGISTICS', 'TRULOAD', 'TRANSPORTER', 'MARKETFLOW', 'TREASURY', 'PROJECTS', 'ISP'];
+const GROUP_ORDER = ['POWERSUITE', 'ORDERING', 'POS', 'INVENTORY', 'ERP', 'LIBRARY', 'LOGISTICS', 'TRULOAD', 'TRANSPORTER', 'MARKETFLOW', 'TREASURY', 'PROJECTS', 'ISP', 'AFYA'];
 function sortGroups(groups: string[]): string[] {
   return [...groups].sort((a, b) => {
     const ia = GROUP_ORDER.indexOf(a), ib = GROUP_ORDER.indexOf(b);
@@ -142,6 +147,7 @@ const USECASE_GROUPS: Record<string, string[]> = {
   e_commerce: ['ORDERING', 'INVENTORY', 'POWERSUITE'],
   pharmacy: ['POS', 'INVENTORY', 'POWERSUITE'],
   services: ['POS', 'INVENTORY', 'POWERSUITE'],
+  hospital: ['AFYA'],
   warehouse: ['INVENTORY', 'POWERSUITE'],
   warehousing: ['INVENTORY', 'POWERSUITE'],
   manufacturing: ['INVENTORY', 'ERP', 'POWERSUITE'],
@@ -829,7 +835,17 @@ function TenantPlansView() {
     : (visibleGroups[0] ?? 'ORDERING');
   const activeGroup = activeService && visibleGroups.includes(activeService) ? activeService : defaultGroup;
 
-  const servicePlans = allPlans.filter((p) => planGroup(p.planCode) === activeGroup);
+  // Within a group, further scope to the tenant's own use_case — this is the actual
+  // fix for the reported bug: POWERSUITE_HOSP_*/DUKA_*/DAWA_* all group as
+  // "POWERSUITE" (same service_tag on the backend), so grouping alone can't tell a
+  // retail plan apart from a hospitality/pharmacy one. A plan with no useCase set
+  // (not vertical-specific) always matches; the tenant's own already-subscribed plan
+  // is always kept visible even if its useCase no longer matches (e.g. after a
+  // vertical change), mirroring subscribedGroup's allowance above.
+  const servicePlans = allPlans.filter((p) =>
+    planGroup(p.planCode) === activeGroup &&
+    (!p.useCase || useCase === 'other' || p.useCase.toLowerCase() === useCase || p.planCode === currentSub?.plan_code),
+  );
   const hasOneTime = servicePlans.some((p) => isOneTimePlan(p));
 
   // Billing periods (Monthly / 6 Months / 12 Months) are chosen at checkout on one
