@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from '@/store/auth';
 import { useAdminTenantUsage, useOverrideMetric } from '@/hooks/useAdminUsage';
 import { useAdminTenantAddons, useCreateAdminAddon, useDeleteAdminAddon, useSetAdminAddonStatus } from '@/hooks/useCustomAddons';
+import { ADDON_FEATURES, useGrantTenantFeature, useRevokeTenantFeature, useTenantFeatureGrants } from '@/hooks/useFeatureGrants';
 import { useGiftCredits } from '@/hooks/useBilling';
 import { useAdminTenants, useExtendTrial } from '@/hooks/useAdminTenants';
 import { useQuery } from '@tanstack/react-query';
@@ -78,6 +79,9 @@ export default function TenantDetailPage() {
 
   const { data: usageData, isLoading: usageLoading } = useAdminTenantUsage(tenantId);
   const { data: addonsData } = useAdminTenantAddons(tenantId);
+  const { data: featureGrantsData } = useTenantFeatureGrants(tenantId);
+  const [grantFeatureCode, setGrantFeatureCode] = useState('');
+  const [grantNotes, setGrantNotes] = useState('');
   const { data: tenantsData } = useAdminTenants();
   const tenant = tenantsData?.data.find((t) => t.id === tenantId);
 
@@ -94,9 +98,22 @@ export default function TenantDetailPage() {
   const deleteAddonMutation = useDeleteAdminAddon();
   const giftMutation = useGiftCredits();
   const extendTrialMutation = useExtendTrial();
+  const grantFeatureMutation = useGrantTenantFeature();
+  const revokeFeatureMutation = useRevokeTenantFeature();
 
   const metrics = usageData?.metrics ?? [];
   const addons = addonsData?.data ?? [];
+  const featureGrants = featureGrantsData?.grants ?? [];
+  const grantedCodes = new Set(featureGrants.map((g) => g.feature_code));
+  const grantableFeatures = ADDON_FEATURES.filter((f) => !grantedCodes.has(f.code));
+
+  const handleGrantFeature = () => {
+    if (!grantFeatureCode) return;
+    grantFeatureMutation.mutate(
+      { tenantId, featureCode: grantFeatureCode, notes: grantNotes || undefined },
+      { onSuccess: () => { setGrantFeatureCode(''); setGrantNotes(''); } },
+    );
+  };
 
   const handleOverride = () => {
     if (!overrideTarget) return;
@@ -458,6 +475,84 @@ export default function TenantDetailPage() {
             </Table>
           ) : (
             <p className="text-sm text-muted-foreground">No custom add-ons configured for this tenant.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add-on Features */}
+      <Card>
+        <CardHeader>
+          <h2 className="font-semibold">Add-on Features</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Grant a single feature independent of the tenant&apos;s subscription plan. Once granted,
+            the tenant can switch it on for themselves from their own service&apos;s Settings page.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {grantableFeatures.length > 0 && (
+            <div className="mb-4 p-4 rounded-xl border border-border grid sm:grid-cols-3 gap-3 items-end">
+              <div className="space-y-1 sm:col-span-1">
+                <label className="text-xs text-muted-foreground">Feature</label>
+                <select
+                  value={grantFeatureCode}
+                  onChange={(e) => setGrantFeatureCode(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
+                >
+                  <option value="">Select a feature...</option>
+                  {grantableFeatures.map((f) => (
+                    <option key={f.code} value={f.code}>{f.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1 sm:col-span-1">
+                <label className="text-xs text-muted-foreground">Notes (optional)</label>
+                <Input value={grantNotes} onChange={(e) => setGrantNotes(e.target.value)} placeholder="e.g. Sales agreement ref." className="h-9 rounded-lg" />
+              </div>
+              <Button size="sm" onClick={handleGrantFeature} disabled={!grantFeatureCode || grantFeatureMutation.isPending} className="h-9">
+                {grantFeatureMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+                Grant
+              </Button>
+            </div>
+          )}
+          {featureGrants.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Feature</TableHead>
+                  <TableHead>Granted</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead className="w-20 text-right pr-4">{''}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {featureGrants.map((g) => {
+                  const meta = ADDON_FEATURES.find((f) => f.code === g.feature_code);
+                  return (
+                    <TableRow key={g.id}>
+                      <TableCell>
+                        <p className="font-medium text-sm">{meta?.label ?? g.feature_code}</p>
+                        {meta?.description && <p className="text-xs text-muted-foreground">{meta.description}</p>}
+                      </TableCell>
+                      <TableCell className="text-sm">{formatDate(g.granted_at)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{g.notes || '—'}</TableCell>
+                      <TableCell className="text-right pr-4">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 rounded-lg text-xs hover:text-destructive"
+                          disabled={revokeFeatureMutation.isPending}
+                          onClick={() => { if (confirm(`Revoke "${meta?.label ?? g.feature_code}" for this tenant?`)) revokeFeatureMutation.mutate({ tenantId, featureCode: g.feature_code }); }}
+                        >
+                          Revoke
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-sm text-muted-foreground">No add-on features granted to this tenant.</p>
           )}
         </CardContent>
       </Card>
