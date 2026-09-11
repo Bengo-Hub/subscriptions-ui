@@ -43,6 +43,7 @@ interface TenantSubscription {
   monthlyRevenue: number;
   currency: string;
   dunningAttempt?: number;
+  hasCustomPrice?: boolean;
 }
 
 interface PaginatedResponse {
@@ -57,6 +58,9 @@ interface EditForm {
   trial_ends_at: string;
   status: string;
   plan_code: string;
+  custom_base_price: string;
+  custom_price_reason: string;
+  clear_custom_price: boolean;
 }
 
 const STATUS_OPTIONS = ['ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELLED', 'SUSPENDED'];
@@ -78,7 +82,15 @@ export default function PlatformSubscriptionsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editing, setEditing] = useState<TenantSubscription | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ current_period_end: '', trial_ends_at: '', status: '', plan_code: '' });
+  const [editForm, setEditForm] = useState<EditForm>({
+    current_period_end: '',
+    trial_ends_at: '',
+    status: '',
+    plan_code: '',
+    custom_base_price: '',
+    custom_price_reason: '',
+    clear_custom_price: false,
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['platform-subscriptions', page, search, statusFilter],
@@ -127,6 +139,9 @@ export default function PlatformSubscriptionsPage() {
       trial_ends_at: toLocalDatetime(sub.trialEndsAt),
       status: sub.status.toUpperCase(),
       plan_code: '',
+      custom_base_price: sub.hasCustomPrice ? String(sub.monthlyRevenue) : '',
+      custom_price_reason: '',
+      clear_custom_price: false,
     });
   };
 
@@ -138,6 +153,14 @@ export default function PlatformSubscriptionsPage() {
     if (editForm.trial_ends_at === '') body.trial_ends_at = ''; // clear
     if (editForm.status && editForm.status !== editing.status.toUpperCase()) body.status = editForm.status;
     if (editForm.plan_code.trim()) body.plan_code = editForm.plan_code.trim().toUpperCase();
+    if (editForm.clear_custom_price) {
+      body.clear_custom_price = true;
+    } else if (editForm.custom_base_price.trim()) {
+      const parsed = Number(editForm.custom_base_price);
+      if (Number.isNaN(parsed) || parsed < 0) { toast.error('Custom price must be a non-negative number'); return; }
+      body.custom_base_price = parsed;
+      if (editForm.custom_price_reason.trim()) body.custom_price_reason = editForm.custom_price_reason.trim();
+    }
     if (Object.keys(body).length === 0) { toast.error('No changes to save'); return; }
     updateMutation.mutate({ id: editing.id, body });
   };
@@ -250,7 +273,14 @@ export default function PlatformSubscriptionsPage() {
                       <TableCell className="text-sm">{formatDate(sub.startDate)}</TableCell>
                       <TableCell className="text-sm tabular-nums">{formatDate(sub.currentPeriodEnd)}</TableCell>
                       <TableCell className="font-semibold text-sm tabular-nums">
-                        {formatKes(sub.monthlyRevenue)}/mo
+                        <div className="flex items-center gap-1.5">
+                          {formatKes(sub.monthlyRevenue)}/mo
+                          {sub.hasCustomPrice && (
+                            <Badge variant="outline" className="text-[10px] font-medium normal-case tracking-normal">
+                              Custom
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {(sub.status === 'SUSPENDED' || sub.status === 'past_due') && sub.dunningAttempt != null ? (
@@ -406,6 +436,43 @@ export default function PlatformSubscriptionsPage() {
                   placeholder={`Current: ${editing.planName}`}
                   className="h-11 rounded-xl font-mono"
                 />
+              </div>
+
+              {/* Custom price override */}
+              <div className="space-y-1.5 rounded-xl border border-border p-3">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Custom Monthly Price (KES) <span className="text-muted-foreground/50 normal-case font-normal">— sales-agreed rate, this tenant only</span>
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={editForm.custom_base_price}
+                    onChange={(e) => setEditForm((f) => ({ ...f, custom_base_price: e.target.value, clear_custom_price: false }))}
+                    placeholder={`Plan default: ${formatKes(editing.monthlyRevenue)}`}
+                    disabled={editForm.clear_custom_price}
+                    className="h-11 rounded-xl flex-1"
+                  />
+                  {editing.hasCustomPrice && (
+                    <Button
+                      type="button"
+                      variant={editForm.clear_custom_price ? 'primary' : 'ghost'}
+                      onClick={() => setEditForm((f) => ({ ...f, clear_custom_price: !f.clear_custom_price, custom_base_price: '' }))}
+                      className="h-11 rounded-xl shrink-0 whitespace-nowrap"
+                    >
+                      {editForm.clear_custom_price ? 'Will revert' : 'Revert to plan price'}
+                    </Button>
+                  )}
+                </div>
+                {!editForm.clear_custom_price && editForm.custom_base_price.trim() && (
+                  <Input
+                    value={editForm.custom_price_reason}
+                    onChange={(e) => setEditForm((f) => ({ ...f, custom_price_reason: e.target.value }))}
+                    placeholder="Reason (e.g. sales agreement, negotiated rate)"
+                    className="h-10 rounded-xl text-sm"
+                  />
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
