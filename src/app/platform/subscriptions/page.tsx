@@ -65,6 +65,126 @@ interface EditForm {
 
 const STATUS_OPTIONS = ['ACTIVE', 'TRIAL', 'EXPIRED', 'CANCELLED', 'SUSPENDED'];
 
+interface SupportFeeCycle {
+  id: string;
+  supportPlanCode: string;
+  cycleNumber: number;
+  dueDate: string;
+  status: string;
+  basePrice: number;
+  customPrice?: number;
+  effectivePrice: number;
+  hasCustomPrice: boolean;
+  customPriceReason?: string;
+}
+
+/**
+ * SupportFeeSection — per-tenant custom annual support-fee price, shown only for a
+ * perpetual/one-time-license tenant (fetched on demand; renders nothing for a tenant with no
+ * support-fee obligation at all — a 404 from GET /support-fee-cycle is the expected/normal case
+ * for every recurring-billing tenant, not an error). Mirrors the Custom Monthly Price block
+ * above exactly (set/clear/reason), applied to /admin/support-fee-cycles/{id} instead.
+ */
+function SupportFeeSection({ tenantId }: { tenantId?: string }) {
+  const qc = useQueryClient();
+  const [customPrice, setCustomPrice] = useState('');
+  const [reason, setReason] = useState('');
+  const [clearing, setClearing] = useState(false);
+
+  const { data: cycle, isLoading } = useQuery<SupportFeeCycle | null>({
+    queryKey: ['tenant-support-fee-cycle', tenantId],
+    queryFn: () =>
+      apiClient
+        .get(`/api/v1/admin/tenants/${tenantId}/support-fee-cycle`)
+        .then((r: any) => r as SupportFeeCycle)
+        .catch((e: any) => {
+          if (e?.response?.status === 404) return null; // no support-fee obligation — expected
+          throw e;
+        }),
+    enabled: !!tenantId,
+  });
+
+  const mutation = useMutation({
+    mutationFn: (body: Record<string, any>) =>
+      apiClient.put(`/api/v1/admin/support-fee-cycles/${cycle?.id}`, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tenant-support-fee-cycle', tenantId] });
+      toast.success('Support fee price updated');
+      setCustomPrice('');
+      setReason('');
+      setClearing(false);
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to update support fee price'),
+  });
+
+  if (isLoading || !cycle) return null; // no cycle = no support-fee obligation for this tenant
+
+  const handleSave = () => {
+    if (clearing) {
+      mutation.mutate({ clear_custom_price: true });
+      return;
+    }
+    const parsed = Number(customPrice);
+    if (!customPrice.trim() || Number.isNaN(parsed) || parsed < 0) {
+      toast.error('Custom support fee price must be a non-negative number');
+      return;
+    }
+    mutation.mutate({ custom_price: parsed, ...(reason.trim() ? { custom_price_reason: reason.trim() } : {}) });
+  };
+
+  return (
+    <div className="space-y-1.5 rounded-xl border border-border p-3">
+      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+        Annual Support Fee ({cycle.supportPlanCode}) <span className="text-muted-foreground/50 normal-case font-normal">— cycle {cycle.cycleNumber}, due {new Date(cycle.dueDate).toLocaleDateString()}, status {cycle.status}</span>
+      </label>
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          min={0}
+          step="0.01"
+          value={customPrice}
+          onChange={(e) => { setCustomPrice(e.target.value); setClearing(false); }}
+          placeholder={`Base: ${sharedFormatCurrency(cycle.basePrice)}${cycle.hasCustomPrice ? ` · Custom: ${sharedFormatCurrency(cycle.customPrice ?? 0)}` : ''}`}
+          disabled={clearing}
+          className="h-11 rounded-xl flex-1"
+        />
+        {cycle.hasCustomPrice && (
+          <Button
+            type="button"
+            variant={clearing ? 'primary' : 'ghost'}
+            onClick={() => { setClearing((c) => !c); setCustomPrice(''); }}
+            className="h-11 rounded-xl shrink-0 whitespace-nowrap"
+          >
+            {clearing ? 'Will revert' : 'Revert to base price'}
+          </Button>
+        )}
+      </div>
+      {!clearing && customPrice.trim() && (
+        <Input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason (e.g. sales agreement, negotiated rate)"
+          className="h-10 rounded-xl text-sm"
+        />
+      )}
+      {(clearing || customPrice.trim()) && (
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSave}
+            disabled={mutation.isPending}
+            className="rounded-lg"
+          >
+            {mutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+            Save support fee price
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function toLocalDatetime(isoStr?: string): string {
   if (!isoStr) return '';
   const d = new Date(isoStr);
@@ -474,6 +594,9 @@ export default function PlatformSubscriptionsPage() {
                   />
                 )}
               </div>
+
+              {/* Annual support fee — only renders for a perpetual/one-time-license tenant */}
+              <SupportFeeSection tenantId={editing.tenantId} />
 
               <div className="flex justify-end gap-3 pt-2">
                 <Button variant="ghost" onClick={() => setEditing(null)} className="rounded-xl">Cancel</Button>
