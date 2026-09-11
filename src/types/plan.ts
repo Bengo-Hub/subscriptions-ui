@@ -38,6 +38,14 @@ export interface Plan {
   features?: PlanFeature[]
 }
 
+// Minimal shape CreatePlan's upsertFeatures accepts — only featureCode/isIncluded/limitValue
+// are read on create; id/planId/overageUnitPrice/createdAt are server-assigned.
+export interface PlanFeatureInput {
+  featureCode: string
+  isIncluded: boolean
+  limitValue?: number
+}
+
 export interface PlanCreateRequest {
   planCode: string
   name: string
@@ -52,8 +60,12 @@ export interface PlanCreateRequest {
   tierLimits?: Record<string, number>
   planType?: PlanType
   serviceTag?: string
+  useCase?: string
   freeTrialDays?: number
   discountRules?: DiscountRule[]
+  // Backend already accepts this on create (repository_ent.go's upsertFeatures) — the custom
+  // plan builder is what actually exercises it; every other existing caller omits it.
+  features?: PlanFeatureInput[]
 }
 
 export interface PlanUpdateRequest {
