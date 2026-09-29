@@ -39,3 +39,20 @@ export const giftCredits = (tenantId: string, amountKes: number, reason: string)
     `/api/v1/admin/tenants/${tenantId}/credits/gift`,
     { amount_kes: amountKes, reason },
   )
+
+/** M-Pesa standing order (Ratiba) that pays the subscription every billing period. */
+export interface StandingOrder {
+  reference: string
+  phone: string
+  amount: string
+  frequency: string
+  start_date: string
+  end_date: string
+  status: 'pending_approval' | 'active' | string
+}
+
+export const getStandingOrder = () =>
+  apiClient.get<{ standing_order: StandingOrder | null }>('/api/v1/subscription/standing-order')
+
+export const registerStandingOrder = (phone: string) =>
+  apiClient.post<StandingOrder>('/api/v1/subscription/standing-order', { phone })

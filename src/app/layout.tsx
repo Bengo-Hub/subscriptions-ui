@@ -1,4 +1,5 @@
 import '@/app/globals.css';
+import '@bengo-hub/shared-ui-lib/contact/style.css';
 import type { Metadata, Viewport } from 'next';
 import { DM_Sans, Outfit, JetBrains_Mono } from 'next/font/google';
 import { ReactNode } from 'react';

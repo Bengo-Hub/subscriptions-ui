@@ -13,6 +13,8 @@ import {
   deletePaymentMethod,
   cancelSubscription,
   undoCancelSubscription,
+  getStandingOrder,
+  registerStandingOrder,
 } from '@/lib/api/billing'
 import { useTenantFilterStore } from '@/store/tenant-filter'
 
@@ -134,5 +136,30 @@ export function useGiftCredits() {
       qc.invalidateQueries({ queryKey: ['admin-tenant-usage', tenantId] })
     },
     onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to gift credits'),
+  })
+}
+
+export function useStandingOrder() {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useQuery({
+    queryKey: ['standing-order', tenantKey],
+    queryFn: getStandingOrder,
+    staleTime: 60_000,
+    select: (r) => r.standing_order,
+  })
+}
+
+export function useRegisterStandingOrder() {
+  const qc = useQueryClient()
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useMutation({
+    mutationFn: (phone: string) => registerStandingOrder(phone),
+    onSuccess: () => {
+      toast.success('Approve the standing order on your phone to finish setting it up')
+      qc.invalidateQueries({ queryKey: ['standing-order', tenantKey] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Could not set up the M-Pesa standing order'),
   })
 }

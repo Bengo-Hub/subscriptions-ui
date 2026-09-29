@@ -27,6 +27,7 @@ import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/
 import { usePlanAddons, usePurchasePlanAddon, useRemovePlanAddon } from '@/hooks/useCustomAddons';
 import type { PlanAddon } from '@/lib/api/addons';
 import { PaymentMethodList } from '@/components/billing/PaymentMethodList';
+import { MpesaStandingOrderCard } from '@/components/billing/MpesaStandingOrderCard';
 import {
   setDefaultPaymentMethod,
   deletePaymentMethod,
@@ -442,6 +443,9 @@ export default function BillingPage() {
               isSetupPending={setupMutation.isPending}
             />
           )}
+          <div className="mt-4">
+            <MpesaStandingOrderCard />
+          </div>
         </CardContent>
       </Card>
 
