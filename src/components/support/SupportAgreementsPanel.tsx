@@ -12,6 +12,7 @@ import {
   supportPeriodLabel,
   type SupportAgreement,
   type SupportAgreementInput,
+  type SupportCollection,
   type SupportCycle,
   type SupportIntervalUnit,
   type SupportTiming,
@@ -36,6 +37,7 @@ interface FormState {
   ends_at: string;
   notes: string;
   billing_email: string;
+  collection: SupportCollection;
   reschedule_from: 'next_period' | 'now';
 }
 
@@ -50,6 +52,7 @@ const emptyForm: FormState = {
   ends_at: '',
   notes: '',
   billing_email: '',
+  collection: 'business',
   reschedule_from: 'next_period',
 };
 
@@ -65,6 +68,7 @@ function formFrom(a: SupportAgreement): FormState {
     ends_at: a.ends_at ? a.ends_at.slice(0, 10) : '',
     notes: a.notes ?? '',
     billing_email: a.billing_email ?? '',
+    collection: a.collection ?? 'business',
     reschedule_from: 'next_period',
   };
 }
@@ -108,6 +112,7 @@ function toInput(f: FormState, original?: SupportAgreement): SupportAgreementInp
   }
   if (!original || f.notes !== (original.notes ?? '')) input.notes = f.notes;
   if (!original || f.billing_email.trim() !== (original.billing_email ?? '')) input.billing_email = f.billing_email.trim();
+  if (!original || f.collection !== (original.collection ?? 'business')) input.collection = f.collection;
   if (original && (cadenceChanged || input.billing_timing)) input.reschedule_from = f.reschedule_from;
   return input;
 }
@@ -214,6 +219,18 @@ function AgreementForm({
           <Input type="email" value={f.billing_email} onChange={(e) => set('billing_email', e.target.value)} placeholder="Defaults to the subscription billing email" />
         </div>
         <div className="space-y-1 sm:col-span-2">
+          <label className={labelClass}>Collection</label>
+          <select className={selectClass} value={f.collection} onChange={(e) => set('collection', e.target.value as SupportCollection)}>
+            <option value="business">Business (company books)</option>
+            <option value="personal">Personal (paid into my personal channel, off the company books)</option>
+          </select>
+          {f.collection === 'personal' && (
+            <p className="text-xs text-muted-foreground">
+              Invoices keep the company letterhead but show only your personal channel and are never posted to the company ledger, eTIMS or revenue figures. They are listed under Treasury, Invoices, Personal.
+            </p>
+          )}
+        </div>
+        <div className="space-y-1 sm:col-span-2">
           <label className={labelClass}>Notes</label>
           <Input value={f.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Scope, sales agreement reference" />
         </div>
@@ -252,6 +269,7 @@ function AgreementCard({ a, onEdit }: { a: SupportAgreement; onEdit: () => void 
             <span className="font-semibold">{a.name}</span>
             <Badge variant={a.kind === 'SPECIAL' ? 'partial' : 'default'}>{a.kind === 'SPECIAL' ? 'special' : 'standard'}</Badge>
             {a.status !== 'ACTIVE' && <Badge variant="outline">{a.status.toLowerCase()}</Badge>}
+            {a.collection === 'personal' && <Badge variant="outline">personal</Badge>}
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
             {formatCurrency(a.period_amount)} {supportPeriodLabel(a).toLowerCase()}, charged{' '}

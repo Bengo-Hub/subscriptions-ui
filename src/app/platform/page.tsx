@@ -22,6 +22,8 @@ interface PlatformStats {
   supportMrr?: number;
   specialSupportMrr?: number;
   specialAgreements?: number;
+  /** The owner's personal agreements, outside every company figure (MRR, ARR, outstanding). */
+  personalSupportMrr?: number;
   totalMrr?: number;
   arr?: number;
   supportReceivables?: {
@@ -140,7 +142,7 @@ export default function PlatformPage() {
               {
                 label: 'Support Agreements',
                 value: fmtKES(stats?.supportMrr),
-                sub: `${stats?.oneTimeLicenses ?? 0} one-time licenses · ${stats?.specialAgreements ?? 0} special (${fmtKES(stats?.specialSupportMrr)}/mo)`,
+                sub: `${stats?.oneTimeLicenses ?? 0} one-time licenses · ${stats?.specialAgreements ?? 0} special (${fmtKES(stats?.specialSupportMrr)}/mo)${stats?.personalSupportMrr ? ` · personal ${fmtKES(stats.personalSupportMrr)}/mo, off the company books` : ''}`,
                 icon: Headset,
               },
               {

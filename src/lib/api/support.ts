@@ -37,6 +37,8 @@ export interface SupportCharge {
   blocking: boolean
 }
 
+export type SupportCollection = 'business' | 'personal'
+
 export interface SupportAgreement {
   id: string
   tenant_id: string
@@ -59,6 +61,8 @@ export interface SupportAgreement {
   cycle_count: number
   notes?: string
   billing_email?: string
+  /** personal: the platform owner's own engagement, invoiced off the company books into the personal PayHero channel. */
+  collection?: SupportCollection
   cycles: SupportCharge[]
 }
 
@@ -88,6 +92,8 @@ export interface SupportAgreementInput {
   status?: SupportAgreementStatus
   notes?: string
   billing_email?: string
+  /** personal: the platform owner's own engagement, invoiced off the company books into the personal PayHero channel. */
+  collection?: SupportCollection
   reschedule_from?: 'next_period' | 'now'
 }
 
