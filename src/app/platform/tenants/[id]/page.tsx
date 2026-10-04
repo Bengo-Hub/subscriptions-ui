@@ -24,6 +24,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import { listWhatsAppPlans } from '@/lib/api/notifications';
 import { AlertCircle, ArrowLeft, ExternalLink, Loader2, Plus, X } from 'lucide-react';
+import { SupportAgreementsPanel } from '@/components/support/SupportAgreementsPanel';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
@@ -48,6 +49,8 @@ interface TenantSubscriptionDetail {
   current_period_start: string;
   current_period_end: string;
   metadata?: Record<string, unknown>;
+  billing_mode?: string;
+  is_perpetual?: boolean;
 }
 
 export default function TenantDetailPage() {
@@ -222,6 +225,9 @@ export default function TenantDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Support agreements: standard hosting and support plus special support */}
+      {subData && <SupportAgreementsPanel tenantId={tenantId} isOneTime={subData.billing_mode === 'one_time' || subData.is_perpetual} />}
 
       {/* Usage Override */}
       <Card>

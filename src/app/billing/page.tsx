@@ -1,5 +1,6 @@
 'use client';
 
+import { SupportChargesCard, type TenantSupportAgreement, type TenantSupportCharge } from '@/components/billing/SupportChargesCard';
 import {
   Badge,
   Button,
@@ -84,6 +85,9 @@ interface BillingInfo {
   planType?: string;
   isPerpetual?: boolean;
   invoices: Invoice[];
+  supportAgreements?: TenantSupportAgreement[];
+  supportCharges?: TenantSupportCharge[];
+  supportBlocked?: boolean;
 }
 
 interface OverageLine {
@@ -665,6 +669,13 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Support agreements and unpaid support charges (one-time licenses, special support) */}
+      <SupportChargesCard
+        agreements={data?.supportAgreements}
+        charges={data?.supportCharges}
+        blocked={data?.supportBlocked}
+      />
 
       {/* Overage Charges */}
       {preview && preview.overage_charges.length > 0 && (

@@ -4,7 +4,7 @@ import { Badge, Card, CardContent } from '@/components/ui/base';
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { useQuery } from '@tanstack/react-query';
-import { BadgePercent, BarChart3, Building2, KeyRound, Package, Shield, TrendingUp, Users } from 'lucide-react';
+import { BadgePercent, BarChart3, Building2, Headset, KeyRound, Package, Shield, TrendingUp, Users, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency as sharedFormatCurrency } from '@bengo-hub/shared-ui-lib';
 
@@ -13,10 +13,25 @@ interface PlatformStats {
   activePlans?: number;
   totalSubscriptions: number;
   activeSubscriptions: number;
+  /** Recurring subscriptions only; one-time license prices are not monthly revenue. */
   mrr: number;
   currency: string;
   trialingCount?: number;
   churnedCount?: number;
+  oneTimeLicenses?: number;
+  supportMrr?: number;
+  specialSupportMrr?: number;
+  specialAgreements?: number;
+  totalMrr?: number;
+  arr?: number;
+  supportReceivables?: {
+    open_count: number;
+    open_amount: number;
+    overdue_count: number;
+    overdue_amount: number;
+    blocking_count: number;
+    blocking_amount: number;
+  };
 }
 
 // Centralized in shared-ui-lib — was a local hardcoded-"KES" copy duplicated in app/page.tsx.
@@ -50,6 +65,13 @@ const adminSections = [
     label: 'Tenants',
     description: 'View all tenants, assign subscription plans, and manage account status',
     color: 'text-emerald-500 bg-emerald-500/10 group-hover:bg-emerald-500 group-hover:text-white',
+  },
+  {
+    href: '/platform/support',
+    icon: Headset,
+    label: 'Support Billing',
+    description: 'Hosting and support fees of one-time licenses, special support agreements and overdue charges',
+    color: 'text-rose-500 bg-rose-500/10 group-hover:bg-rose-500 group-hover:text-white',
   },
   {
     href: '/platform/subscriptions',
@@ -88,9 +110,9 @@ export default function PlatformPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 6 }).map((_, i) => (
               <Card key={i}><CardContent className="space-y-2 pt-6">
                 <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                 <div className="h-8 w-16 bg-muted rounded animate-pulse" />
@@ -110,10 +132,22 @@ export default function PlatformPage() {
                 icon: Users,
               },
               {
-                label: 'Monthly Revenue',
-                value: fmtKES(stats?.mrr),
-                sub: stats?.currency ?? 'KES',
+                label: 'Monthly Recurring Revenue',
+                value: fmtKES(stats?.totalMrr ?? stats?.mrr),
+                sub: `${fmtKES(stats?.mrr)} subscriptions + ${fmtKES(stats?.supportMrr)} support · ARR ${fmtKES(stats?.arr)}`,
                 icon: BarChart3,
+              },
+              {
+                label: 'Support Agreements',
+                value: fmtKES(stats?.supportMrr),
+                sub: `${stats?.oneTimeLicenses ?? 0} one-time licenses · ${stats?.specialAgreements ?? 0} special (${fmtKES(stats?.specialSupportMrr)}/mo)`,
+                icon: Headset,
+              },
+              {
+                label: 'Support Outstanding',
+                value: fmtKES(stats?.supportReceivables?.open_amount),
+                sub: `${fmtKES(stats?.supportReceivables?.overdue_amount)} overdue · ${stats?.supportReceivables?.blocking_count ?? 0} blocking`,
+                icon: Wallet,
               },
               {
                 label: 'Trialing',
