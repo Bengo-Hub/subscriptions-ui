@@ -436,7 +436,10 @@ export default function BillingPage() {
             </div>
           ) : (
             <PaymentMethodList
-              methods={(data?.paymentMethods ?? (data?.paymentMethod ? [data.paymentMethod] : [])) as any}
+              // Method objects only: a bare string stored as a method (an old standing-order
+              // write) crashed the page here.
+              methods={((data?.paymentMethods ?? (data?.paymentMethod ? [data.paymentMethod] : [])) as any[])
+                .filter((m) => m && typeof m === 'object') as any}
               status={data?.status}
               cancelAtPeriodEnd={data?.cancelAtPeriodEnd}
               onAddMethod={() => setupMutation.mutate()}
