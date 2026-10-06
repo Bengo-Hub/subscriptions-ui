@@ -50,7 +50,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
+        'inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50',
         variants[variant],
         sizes[size],
         className
@@ -71,19 +71,20 @@ export function Badge({
   className?: string;
   variant?: 'default' | 'success' | 'warning' | 'error' | 'outline' | 'partial';
 }) {
+  // The -700 shades keep 4.5:1 contrast on the cream light background; -400 does the same on dark.
   const variants = {
     default: 'bg-primary/10 text-primary border-primary/20',
-    success: 'bg-green-500/10 text-green-500 border-green-500/20',
-    warning: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-    error: 'bg-red-500/10 text-red-500 border-red-500/20',
+    success: 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/25',
+    warning: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30',
+    error: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/25',
     outline: 'bg-transparent text-muted-foreground border-border',
-    partial: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    partial: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/25',
   };
 
   return (
     <span
       className={cn(
-        'px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border tracking-wider',
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border tracking-wider whitespace-nowrap',
         variants[variant],
         className
       )}
@@ -100,7 +101,7 @@ export function Input({
   return (
     <input
       className={cn(
-        'flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-10 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}

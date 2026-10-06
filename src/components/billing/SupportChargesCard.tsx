@@ -110,12 +110,16 @@ export function SupportChargesCard({
   agreements = [],
   charges = [],
   blocked,
+  showCharges = true,
 }: {
   agreements?: TenantSupportAgreement[];
   charges?: TenantSupportCharge[];
   blocked?: boolean;
+  /** Off on the billing page, where unpaid charges are already listed under "Bills to pay". */
+  showCharges?: boolean;
 }) {
-  if (agreements.length === 0 && charges.length === 0) return null;
+  const visibleCharges = showCharges ? charges : [];
+  if (agreements.length === 0 && visibleCharges.length === 0 && !blocked) return null;
   return (
     <Card>
       <CardHeader>
@@ -157,10 +161,10 @@ export function SupportChargesCard({
             ))}
           </div>
         )}
-        {charges.length > 0 && (
+        {visibleCharges.length > 0 && (
           <DataTable<TenantSupportCharge>
             columns={columns}
-            rows={charges}
+            rows={visibleCharges}
             rowKey={(c) => c.id}
             gridLines="rows"
             dense

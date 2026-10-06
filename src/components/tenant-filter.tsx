@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Building2, Check, ChevronDown, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { AnchoredPortal } from '@/components/ui/anchored-portal';
 
 interface TenantItem {
   id: string;
@@ -26,7 +27,11 @@ export function TenantFilter({ className }: { className?: string }) {
   const { selectedTenant, setSelectedTenant, clearTenant } = useTenantFilterStore();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setOpen(false);
+    setSearch('');
+  };
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['platform_tenants_filter_list'],
@@ -63,11 +68,12 @@ export function TenantFilter({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn('relative', className)} ref={ref}>
+    <div className={cn('relative', className)}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors min-w-44"
+        className="flex w-full items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted transition-colors min-w-44"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
@@ -86,10 +92,9 @@ export function TenantFilter({ className }: { className?: string }) {
         <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </button>
 
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setSearch(''); }} aria-hidden />
-          <div className="absolute left-0 top-full mt-1 z-50 w-72 rounded-xl border border-border bg-popover shadow-xl flex flex-col">
+      {/* Portalled: this filter sits in the blurred sticky header and in the overflow-hidden
+          mobile drawer, and an absolute panel would be clipped in both. */}
+      <AnchoredPortal anchorRef={triggerRef} open={open} onClose={close} width={288}>
             <div className="p-2 border-b border-border">
               <input
                 autoFocus
@@ -143,9 +148,7 @@ export function TenantFilter({ className }: { className?: string }) {
                 <div className="px-3 py-4 text-xs text-muted-foreground text-center">No tenants found</div>
               )}
             </div>
-          </div>
-        </>
-      )}
+      </AnchoredPortal>
     </div>
   );
 }

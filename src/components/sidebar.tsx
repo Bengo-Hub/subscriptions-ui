@@ -1,30 +1,14 @@
 'use client';
 
-import { useMe } from '@/hooks/useMe';
 import { cn } from '@/lib/utils';
-import {
-    BadgePercent,
-    Building2,
-    CreditCard,
-    Gauge,
-    Handshake,
-    KeyRound,
-    LayoutDashboard,
-    LogOut,
-    Mail,
-    Settings,
-    Sliders,
-    Sparkles,
-    Tag,
-    Users,
-    Headset,
-} from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import { useEffect } from 'react';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
 import { useAuthStore } from '@/store/auth';
-import { useTenantFilterStore } from '@/store/tenant-filter';
+import { TenantFilter } from '@/components/tenant-filter';
+import { useNavRoutes, type NavRoute } from '@/components/nav-routes';
 
 interface SidebarProps {
     open?: boolean;
@@ -32,56 +16,57 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
-    const pathname = usePathname();
-    const { user, hasRole } = useMe();
-    const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
-    const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
+    const { dashboard, tenantRoutes, platformRoutes, showTenantRoutes, isPlatformOwner } = useNavRoutes();
     const { tenant } = useTenantBranding();
     const logout = useAuthStore((s) => s.logout);
 
-    // Tenant-specific routes are only meaningful when:
-    // - user is a regular tenant, OR
-    // - user is platform admin AND has selected a specific tenant
-    const showTenantRoutes = !isPlatformOwner || !!selectedTenant;
+    // Escape closes the phone drawer, like a native sheet.
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.();
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, onClose]);
 
-    const tenantRoutes = [
-        { label: 'Plans', icon: Sparkles, href: '/plans', active: pathname.startsWith('/plans') },
-        { label: 'Usage', icon: Gauge, href: '/usage', active: pathname.startsWith('/usage') },
-        { label: 'Billing', icon: CreditCard, href: '/billing', active: pathname.startsWith('/billing') },
-        { label: 'Email Hosting', icon: Mail, href: '/email-hosting', active: pathname.startsWith('/email-hosting') },
-        { label: 'Partner Portal', icon: Handshake, href: '/partner', active: pathname.startsWith('/partner') },
-        { label: 'Settings', icon: Settings, href: '/settings', active: pathname.startsWith('/settings') },
-    ];
-
-    const platformRoutes = [
-        { label: 'Service Charges', icon: BadgePercent, href: '/platform/service-charges', active: pathname.startsWith('/platform/service-charges') },
-        { label: 'Licenses', icon: KeyRound, href: '/platform/licenses', active: pathname.startsWith('/platform/licenses') },
-        { label: 'Tenants', icon: Building2, href: '/platform/tenants', active: pathname.startsWith('/platform/tenants') },
-        { label: 'Subscriptions', icon: Users, href: '/platform/subscriptions', active: pathname.startsWith('/platform/subscriptions') },
-        { label: 'Support Billing', icon: Headset, href: '/platform/support', active: pathname.startsWith('/platform/support') },
-        { label: 'Coupons', icon: Tag, href: '/platform/coupons', active: pathname.startsWith('/platform/coupons') },
-        { label: 'Configs', icon: Sliders, href: '/platform/configs', active: pathname.startsWith('/platform/configs') },
-    ];
-
-    const renderNavItem = (route: { label: string; icon: any; href: string; active: boolean }) => {
+    const renderNavItem = (route: NavRoute) => {
         const Icon = route.icon;
+        const inner = (
+            <>
+                <Icon className={cn(
+                    "h-4.5 w-4.5 shrink-0 transition-colors",
+                    route.active ? "text-primary" : "text-muted-foreground/60 group-hover:text-foreground"
+                )} />
+                <span className="flex-1 truncate">{route.label}</span>
+                {route.comingSoon && (
+                    <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Soon
+                    </span>
+                )}
+            </>
+        );
+        const base = "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+        // Unfinished areas: platform owners can still open them for testing, tenants cannot.
+        if (route.comingSoon && !isPlatformOwner) {
+            return (
+                <span key={route.href} aria-disabled="true" title="Coming soon" className={cn(base, "cursor-not-allowed text-muted-foreground/70")}>
+                    {inner}
+                </span>
+            );
+        }
         return (
             <Link
                 key={route.href}
                 href={route.href}
                 onClick={onClose}
+                aria-current={route.active ? 'page' : undefined}
                 className={cn(
-                    "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                    base,
                     route.active
                         ? "bg-primary/10 text-primary shadow-sm"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
             >
-                <Icon className={cn(
-                    "h-4.5 w-4.5 shrink-0 transition-colors",
-                    route.active ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground"
-                )} />
-                <span>{route.label}</span>
+                {inner}
             </Link>
         );
     };
@@ -95,26 +80,27 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden" onClick={onClose} aria-hidden />
             )}
             <aside
+                aria-label="Main navigation"
                 className={cn(
-                    "fixed inset-y-0 left-0 z-50 flex w-65 flex-col transition-transform duration-300 ease-out md:sticky md:top-0 md:h-screen md:z-auto md:translate-x-0 md:min-w-65",
+                    "fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col transition-transform duration-300 ease-out md:sticky md:top-0 md:h-dvh md:w-65 md:z-auto md:translate-x-0 md:min-w-65",
                     open ? "translate-x-0" : "-translate-x-full md:translate-x-0"
                 )}
             >
-                <div className="flex flex-col h-full bg-card border-r border-border w-full overflow-hidden transition-colors">
+                <div className="flex flex-col h-full bg-card border-r border-border w-full overflow-hidden transition-colors pt-[env(safe-area-inset-top)]">
                     {/* Logo */}
-                    <div className="px-5 pt-5 pb-2">
+                    <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-2">
                         <Link href="/" className="flex items-center gap-3 group text-foreground" onClick={onClose}>
                             {logoUrl ? (
                                 <Image
                                     src={logoUrl}
-                                    alt={tenantName}
+                                    alt={`${tenantName} logo`}
                                     width={160}
                                     height={40}
                                     className="h-9 w-auto object-contain max-w-40 transition-transform duration-300 group-hover:scale-105"
                                     unoptimized
                                 />
                             ) : (
-                                <svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto transition-transform duration-300 group-hover:scale-105">
+                                <svg role="img" aria-label="Codevertex" width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-9 w-auto transition-transform duration-300 group-hover:scale-105">
                                     <circle cx="90" cy="30" r="18" stroke="#722F5F" strokeWidth="3"/>
                                     <path d="M82 30L87 35L98 24" stroke="#722F5F" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
                                     <text x="10" y="38" fill="currentColor" style={{ fontFamily: "'Inter', sans-serif", fontWeight: 700, fontSize: '24px' }}>Code</text>
@@ -123,44 +109,40 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 </svg>
                             )}
                         </Link>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close menu"
+                            className="md:hidden rounded-xl p-2 text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
                     </div>
+
+                    {/* The header hides the tenant switcher on phones, so it lives in the drawer there. */}
+                    <TenantFilter className="md:hidden px-3 pt-3" />
 
                     {/* Navigation */}
                     <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
-                        <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+                        <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
                             Navigation
                         </p>
 
-                        {/* Dashboard always visible */}
-                        <Link
-                            href="/"
-                            onClick={onClose}
-                            className={cn(
-                                "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
-                                pathname === '/'
-                                    ? "bg-primary/10 text-primary shadow-sm"
-                                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                            )}
-                        >
-                            <LayoutDashboard className={cn("h-4.5 w-4.5 shrink-0", pathname === '/' ? "text-primary" : "text-muted-foreground/50 group-hover:text-foreground")} />
-                            <span>Dashboard</span>
-                        </Link>
+                        {renderNavItem(dashboard)}
 
-                        {/* Tenant-specific routes: hidden for platform admin when no tenant selected */}
                         {showTenantRoutes ? (
                             tenantRoutes.map(renderNavItem)
                         ) : (
                             <div className="px-3 py-2">
-                                <p className="text-[11px] text-muted-foreground/60 italic leading-relaxed">
+                                <p className="text-[11px] text-muted-foreground/70 italic leading-relaxed">
                                     Select a tenant above to view Plans, Usage, Billing & Settings.
                                 </p>
                             </div>
                         )}
 
-                        {/* Platform admin section */}
                         {isPlatformOwner && (
                             <div className="mt-6 pt-6 border-t border-border">
-                                <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/50">
+                                <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground/60">
                                     Platform Admin
                                 </p>
                                 {platformRoutes.map(renderNavItem)}
@@ -169,9 +151,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     </nav>
 
                     {/* User section */}
-                    <div className="p-3 border-t border-border">
+                    <div className="p-3 border-t border-border pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                         <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-accent/50">
-                            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center text-xs font-bold text-primary shrink-0" aria-hidden>
                                 {tenantName?.[0] || 'C'}
                             </div>
                             <div className="flex flex-col min-w-0 flex-1">
@@ -179,9 +161,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                 <span className="text-[10px] text-muted-foreground">Subscriptions</span>
                             </div>
                             <button
+                                type="button"
                                 onClick={() => logout()}
-                                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-destructive"
+                                className="p-1.5 rounded-lg hover:bg-accent transition-colors text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 title="Sign out"
+                                aria-label="Sign out"
                             >
                                 <LogOut className="h-4 w-4" />
                             </button>

@@ -9,12 +9,15 @@ import {
   giftCredits,
   redeemCoupon,
   setupPaymentMethod,
+  confirmPaymentMethod,
   setDefaultPaymentMethod,
   deletePaymentMethod,
   cancelSubscription,
   undoCancelSubscription,
   getStandingOrder,
+  getStandingOrderQuote,
   registerStandingOrder,
+  cancelStandingOrder,
 } from '@/lib/api/billing'
 import { useTenantFilterStore } from '@/store/tenant-filter'
 
@@ -52,6 +55,14 @@ export function useSetupPaymentMethod() {
   return useMutation({
     mutationFn: (payload?: { billing_email?: string }) => setupPaymentMethod(payload),
     onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Failed to set up payment method'),
+  })
+}
+
+export function useConfirmPaymentMethod() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (intentId: string) => confirmPaymentMethod(intentId),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['billing'] }),
   })
 }
 
@@ -150,12 +161,36 @@ export function useStandingOrder() {
   })
 }
 
+export function useStandingOrderQuote(enabled = true) {
+  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
+  const tenantKey = selectedTenant?.id ?? null
+  return useQuery({
+    queryKey: ['standing-order-quote', tenantKey],
+    queryFn: getStandingOrderQuote,
+    staleTime: 5 * 60_000,
+    enabled,
+  })
+}
+
+export function useCancelStandingOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: cancelStandingOrder,
+    onSuccess: () => {
+      toast.success('Standing order cancelled. Also end it in M-Pesa so no further debits are made.')
+      qc.invalidateQueries({ queryKey: ['standing-order'] })
+      qc.invalidateQueries({ queryKey: ['billing'] })
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.error ?? 'Could not cancel the standing order'),
+  })
+}
+
 export function useRegisterStandingOrder() {
   const qc = useQueryClient()
   const selectedTenant = useTenantFilterStore((s) => s.selectedTenant)
   const tenantKey = selectedTenant?.id ?? null
   return useMutation({
-    mutationFn: (phone: string) => registerStandingOrder(phone),
+    mutationFn: ({ phone, authorised }: { phone: string; authorised: boolean }) => registerStandingOrder(phone, authorised),
     onSuccess: () => {
       toast.success('Approve the standing order on your phone to finish setting it up')
       qc.invalidateQueries({ queryKey: ['standing-order', tenantKey] })

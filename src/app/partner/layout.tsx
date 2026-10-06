@@ -3,6 +3,8 @@
 import { useResellerStatus } from '@/hooks/useResellerPortal';
 import { useRouter } from 'next/navigation';
 import { ReactNode, useEffect } from 'react';
+import { Handshake } from 'lucide-react';
+import { ComingSoonGate } from '@/components/coming-soon-gate';
 
 // Certified Reseller & Partner Program self-service portal guard — mirrors platform/layout.tsx's
 // exact shape (loading -> redirect-if-not-authorized -> render), just checking reseller status
@@ -12,7 +14,20 @@ import { ReactNode, useEffect } from 'react';
 // (403 not-a-reseller, or a genuine network/auth failure) means the portal can't render, so
 // both cases redirect home the same way — the distinction matters for retry behavior (see the
 // hook), not for what this layout does with the outcome.
+// The Partner Portal is not finished yet, so tenants see Coming soon (see COMING_SOON_ROUTES).
 export default function PartnerLayout({ children }: { children: ReactNode }) {
+  return (
+    <ComingSoonGate
+      title="Partner Portal"
+      icon={Handshake}
+      description="The Certified Reseller and Partner Program: refer clients, track commissions and manage the accounts you look after. We are finishing it and will let you know when it opens."
+    >
+      <ResellerGuard>{children}</ResellerGuard>
+    </ComingSoonGate>
+  );
+}
+
+function ResellerGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { data, isLoading, isError } = useResellerStatus();
 

@@ -4,6 +4,7 @@ import { Badge, Button, Card, CardContent, CardHeader } from '@/components/ui/ba
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
+import { legalUrls } from '@bengo-hub/shared-ui-lib/legal';
 import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -374,7 +375,8 @@ function UpgradeContent() {
 
                 <p className="text-[10px] text-center text-muted-foreground mt-6 font-bold uppercase tracking-widest leading-relaxed">
                   By confirming, you agree to our <br />
-                  <Link href="/terms" className="text-primary hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+                  <a href={legalUrls().terms} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms of Service</a> and{' '}
+                  <a href={legalUrls().privacy} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>.
                 </p>
               </CardContent>
             </Card>
