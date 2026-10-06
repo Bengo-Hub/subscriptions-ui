@@ -1,118 +1,84 @@
 'use client';
 
-import { Badge, Card, CardContent, CardHeader, Progress } from '@/components/ui/base';
-import { apiClient } from '@/lib/api/client';
-import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
-import { useTenantFilterStore } from '@/store/tenant-filter';
-import { useSubscription } from '@/hooks/useSubscription';
-import { TokenWalletCard } from '@/components/usage/TokenWalletCard';
+import Link from 'next/link';
+import { AlertTriangle, CalendarClock, Gauge, Layers } from 'lucide-react';
 import { SubscriptionProvider, FeatureGate } from '@bengo-hub/shared-ui-lib/subscription';
-import {
-  AlertTriangle,
-  BarChart3,
-  Globe,
-  Package,
-  ShoppingCart,
-  Truck,
-  Users,
-  Zap,
-} from 'lucide-react';
+import { PageContainer, PageHeader, StatTile } from '@/components/ui/page-header';
+import { TokenWalletCard } from '@/components/usage/TokenWalletCard';
+import { UsageMeterCard, usageLevel } from '@/components/usage/UsageMeterCard';
+import { useUsage } from '@/hooks/useUsage';
+import { useSubscription } from '@/hooks/useSubscription';
+import { fmtDate } from '@/lib/billing/format';
 
-interface UsageMetric {
-  name: string;
-  key: string;
-  used: number;
-  limit: number;
-  unit: string;
-  resetDate: string;
-}
-
-interface UsageResponse {
-  metrics: UsageMetric[];
-  billingPeriod: { start: string; end: string };
-  plan: string;
-}
-
-const METRIC_ICONS: Record<string, any> = {
-  orders: ShoppingCart,
-  riders: Truck,
-  outlets: Globe,
-  api_calls: Zap,
-  users: Users,
-  products: Package,
-  reports: BarChart3,
-};
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default function UsagePage() {
-  const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
-  const tenantKey = selectedTenant?.id ?? null;
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['usage', tenantKey],
-    queryFn: () => apiClient.get<UsageResponse>('/api/v1/usage'),
-  });
-
-  // The eTIMS API token wallet is a distinct, standalone product (ETIMS_API_BASIC/GROWTH/SCALE,
-  // or the ETIMS_API_BUNDLED cross-sell overlay — see subscriptions-api's cmd/seed/etims_api.go),
-  // not something every tenant gets. Gate its card the same way shared-ui-lib gates every other
-  // subscription feature: hidden entirely unless the tenant's plan carries etims_api_access or
-  // the tenant is exempt (platform owner / demo / service-charge). Without this, any tenant could
-  // see the card and create a real payment intent for a product they never subscribed to.
+  const { data, isLoading } = useUsage();
+  // The eTIMS API token wallet is its own product (ETIMS_API_* plans or the bundled overlay), so
+  // its card stays hidden unless the plan carries etims_api_access or the tenant is exempt.
+  // Without the gate any tenant could open a real payment for a product they never bought.
   const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
 
-  const pct = (used: number, limit: number) => (limit > 0 ? Math.round((used / limit) * 100) : 0);
-  const variant = (used: number, limit: number) => {
-    const p = pct(used, limit);
-    if (p >= 90) return 'danger' as const;
-    if (p >= 75) return 'warning' as const;
-    return 'default' as const;
-  };
-  const badgeVariant = (used: number, limit: number) => {
-    const p = pct(used, limit);
-    if (p >= 90) return 'error' as const;
-    if (p >= 75) return 'warning' as const;
-    return 'success' as const;
-  };
-
-  const formatDate = (d?: string) =>
-    d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+  const metrics = data?.metrics ?? [];
+  const hot = metrics.filter((m) => ['danger', 'over'].includes(usageLevel(m.used ?? 0, m.limit ?? 0)));
+  const periodEnd = data?.billingPeriod?.end;
+  const daysLeft = periodEnd ? Math.max(0, Math.ceil((new Date(periodEnd).getTime() - Date.now()) / DAY_MS)) : undefined;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Usage Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Monitor your resource consumption across all tracked features.
-          </p>
-        </div>
-        {data && (
-          <div className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{data.plan}</span> plan &middot; Resets{' '}
-            {formatDate(data.billingPeriod?.end)}
-          </div>
-        )}
+    <PageContainer>
+      <PageHeader
+        eyebrow="Usage"
+        icon={Gauge}
+        title="Usage"
+        description="How much of your plan you have used this period. Counters reset when the period ends."
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile icon={Layers} label="Plan" value={data?.plan || '—'} />
+        <StatTile
+          icon={CalendarClock}
+          label="Resets"
+          value={periodEnd ? fmtDate(periodEnd) : '—'}
+          hint={daysLeft !== undefined ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left` : undefined}
+        />
+        <StatTile
+          icon={AlertTriangle}
+          label="Near or over a limit"
+          value={isLoading ? '—' : hot.length}
+          tone={hot.length > 0 ? 'danger' : 'success'}
+          hint={hot.length > 0 ? hot.map((m) => m.name).join(', ') : 'Everything is within your plan'}
+        />
       </div>
 
-      {/* Overage Warning */}
-      {(data?.metrics ?? []).some((m) => pct(m.used ?? 0, m.limit ?? 0) >= 90) && (
-        <Card className="border-yellow-500/50 bg-yellow-500/5">
-          <CardContent className="flex items-start gap-4">
-            <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 shrink-0" />
-            <div>
-              <p className="font-semibold text-sm">Approaching Usage Limits</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                One or more metrics are at 90%+ capacity. Consider upgrading your plan to avoid overage charges.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      {hot.length > 0 && (
+        <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
+            <p className="text-sm text-foreground">
+              <span className="font-semibold">You are close to your plan&apos;s limits.</span>{' '}
+              <span className="text-muted-foreground">Move to a bigger plan to keep going without interruptions or extra-usage charges.</span>
+            </p>
+          </div>
+          <Link
+            href="/plans"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            See plans
+          </Link>
+        </div>
       )}
 
-      {/* External eTIMS API token wallet — only for tenants who actually activated that product
-          (own plan or an active overlay carries etims_api_access), or are exempt. See the
-          useSubscription() call above for why. */}
+      <section aria-label="Usage by metric" className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />)
+          : metrics.map((m) => <UsageMeterCard key={m.key || m.name} metric={m} />)}
+        {!isLoading && metrics.length === 0 && (
+          <p className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            No usage recorded this period yet.
+          </p>
+        )}
+      </section>
+
       <SubscriptionProvider
         value={{
           features: subscription?.features ?? [],
@@ -125,63 +91,6 @@ export default function UsagePage() {
           <TokenWalletCard />
         </FeatureGate>
       </SubscriptionProvider>
-
-      {/* Usage Meters */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="h-5 w-32 bg-muted rounded animate-pulse" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="h-2.5 w-full bg-muted rounded animate-pulse" />
-                  <div className="h-4 w-24 bg-muted rounded animate-pulse" />
-                </CardContent>
-              </Card>
-            ))
-          : (data?.metrics ?? []).map((metric) => {
-              const used = metric.used ?? 0;
-              const limit = metric.limit ?? 0;
-              const Icon = METRIC_ICONS[metric.key ?? ''] || Package;
-              const p = pct(used, limit);
-              const isOverage = p >= 100;
-
-              return (
-                <Card key={metric.key ?? metric.name} className={cn(isOverage && 'border-red-500/50')}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold text-sm">{metric.name ?? metric.key}</h3>
-                      </div>
-                      <Badge variant={badgeVariant(used, limit)}>
-                        {p}%
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Progress value={used} max={limit} variant={variant(used, limit)} />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>
-                        <span className="font-semibold text-foreground">{used.toLocaleString()}</span> /{' '}
-                        {limit > 0 ? limit.toLocaleString() : '∞'} {metric.unit ?? ''}
-                      </span>
-                      <span>
-                        {limit <= 0 ? 'Unlimited' : limit - used > 0 ? `${(limit - used).toLocaleString()} remaining` : 'Limit reached'}
-                      </span>
-                    </div>
-                    {isOverage && (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" />
-                        Overage charges may apply
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-      </div>
-    </div>
+    </PageContainer>
   );
 }

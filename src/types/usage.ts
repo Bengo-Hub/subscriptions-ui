@@ -7,6 +7,13 @@ export interface UsageMetric {
   resetDate: string
 }
 
+/** GET /usage: this period's usage per metric (most urgent first, see the API's sort). */
+export interface UsageSummary {
+  metrics: UsageMetric[]
+  billingPeriod: { start: string; end: string }
+  plan: string
+}
+
 export interface UsageAlert {
   metric: string
   current: number

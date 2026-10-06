@@ -1,14 +1,12 @@
 import { apiClient } from './client'
-import type { UsageAlert, AdminUsageMetric, UsageOverrideRequest } from '@/types/usage'
+import type { UsageAlert, UsageSummary, AdminUsageMetric, UsageOverrideRequest } from '@/types/usage'
 
 export const getUsageSummary = () =>
-  apiClient.get<Record<string, unknown>>('/api/v1/usage')
+  apiClient.get<UsageSummary>('/api/v1/usage')
 
-export const getUsageDashboard = () =>
-  apiClient.get<Record<string, unknown>>('/api/v1/usage/summary')
-
+// The API wraps the list: { alerts: [...] } (it was typed as a bare array before).
 export const getUsageAlerts = () =>
-  apiClient.get<UsageAlert[]>('/api/v1/usage/alerts')
+  apiClient.get<{ alerts: UsageAlert[] }>('/api/v1/usage/alerts')
 
 // Raw shape returned by the API (snake_case). The handler emits metric_type / period_start /
 // period_end, which don't match the camelCase AdminUsageMetric the UI consumes — so we map them

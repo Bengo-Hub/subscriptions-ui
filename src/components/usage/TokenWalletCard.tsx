@@ -142,8 +142,8 @@ export function TokenWalletCard() {
           )}
 
           {topUpOpen && (
-            <div className="mt-4 flex items-end gap-2 border-t pt-4">
-              <div className="flex-1">
+            <div className="mt-4 flex flex-wrap items-end gap-2 border-t pt-4">
+              <div className="min-w-40 flex-1">
                 <label className="text-xs text-muted-foreground mb-1 block">Amount (KES)</label>
                 <Input
                   type="number"
@@ -188,8 +188,8 @@ export function TokenWalletCard() {
             </button>
             {estimateOpen && (
               <div className="mt-3 space-y-3">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-40 flex-1">
                     <label className="text-xs text-muted-foreground mb-1 block">Avg. sales per day</label>
                     <Input
                       type="number"
