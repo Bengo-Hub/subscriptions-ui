@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@bengo-hub/shared-ui-lib':
-        specifier: github:Bengo-Hub/shared-ui-lib#v0.1.100
-        version: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/a2b2979839e886288be3b7076f53680790ab0793(@floating-ui/dom@1.8.0)(@tanstack/react-query@5.90.21(react@19.2.3))(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(lucide-react@0.575.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: github:Bengo-Hub/shared-ui-lib#v0.1.103
+        version: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/96a863e1f6d5b9c6526720c3574520e7b8bb3aa2(@floating-ui/dom@1.8.0)(@tanstack/react-query@5.90.21(react@19.2.3))(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(lucide-react@0.575.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@ducanh2912/next-pwa':
         specifier: ^10.2.9
         version: 10.2.9(next@16.3.8(@babel/core@7.29.0)(@playwright/test@1.58.2)(@types/node@20.19.37)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(webpack@5.105.4)
@@ -604,9 +604,9 @@ packages:
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
 
-  '@bengo-hub/shared-ui-lib@https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/a2b2979839e886288be3b7076f53680790ab0793':
-    resolution: {tarball: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/a2b2979839e886288be3b7076f53680790ab0793}
-    version: 0.1.100
+  '@bengo-hub/shared-ui-lib@https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/96a863e1f6d5b9c6526720c3574520e7b8bb3aa2':
+    resolution: {tarball: https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/96a863e1f6d5b9c6526720c3574520e7b8bb3aa2}
+    version: 0.1.103
     peerDependencies:
       '@tanstack/react-query': '>=5.0.0'
       lucide-react: '>=0.400.0'
@@ -4602,7 +4602,7 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
-  '@bengo-hub/shared-ui-lib@https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/a2b2979839e886288be3b7076f53680790ab0793(@floating-ui/dom@1.8.0)(@tanstack/react-query@5.90.21(react@19.2.3))(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(lucide-react@0.575.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@bengo-hub/shared-ui-lib@https://codeload.github.com/Bengo-Hub/shared-ui-lib/tar.gz/96a863e1f6d5b9c6526720c3574520e7b8bb3aa2(@floating-ui/dom@1.8.0)(@tanstack/react-query@5.90.21(react@19.2.3))(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(lucide-react@0.575.0(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@tiptap/extension-link': 3.31.4(@tiptap/core@3.31.4(@tiptap/pm@3.31.4))(@tiptap/pm@3.31.4)
       '@tiptap/pm': 3.31.4

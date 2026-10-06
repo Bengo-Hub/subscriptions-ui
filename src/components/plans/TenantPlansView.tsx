@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { Info, Package, Sparkles } from 'lucide-react';
+import { Info, Layers, Package } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { listFeatureCatalog } from '@/lib/api/feature-catalog';
 import { fetchTenantBySlug } from '@/lib/tenant-api';
@@ -113,7 +113,7 @@ export function TenantPlansView() {
     <PageContainer>
       <PageHeader
         eyebrow="Plans"
-        icon={Sparkles}
+        icon={Layers}
         title="Choose your plan"
         description="Upgrade, downgrade or cancel any time."
         actions={

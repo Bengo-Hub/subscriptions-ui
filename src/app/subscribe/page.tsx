@@ -4,7 +4,7 @@ import { Badge, Button, Card, CardContent, CardHeader } from '@/components/ui/ba
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
-import { ArrowLeft, Calendar, Check, CreditCard, Loader2, ShieldCheck, Sparkles, Zap } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, CreditCard, Info, Loader2, ShieldCheck, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
@@ -373,7 +373,7 @@ function SubscribeContent() {
                         : 'border-primary/30 bg-primary/5 text-foreground'
                     }`}
                   >
-                    <Sparkles className={`h-4 w-4 mt-0.5 shrink-0 ${setupFeeWaived ? 'text-green-600' : 'text-primary'}`} />
+                    <Info className={`h-4 w-4 mt-0.5 shrink-0 ${setupFeeWaived ? 'text-green-700 dark:text-green-400' : 'text-primary'}`} />
                     {setupFeeWaived ? (
                       <span>
                         Your one-time setup fee of <strong>{plan.currency} {setupFee.toLocaleString()}</strong> is{' '}
@@ -503,7 +503,7 @@ function SubscribeContent() {
                     </>
                   ) : hasTrial ? (
                     <>
-                      <Sparkles className="h-5 w-5 mr-2" />
+                      <Check className="h-5 w-5 mr-2" />
                       Start {plan.freeTrialDays}-Day Free Trial
                     </>
                   ) : isFree ? (

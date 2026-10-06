@@ -14,7 +14,7 @@ import {
   Mail,
   Settings,
   Sliders,
-  Sparkles,
+  Layers,
   Tag,
   Users,
   type LucideIcon,
@@ -60,7 +60,7 @@ export function useNavRoutes() {
 
   const dashboard = route('dashboard', 'Dashboard', LayoutDashboard, '/', 'Home');
   const tenantRoutes = [
-    route('plans', 'Plans', Sparkles, '/plans'),
+    route('plans', 'Plans', Layers, '/plans'),
     route('usage', 'Usage', Gauge, '/usage'),
     route('billing', 'Billing', CreditCard, '/billing'),
     route('email', 'Email Hosting', Mail, '/email-hosting', 'Email'),

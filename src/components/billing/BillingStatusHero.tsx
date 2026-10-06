@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, Clock, Infinity as InfinityIcon, Loader2, PauseCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Infinity as InfinityIcon, Layers, Loader2, PauseCircle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/base';
 import { cn } from '@/lib/utils';
 import type { AccountStanding, OpenBill } from '@/lib/billing/account-standing';
@@ -38,7 +38,7 @@ export function BillingStatusHero({ standing, billing, nextBillAmount, onPay, on
   const days = standing.daysLeft ?? 0;
 
   let tone: Tone = 'neutral';
-  let Icon = Sparkles;
+  let Icon = Layers;
   let title = '';
   let detail = '';
   let action: React.ReactNode = null;
@@ -136,7 +136,7 @@ export function BillingStatusHero({ standing, billing, nextBillAmount, onPay, on
       }
       break;
     case 'none':
-      Icon = Sparkles;
+      Icon = Layers;
       title = 'You do not have a subscription yet';
       detail = 'Choose a plan to get started.';
       action = (

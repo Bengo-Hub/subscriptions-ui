@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Edit, Loader2, Package, Plus, Save, Sparkles, Trash2, X } from 'lucide-react';
+import { Edit, Layers, Loader2, Package, Plus, Save, Trash2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { DataTable, type DataTableColumn } from '@bengo-hub/shared-ui-lib';
@@ -229,7 +229,7 @@ export function AdminPlansView() {
     <PageContainer>
       <PageHeader
         eyebrow="Platform"
-        icon={Sparkles}
+        icon={Layers}
         title="Plans"
         description="Create and manage subscription plans across all service groups."
         actions={

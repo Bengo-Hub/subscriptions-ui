@@ -77,7 +77,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                             aria-haspopup="true"
                             aria-label="Open profile menu"
                         >
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-orange to-brand-gold flex items-center justify-center text-white font-bold text-xs shadow-sm transition-transform group-hover:scale-105">
+                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs transition-transform group-hover:scale-105">
                                 {name[0]?.toUpperCase() ?? <User className="h-4 w-4" />}
                             </div>
                             <div className="hidden md:block text-left">

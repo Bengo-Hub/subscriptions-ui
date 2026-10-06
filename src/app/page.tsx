@@ -16,7 +16,7 @@ import {
   Package,
   Settings,
   Shield,
-  Sparkles,
+  ArrowUpCircle,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -151,7 +151,7 @@ export default function DashboardPage() {
             <>
               <Link href="/plans">
                 <Button variant="outline" size="sm">
-                  <Sparkles className="h-4 w-4 mr-2" />
+                  <ArrowUpCircle className="h-4 w-4 mr-2" />
                   Upgrade Plan
                 </Button>
               </Link>
