@@ -67,7 +67,15 @@ export function invoiceAmountDue(inv: Invoice): number {
 export function openBills(billing: BillingInfo | undefined): OpenBill[] {
   if (!billing) return []
   const bills: OpenBill[] = []
+  // A support invoice is also in billing.invoices (treasury lists every platform invoice billed to
+  // the tenant). It is paid through its support charge below, so listing it here showed one bill
+  // twice, the copy wrongly named after the plan (2026-10-08: a fully paid perpetual licence
+  // looked like it owed KES 3,000 for the licence).
+  const supportInvoiceNumbers = new Set(
+    (billing.supportCharges ?? []).map((c) => c.invoiceNumber).filter((n): n is string => !!n),
+  )
   for (const inv of billing.invoices ?? []) {
+    if (inv.kind === 'support' || supportInvoiceNumbers.has(inv.id)) continue
     const due = invoiceAmountDue(inv)
     if (due <= 0) continue
     bills.push({

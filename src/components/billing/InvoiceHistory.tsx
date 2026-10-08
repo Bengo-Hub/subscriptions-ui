@@ -38,7 +38,7 @@ export function InvoiceHistory({
       render: (i) => (
         <span className="font-medium">
           {i.id}
-          {i.description && <span className="block text-xs font-normal text-muted-foreground">{i.description}</span>}
+          <span className="block text-xs font-normal text-muted-foreground">{i.kind === 'support' ? 'Support' : 'Subscription'}</span>
         </span>
       ),
     },

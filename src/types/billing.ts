@@ -34,6 +34,8 @@ export interface Invoice {
   pdfUrl?: string
   /** Present while something is still owed: treasury's pay page for this invoice. */
   payUrl?: string
+  /** What the invoice bills: the plan, or a support agreement (paid through its support charge). */
+  kind?: 'subscription' | 'support'
 }
 
 export interface OverageLine {

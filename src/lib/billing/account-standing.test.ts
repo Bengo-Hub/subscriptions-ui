@@ -67,6 +67,26 @@ describe('accountStanding', () => {
     expect(s.totalDue).toBe(1500);
   });
 
+  // boi-enterprises, 2026-10-08: a fully paid perpetual licence plus one open support invoice
+  // showed two KES 3,000 bills, the support invoice repeated under the plan's name.
+  it('lists a support invoice once, as its support charge, never as a subscription bill', () => {
+    const supportInvoice = { id: 'INV-261008-000032', date: '2026-10-08', amount: 3000, currency: 'KES', status: 'pending', description: '' };
+    const charge = {
+      id: 's1', name: 'Dedicated Support Engineer', periodStart: '', dueDate: '2026-10-15', graceEndsAt: '',
+      status: 'INVOICED' as const, amount: 3000, currency: 'KES', blocking: false, invoiceNumber: 'INV-261008-000032',
+      payUrl: 'https://books.codevertexafrica.com/i/tok',
+    };
+    const perpetual = { isPerpetual: true, billingMode: 'one_time' as const, planName: 'PowerSuite Retail (Duka) Gold Perpetual License' };
+    // Before treasury tags the invoice's kind: matched by number.
+    const untagged = accountStanding(billing({ ...perpetual, invoices: [supportInvoice], supportCharges: [charge] }), NOW);
+    expect(untagged.bills).toHaveLength(1);
+    expect(untagged.bills[0]).toMatchObject({ kind: 'support', label: 'Dedicated Support Engineer' });
+    expect(untagged.totalDue).toBe(3000);
+    // Tagged support invoice whose charge is not listed: still not a subscription bill.
+    const tagged = accountStanding(billing({ ...perpetual, invoices: [{ ...supportInvoice, kind: 'support' }] }), NOW);
+    expect(tagged.kind).toBe('perpetual');
+  });
+
   it('does not call an issued, unpaid invoice overdue just because its issue date is past', () => {
     const bills = openBills(billing({ invoices: [{ id: 'X', date: '2026-09-28', amount: 3000, currency: 'KES', status: 'pending', description: '' }] }));
     expect(bills[0].overdue).toBe(false);
