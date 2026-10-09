@@ -3,6 +3,8 @@
  * Same pattern as pos-ui / notifications-ui: fetch tenant for branding (name, slug, metadata).
  */
 
+import { serviceBrandingMap, type ServiceBrandingEntry } from '@bengo-hub/shared-ui-lib/branding';
+
 const AUTH_API_BASE = process.env.NEXT_PUBLIC_SSO_URL || process.env.NEXT_PUBLIC_AUTH_API_URL || 'https://sso.codevertexafrica.com';
 
 export interface TenantBrandMetadata {
@@ -46,6 +48,8 @@ export interface TenantBrand {
   secondaryColor: string | null;
   orgName: string;
   useCase: string;
+  /** The tenant's own app names (metadata service_branding, set in Accounts > Branding). */
+  serviceBranding?: Record<string, ServiceBrandingEntry>;
 }
 
 export function parseBrandFromTenant(t: TenantResponse): TenantBrand {
@@ -65,6 +69,7 @@ export function parseBrandFromTenant(t: TenantResponse): TenantBrand {
     secondaryColor: typeof secondaryColor === 'string' ? secondaryColor : null,
     orgName: typeof orgName === 'string' ? orgName : (t.name ?? ''),
     useCase: t.use_case ?? 'other',
+    serviceBranding: serviceBrandingMap(t.metadata),
   };
 }
 
