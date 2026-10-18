@@ -1,30 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, HardDriveDownload, Loader2, Mail, RefreshCw, ShieldCheck, Settings as SettingsIcon } from 'lucide-react';
+import { Bell, Loader2, Mail, RefreshCw, ShieldCheck, Settings as SettingsIcon } from 'lucide-react';
 import { Button, Input } from '@/components/ui/base';
 import { CapsuleTabs, TabPanel, type TabItem } from '@/components/ui/tabs';
 import { PageContainer, PageHeader, SectionCard } from '@/components/ui/page-header';
 import { SwitchRow } from '@/components/ui/switch';
 import { PrivacyDataSection } from '@/components/settings/PrivacyDataSection';
 import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
-import { useBackupSettings, useUpdateBackupSettings } from '@/hooks/useBackupSettings';
 import { useTenantBranding } from '@/providers/tenant-branding-provider';
-import { useTenantFilterStore } from '@/store/tenant-filter';
-import type { BackupSettings } from '@/lib/api/backups';
 import type { SubscriptionSettings } from '@/types/subscription';
 
-type SectionKey = 'renewal' | 'notifications' | 'contact' | 'backups' | 'privacy';
+type SectionKey = 'renewal' | 'notifications' | 'contact' | 'privacy';
 
 const SECTIONS: TabItem<SectionKey>[] = [
   { key: 'renewal', label: 'Renewal', icon: RefreshCw },
   { key: 'notifications', label: 'Notifications', icon: Bell },
   { key: 'contact', label: 'Billing contact', icon: Mail },
-  { key: 'backups', label: 'Backups', icon: HardDriveDownload },
   { key: 'privacy', label: 'Privacy and data', icon: ShieldCheck },
 ];
-
-const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? 'AM' : 'PM'}`;
 
 /**
  * Tenant subscription settings. Phones get a swipeable capsule strip; from lg up the sections
@@ -33,7 +27,6 @@ const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? 'A
  */
 export function TenantSettingsView({ viewingTenantName }: { viewingTenantName?: string }) {
   const { tenant } = useTenantBranding();
-  const tenantKey = useTenantFilterStore((s) => s.selectedTenant?.id ?? null);
   const [section, setSection] = useState<SectionKey>('renewal');
 
   const { data: settings, isLoading } = useSubscriptionSettings();
@@ -41,21 +34,14 @@ export function TenantSettingsView({ viewingTenantName }: { viewingTenantName?: 
   const [form, setForm] = useState<Partial<SubscriptionSettings>>({});
   const merged: Partial<SubscriptionSettings> = { ...settings, ...form };
 
-  const { data: backupSettings, isLoading: backupsLoading } = useBackupSettings(tenantKey);
-  const saveBackups = useUpdateBackupSettings(tenantKey);
-  const [backupForm, setBackupForm] = useState<Partial<BackupSettings>>({});
-  const backups: BackupSettings = { auto_enabled: false, schedule_hour: 2, retention_days: 4, ...backupSettings, ...backupForm };
-
-  const dirty = Object.keys(form).length > 0 || Object.keys(backupForm).length > 0;
-  const saving = saveSettings.isPending || saveBackups.isPending;
+  const dirty = Object.keys(form).length > 0;
+  const saving = saveSettings.isPending;
 
   const saveAll = () => {
     if (Object.keys(form).length > 0) saveSettings.mutate(merged, { onSuccess: () => setForm({}) });
-    if (Object.keys(backupForm).length > 0) saveBackups.mutate(backups, { onSuccess: () => setBackupForm({}) });
   };
   const discard = () => {
     setForm({});
-    setBackupForm({});
   };
   const set = <K extends keyof SubscriptionSettings>(key: K, value: SubscriptionSettings[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -66,7 +52,7 @@ export function TenantSettingsView({ viewingTenantName }: { viewingTenantName?: 
         eyebrow="Settings"
         icon={SettingsIcon}
         title={viewingTenantName ? `${viewingTenantName} settings` : 'Subscription settings'}
-        description="Renewal, reminders, where invoices go, backups and your data."
+        description="Renewal, reminders, where invoices go and your data."
         actions={
           tenant ? (
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground">
@@ -162,58 +148,6 @@ export function TenantSettingsView({ viewingTenantName }: { viewingTenantName?: 
                     onChange={(e) => set('billingEmail', e.target.value)}
                     placeholder="billing@company.com"
                   />
-                </SectionCard>
-              )}
-
-              {section === 'backups' && (
-                <SectionCard title="Automatic backups" icon={HardDriveDownload} description="Off by default. When on, a copy of this organisation's data is made daily.">
-                  {backupsLoading ? (
-                    <div className="h-24 animate-pulse rounded-xl bg-muted" />
-                  ) : (
-                    <div className="space-y-4">
-                      <SwitchRow
-                        id="set-backups"
-                        title="Back up every day"
-                        checked={backups.auto_enabled}
-                        onCheckedChange={(v) => setBackupForm((p) => ({ ...p, auto_enabled: v }))}
-                      />
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <label htmlFor="set-backup-hour" className="mb-1.5 block text-sm font-medium">
-                            Time of day
-                          </label>
-                          <select
-                            id="set-backup-hour"
-                            className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
-                            value={backups.schedule_hour}
-                            disabled={!backups.auto_enabled}
-                            onChange={(e) => setBackupForm((p) => ({ ...p, schedule_hour: Number(e.target.value) }))}
-                          >
-                            {Array.from({ length: 24 }).map((_, h) => (
-                              <option key={h} value={h}>
-                                {hourLabel(h)}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label htmlFor="set-backup-days" className="mb-1.5 block text-sm font-medium">
-                            Keep backups for (days)
-                          </label>
-                          <Input
-                            id="set-backup-days"
-                            type="number"
-                            inputMode="numeric"
-                            min={1}
-                            value={backups.retention_days}
-                            disabled={!backups.auto_enabled}
-                            onChange={(e) => setBackupForm((p) => ({ ...p, retention_days: Math.max(1, Number(e.target.value) || 1) }))}
-                          />
-                          <p className="mt-1.5 text-xs text-muted-foreground">Older backups are deleted automatically.</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </SectionCard>
               )}
 
