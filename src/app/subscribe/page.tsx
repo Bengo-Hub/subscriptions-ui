@@ -4,6 +4,8 @@ import { Badge, Button, Card, CardContent, CardHeader } from '@/components/ui/ba
 import { apiClient } from '@/lib/api/client';
 import { useAuthStore } from '@/store/auth';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
+import { MessagingAddonPicker, NO_MESSAGING, selectionLines, selectionToAddons, selectionTotal, type MessagingSelection } from '@/components/billing/MessagingAddonPicker';
+import { useCredits } from '@/hooks/useCredits';
 import { ArrowLeft, Calendar, Check, CreditCard, Info, Loader2, ShieldCheck, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -54,6 +56,8 @@ function SubscribeContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>('MONTHLY');
+  const [messaging, setMessaging] = useState<MessagingSelection>(NO_MESSAGING);
+  const { data: creditServices } = useCredits(status === 'authenticated');
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [intentId, setIntentId] = useState('');
@@ -127,7 +131,12 @@ function SubscribeContent() {
   const setupFee = plan?.setupFee ?? 0;
   const setupFeeWaived = !isOneTime && setupFee > 0 && period.months >= WAIVER_MONTHS;
   const planSubtotal = (plan?.basePrice ?? 0) * periodMonths;
-  const totalDueNow = planSubtotal + (setupFee > 0 && !setupFeeWaived ? setupFee : 0);
+  // Messaging add-ons are paid in the same payment as a paid plan; a free plan or a trial has
+  // nothing to pay against, so they are bought later from the billing page.
+  const canAddMessaging = !isFree && !hasTrial && !isOneTime;
+  const messagingLines = canAddMessaging ? selectionLines(creditServices, messaging, periodMonths) : [];
+  const messagingTotal = canAddMessaging ? selectionTotal(creditServices, messaging, periodMonths) : 0;
+  const totalDueNow = planSubtotal + (setupFee > 0 && !setupFeeWaived ? setupFee : 0) + messagingTotal;
 
   // Start a free trial or free plan directly via POST /subscription
   const handleStartTrial = async () => {
@@ -174,6 +183,7 @@ function SubscribeContent() {
         return_url: `${window.location.origin}/usage?checkout=success`,
         terms_version: termsVersion,
         terms_accepted: true,
+        addons: canAddMessaging ? selectionToAddons(messaging) : [],
       });
 
       if (result.initiate_url && result.intent_id) {
@@ -351,6 +361,8 @@ function SubscribeContent() {
                   </div>
                 )}
 
+                {canAddMessaging && <MessagingAddonPicker value={messaging} onChange={setMessaging} months={periodMonths} currency={plan.currency} />}
+
                 {/* One-time (perpetual licence) — single up-front payment, billed once, never renews. */}
                 {!isFree && isOneTime && (
                   <div className="mb-6 flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm font-medium text-foreground">
@@ -441,6 +453,12 @@ function SubscribeContent() {
                           )}
                         </div>
                       )}
+                      {messagingLines.map((l) => (
+                        <div className="flex justify-between items-center py-2" key={l.label}>
+                          <span className="text-muted-foreground font-medium">{l.label}</span>
+                          <span className="font-bold">{plan.currency} {l.amount.toLocaleString()}</span>
+                        </div>
+                      ))}
                       <div className="flex justify-between items-center py-2">
                         <span className="text-muted-foreground font-medium">Platform Fee</span>
                         <span className="text-green-500 font-bold uppercase text-xs tracking-widest bg-green-500/10 px-2 py-1 rounded-lg">Included</span>

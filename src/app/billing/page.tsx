@@ -14,6 +14,7 @@ import { InvoiceHistory } from '@/components/billing/InvoiceHistory';
 import { WalletCouponCard } from '@/components/billing/WalletCouponCard';
 import { ReferralCard } from '@/components/billing/ReferralCard';
 import { AddonsSection } from '@/components/billing/AddonsSection';
+import { MessagingSection } from '@/components/billing/MessagingSection';
 import { ManageSubscription } from '@/components/billing/ManageSubscription';
 import { SupportChargesCard } from '@/components/billing/SupportChargesCard';
 import { useBillPayment } from '@/components/billing/use-bill-payment';
@@ -143,6 +144,7 @@ export default function BillingPage() {
               onView={(inv) => viewPdf(inv.pdfUrl, inv.description || inv.id, `invoice-${inv.id}.pdf`)}
               onPay={payInvoice}
             />
+            <MessagingSection onCheckout={(a) => pay.openIntent({ ...a, referenceType: 'credit_purchase' })} />
             <AddonsSection preview={preview} onCheckout={(a) => pay.openIntent({ ...a, referenceType: 'addon_purchase' })} />
             <SupportChargesCard agreements={billing?.supportAgreements} charges={billing?.supportCharges} blocked={billing?.supportBlocked} showCharges={false} />
           </div>

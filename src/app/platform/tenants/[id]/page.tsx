@@ -22,7 +22,8 @@ import { useGiftCredits } from '@/hooks/useBilling';
 import { useAdminTenants, useExtendTrial } from '@/hooks/useAdminTenants';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import { listWhatsAppPlans } from '@/lib/api/notifications';
+import { useAdminGrantCredits } from '@/hooks/useCredits';
+import type { CreditServiceCode } from '@/lib/api/credits';
 import { AlertCircle, ArrowLeft, ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import { SupportAgreementsPanel } from '@/components/support/SupportAgreementsPanel';
 import Link from 'next/link';
@@ -30,14 +31,11 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import type { CustomAddonCreateRequest } from '@/types/addon';
 
-// Add-on "kind" picker — a thin UX layer over CustomAddonCreateRequest that fills in the right
-// service_code/service_addon_type/metadata combination for the two addon types that need
-// fulfillment inside notifications-api (a different service, via the custom_addon.activated
-// event notifications-api's worker consumes). Email hosting is deliberately NOT modeled as a
-// CustomAddon — it's a separate first-class product in subscriptions-api with its own purchase
-// flow (EmailLicense/EmailPlan), so picking it here just links to that existing page instead of
-// creating a row that would go nowhere.
-type AddonKind = 'generic' | 'sms_bundle' | 'whatsapp_plan' | 'email_hosting';
+// Add-on "kind" picker. SMS, WhatsApp and AI credits are not custom add-ons: they are sold as
+// bundles and plans and granted from the Messaging units card below. Email hosting is also its own
+// product with its own purchase flow (EmailLicense/EmailPlan), so picking it here just links to that
+// page instead of creating a row that would go nowhere.
+type AddonKind = 'generic' | 'email_hosting';
 
 interface TenantSubscriptionDetail {
   id: string;
@@ -66,8 +64,9 @@ export default function TenantDetailPage() {
   const [showAddonForm, setShowAddonForm] = useState(false);
   const [addonKind, setAddonKind] = useState<AddonKind>('generic');
   const [addonForm, setAddonForm] = useState<CustomAddonCreateRequest>({ name: '', billingCycle: 'monthly', unitPriceKes: 0, quantity: 1 });
-  const [smsCredits, setSmsCredits] = useState(0);
-  const [whatsappPlanId, setWhatsappPlanId] = useState('');
+  const [grantService, setGrantService] = useState<CreditServiceCode>('sms');
+  const [grantUnits, setGrantUnits] = useState('');
+  const [grantUnitsReason, setGrantUnitsReason] = useState('');
 
   const [giftAmount, setGiftAmount] = useState('');
   const [giftReason, setGiftReason] = useState('');
@@ -88,13 +87,7 @@ export default function TenantDetailPage() {
   const { data: tenantsData } = useAdminTenants();
   const tenant = tenantsData?.data.find((t) => t.id === tenantId);
 
-  const { data: whatsappPlans = [], isLoading: whatsappPlansLoading } = useQuery({
-    queryKey: ['whatsapp-plans'],
-    queryFn: listWhatsAppPlans,
-    staleTime: 5 * 60_000,
-    enabled: showAddonForm,
-  });
-
+  const grantUnitsMutation = useAdminGrantCredits();
   const overrideMutation = useOverrideMetric();
   const createAddonMutation = useCreateAdminAddon();
   const setAddonStatusMutation = useSetAdminAddonStatus();
@@ -130,24 +123,20 @@ export default function TenantDetailPage() {
     setShowAddonForm(false);
     setAddonKind('generic');
     setAddonForm({ name: '', billingCycle: 'monthly', unitPriceKes: 0, quantity: 1 });
-    setSmsCredits(0);
-    setWhatsappPlanId('');
   };
 
   const handleCreateAddon = () => {
-    let req: CustomAddonCreateRequest = addonForm;
-    if (addonKind === 'sms_bundle') {
-      req = { ...addonForm, serviceCode: 'notifications', serviceAddonType: 'sms_bundle', metadata: { sms_credits: smsCredits } };
-    } else if (addonKind === 'whatsapp_plan') {
-      req = { ...addonForm, serviceCode: 'notifications', serviceAddonType: 'whatsapp_plan', metadata: { whatsapp_plan_id: whatsappPlanId } };
-    }
-    createAddonMutation.mutate({ tenantId, req }, { onSuccess: resetAddonForm });
+    createAddonMutation.mutate({ tenantId, req: addonForm }, { onSuccess: resetAddonForm });
   };
 
-  const addonFormValid =
-    !!addonForm.name &&
-    (addonKind !== 'sms_bundle' || smsCredits > 0) &&
-    (addonKind !== 'whatsapp_plan' || !!whatsappPlanId.trim());
+  const addonFormValid = !!addonForm.name;
+
+  const handleGrantUnits = () => {
+    grantUnitsMutation.mutate(
+      { tenantId, service: grantService, units: Number(grantUnits), reason: grantUnitsReason },
+      { onSuccess: () => { setGrantUnits(''); setGrantUnitsReason(''); } },
+    );
+  };
 
   const handleGiftCredits = () => {
     giftMutation.mutate(
@@ -309,6 +298,47 @@ export default function TenantDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Messaging units: SMS and WhatsApp bundle units added without a payment */}
+      <Card>
+        <CardHeader>
+          <h2 className="font-semibold">Messaging units</h2>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Adds units to the tenant&apos;s bundle balance without a payment, for goodwill or a payment settled outside the system.
+            The reason is kept on the ledger. Tenants buy bundles and plans themselves from their billing page.
+          </p>
+          <div className="grid sm:grid-cols-4 gap-3 items-end">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Service</label>
+              <select
+                value={grantService}
+                onChange={(e) => setGrantService(e.target.value as CreditServiceCode)}
+                className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="sms">SMS</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Units</label>
+              <Input type="number" min={1} value={grantUnits} onChange={(e) => setGrantUnits(e.target.value)} placeholder="e.g. 500" className="h-9 rounded-lg" />
+            </div>
+            <div className="space-y-1 sm:col-span-1">
+              <label className="text-xs text-muted-foreground">Reason</label>
+              <Input value={grantUnitsReason} onChange={(e) => setGrantUnitsReason(e.target.value)} placeholder="Why" className="h-9 rounded-lg" />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleGrantUnits}
+              disabled={!(Number(grantUnits) > 0) || !grantUnitsReason.trim() || grantUnitsMutation.isPending}
+            >
+              {grantUnitsMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Add units'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Custom Addons */}
       <Card>
         <CardHeader>
@@ -330,8 +360,6 @@ export default function TenantDetailPage() {
                   className="flex h-9 w-full sm:w-64 rounded-lg border border-input bg-transparent px-3 text-sm"
                 >
                   <option value="generic">Generic (custom line item)</option>
-                  <option value="sms_bundle">SMS credits</option>
-                  <option value="whatsapp_plan">WhatsApp plan</option>
                   <option value="email_hosting">Email hosting</option>
                 </select>
               </div>
@@ -359,30 +387,6 @@ export default function TenantDetailPage() {
                       <label className="text-xs text-muted-foreground">Name</label>
                       <Input value={addonForm.name} onChange={(e) => setAddonForm((p) => ({ ...p, name: e.target.value }))} placeholder="Add-on name" className="h-9 rounded-lg" />
                     </div>
-                    {addonKind === 'sms_bundle' && (
-                      <div className="space-y-1">
-                        <label className="text-xs text-muted-foreground">SMS credits to grant</label>
-                        <Input type="number" min={1} value={smsCredits} onChange={(e) => setSmsCredits(Number(e.target.value))} placeholder="e.g. 5000" className="h-9 rounded-lg" />
-                      </div>
-                    )}
-                    {addonKind === 'whatsapp_plan' && (
-                      <div className="space-y-1 sm:col-span-2">
-                        <label className="text-xs text-muted-foreground">WhatsApp plan</label>
-                        <select
-                          value={whatsappPlanId}
-                          onChange={(e) => setWhatsappPlanId(e.target.value)}
-                          disabled={whatsappPlansLoading}
-                          className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm"
-                        >
-                          <option value="">{whatsappPlansLoading ? 'Loading plans...' : 'Select a plan...'}</option>
-                          {whatsappPlans.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} — KES {p.price_monthly.toLocaleString()}/mo ({p.messages_per_month === 0 ? 'unlimited' : p.messages_per_month} msgs)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">Unit Price (KES)</label>
                       <Input type="number" min={0} value={addonForm.unitPriceKes} onChange={(e) => setAddonForm((p) => ({ ...p, unitPriceKes: Number(e.target.value) }))} className="h-9 rounded-lg" />
@@ -400,13 +404,6 @@ export default function TenantDetailPage() {
                       <Input type="number" min={1} value={addonForm.quantity ?? 1} onChange={(e) => setAddonForm((p) => ({ ...p, quantity: Number(e.target.value) }))} className="h-9 rounded-lg" />
                     </div>
                   </div>
-                  {(addonKind === 'sms_bundle' || addonKind === 'whatsapp_plan') && (
-                    <p className="text-xs text-muted-foreground">
-                      Fulfillment (crediting SMS units / activating the WhatsApp plan) happens as soon as this
-                      add-on is saved as active — it is not gated behind a separate payment step here; billing
-                      still flows through the tenant&apos;s next subscription invoice like any other add-on.
-                    </p>
-                  )}
                   <div className="flex gap-2">
                     <Button size="sm" onClick={handleCreateAddon} disabled={!addonFormValid || createAddonMutation.isPending}>
                       {createAddonMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
