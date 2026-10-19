@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "sso.codevertexafrica.com",
       },
+      // Shared public media bucket (Cloudflare R2): tenant logos moved there on 2026-10-17.
+      {
+        protocol: "https",
+        hostname: "media.codevertexafrica.com",
+      },
     ],
   },
   turbopack: {},
