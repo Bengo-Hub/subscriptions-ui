@@ -34,7 +34,7 @@ export function useBillPayment({ customerEmail }: { customerEmail?: string } = {
   const [starting, setStarting] = useState<string | null>(null);
 
   const refreshAll = useCallback(() => {
-    for (const key of ['billing', 'invoice-preview', 'current-subscription', 'subscription', 'credit-wallet', 'standing-order', 'plan-addons', 'credits']) {
+    for (const key of ['billing', 'invoice-preview', 'current-subscription', 'subscription', 'credit-wallet', 'standing-order', 'credits']) {
       qc.invalidateQueries({ queryKey: [key] });
     }
   }, [qc]);

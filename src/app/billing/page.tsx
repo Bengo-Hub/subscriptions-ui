@@ -145,7 +145,7 @@ export default function BillingPage() {
               onPay={payInvoice}
             />
             <MessagingSection onCheckout={(a) => pay.openIntent({ ...a, referenceType: 'credit_purchase' })} />
-            <AddonsSection preview={preview} onCheckout={(a) => pay.openIntent({ ...a, referenceType: 'addon_purchase' })} />
+            <AddonsSection preview={preview} />
             <SupportChargesCard agreements={billing?.supportAgreements} charges={billing?.supportCharges} blocked={billing?.supportBlocked} showCharges={false} />
           </div>
           <aside className="space-y-6">
