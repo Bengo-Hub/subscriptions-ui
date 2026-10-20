@@ -9,7 +9,10 @@ import { useCredits, useSetCreditAutoRenew } from '@/hooks/useCredits'
 import { purchaseCredits, type CreditServiceCode, type CreditSnapshot } from '@/lib/api/credits'
 import { fmtMoney } from '@/lib/billing/format'
 
-type Checkout = (args: { intentId: string; initiateUrl: string; amount: number; label: string }) => void
+// Auto top-up is managed on the Notifications billing pages, so it is not built twice.
+const NOTIFICATIONS_APP_URL = process.env.NEXT_PUBLIC_NOTIFICATIONS_APP_URL || 'https://notifications.codevertexafrica.com'
+
+type Checkout =(args: { intentId: string; initiateUrl: string; amount: number; label: string }) => void
 
 function ServiceBlock({ snap, onCheckout }: { snap: CreditSnapshot; onCheckout: Checkout }) {
   const [busy, setBusy] = useState<string | null>(null)
@@ -95,6 +98,24 @@ function ServiceBlock({ snap, onCheckout }: { snap: CreditSnapshot; onCheckout: 
             </label>
           )}
         </div>
+      )}
+
+      {!snap.exempt && snap.auto_topup && (
+        <p className="text-sm text-muted-foreground">
+          {snap.auto_topup.enabled
+            ? `Auto top-up is on: it buys a bundle when your units drop below ${snap.auto_topup.threshold.toLocaleString()}, up to ${fmtMoney(snap.auto_topup.monthly_limit_kes)} a month. `
+            : snap.auto_topup.disabled_reason && snap.auto_topup.disabled_reason !== 'turned off by the tenant'
+              ? `Auto top-up was switched off: ${snap.auto_topup.disabled_reason}. `
+              : 'Auto top-up is off. '}
+          <a
+            className="font-medium text-primary hover:underline"
+            href={`${NOTIFICATIONS_APP_URL}/billing/${service === 'sms' ? 'credits' : 'whatsapp'}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Manage it in Notifications
+          </a>
+        </p>
       )}
 
       {!snap.exempt && (

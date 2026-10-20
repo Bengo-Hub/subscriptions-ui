@@ -33,6 +33,16 @@ export interface CreditSnapshot {
   unit_price_kes: number
   bundles: CreditBundle[]
   tiers: CreditTier[] | null
+  auto_topup?: AutoTopupState
+}
+
+export interface AutoTopupState {
+  enabled: boolean
+  threshold: number
+  bundle_code: string
+  monthly_limit_kes: number
+  spent_kes: number
+  disabled_reason?: string
 }
 
 export interface CreditPurchaseIntent {
