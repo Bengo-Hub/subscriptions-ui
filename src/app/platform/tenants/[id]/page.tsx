@@ -26,6 +26,7 @@ import { useAdminGrantCredits } from '@/hooks/useCredits';
 import type { CreditServiceCode } from '@/lib/api/credits';
 import { AlertCircle, ArrowLeft, ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import { SupportAgreementsPanel } from '@/components/support/SupportAgreementsPanel';
+import { UpgradeTrialTenantPanel } from '@/components/upgrade-trial/UpgradeTrialTenantPanel';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
@@ -49,6 +50,8 @@ interface TenantSubscriptionDetail {
   metadata?: Record<string, unknown>;
   billing_mode?: string;
   is_perpetual?: boolean;
+  // While an upgrade trial runs plan_code is the trial plan; base_plan_code is the paid plan.
+  upgrade_trial?: { plan_code: string; base_plan_code: string };
 }
 
 export default function TenantDetailPage() {
@@ -214,6 +217,9 @@ export default function TenantDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Upgrade trials: tenant override, running trial, scheduled change, grant */}
+      {subData && <UpgradeTrialTenantPanel tenantId={tenantId} paidPlanCode={subData.upgrade_trial?.base_plan_code ?? subData.plan_code} />}
 
       {/* Support agreements: standard hosting and support plus special support */}
       {subData && <SupportAgreementsPanel tenantId={tenantId} isOneTime={subData.billing_mode === 'one_time' || subData.is_perpetual} />}

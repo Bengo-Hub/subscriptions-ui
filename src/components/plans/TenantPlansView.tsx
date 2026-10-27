@@ -82,7 +82,8 @@ export function TenantPlansView() {
   const paramGroup = serviceParam ? planGroup(serviceParam.replace(/-/g, '_').toUpperCase() + '_') : null;
   const group = pickedGroup && groups.includes(pickedGroup) ? pickedGroup : paramGroup && groups.includes(paramGroup) ? paramGroup : groups[0] ?? 'ORDERING';
 
-  const currentCode = currentSub?.plan_code ?? null;
+  // The plan being paid for, not a trial plan: the trial tier still shows as an upgrade.
+  const currentCode = currentSub?.upgrade_trial?.base_plan_code ?? currentSub?.plan_code ?? null;
   const status = currentSub?.status ?? null;
   const hasOneTime = allPlans.some((p) => planGroup(p.planCode) === group && isOneTimePlan(p));
   const effectiveKind: BillingKind = kind === 'ONE_TIME' && !hasOneTime ? 'RECURRING' : kind;

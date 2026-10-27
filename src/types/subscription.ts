@@ -1,4 +1,6 @@
-export type SubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED'
+import type { ScheduledChangeInfo, UpgradeTrialInfo } from '@/lib/api/upgradeTrial'
+
+export type SubscriptionStatus ='ACTIVE' | 'TRIAL' | 'EXPIRED' | 'CANCELLED' | 'SUSPENDED'
 export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'ONE_TIME'
 export type BillingMode = 'recurring' | 'one_time' | 'service_charge'
 export type PlanType = 'TIERED' | 'STANDALONE_SERVICE' | 'BUNDLE' | 'CUSTOM'
@@ -30,6 +32,11 @@ export interface Subscription {
   // cases to match the actual backend field names — see billing_mode/plan_type above).
   active_products?: string[]
   exempt?: boolean
+  // While an upgrade trial runs, planCode/limits/features describe the trial plan and
+  // upgrade_trial.base_plan_code is the plan being paid for. scheduled_change is a plan switch
+  // waiting for the next renewal date (that renewal bills it).
+  upgrade_trial?: UpgradeTrialInfo
+  scheduled_change?: ScheduledChangeInfo
 }
 
 export interface SubscriptionSettings {

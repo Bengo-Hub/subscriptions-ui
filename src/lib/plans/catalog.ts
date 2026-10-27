@@ -47,6 +47,8 @@ export interface CurrentSubscription {
   status: string // ACTIVE, TRIAL, EXPIRED, CANCELLED
   trial_ends_at: string | null
   current_period_end: string
+  // While an upgrade trial runs plan_code is the trial plan; base_plan_code is the plan paid for.
+  upgrade_trial?: { plan_code: string; base_plan_code: string }
 }
 
 /** The billing period (Monthly / 6 / 12 months) is chosen at checkout; the page only splits recurring from one-time. */

@@ -12,6 +12,7 @@ import { useConfigs, useCreateConfig, useDeleteConfig, useUpdateConfig } from '@
 import type { ServiceConfig, ServiceConfigCreateRequest } from '@/types/config';
 import { Eye, EyeOff, Loader2, Plus, Settings, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
+import { UpgradeTrialSettingsCard } from '@/components/upgrade-trial/UpgradeTrialSettingsCard';
 
 const emptyForm: ServiceConfigCreateRequest = {
   configKey: '',
@@ -132,6 +133,8 @@ export default function ConfigsPage() {
           <Plus className="h-4 w-4 mr-2" /> Add Config
         </Button>
       </div>
+
+      <UpgradeTrialSettingsCard />
 
       {/* Create / Edit form */}
       {showForm && (

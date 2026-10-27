@@ -16,6 +16,7 @@ import { ReferralCard } from '@/components/billing/ReferralCard';
 import { AddonsSection } from '@/components/billing/AddonsSection';
 import { MessagingSection } from '@/components/billing/MessagingSection';
 import { ManageSubscription } from '@/components/billing/ManageSubscription';
+import { PlanChangeCard } from '@/components/billing/PlanChangeCard';
 import { SupportChargesCard } from '@/components/billing/SupportChargesCard';
 import { useBillPayment } from '@/components/billing/use-bill-payment';
 import {
@@ -173,6 +174,7 @@ export default function BillingPage() {
           </aside>
         </div>
 
+        <PlanChangeCard />
         <ManageSubscription billing={billing} />
       </PageContainer>
 
