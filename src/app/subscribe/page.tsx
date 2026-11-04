@@ -35,6 +35,13 @@ const BILLING_PERIODS = [
 ] as const;
 type BillingCycle = (typeof BILLING_PERIODS)[number]['cycle'];
 
+// What the checkout will charge this tenant for the setup fee (0 once it has paid for a period or
+// the fee is off for it), and whether it already has a subscription to upgrade.
+interface SetupFeeQuote {
+  setup_fee: number;
+  has_subscription: boolean;
+}
+
 interface InitiateResult {
   intent_id: string;
   status: string;
@@ -53,6 +60,7 @@ function SubscribeContent() {
   const redirectToSSO = useAuthStore((s) => s.redirectToSSO);
 
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [feeQuote, setFeeQuote] = useState<SetupFeeQuote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cycle, setCycle] = useState<BillingCycle>('MONTHLY');
@@ -86,9 +94,13 @@ function SubscribeContent() {
     async function fetchPlan() {
       try {
         // Backend returns { plan: {...} } — unwrap the wrapper
-        const resp = await apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${planCode}`);
+        const [resp, quote] = await Promise.all([
+          apiClient.get<{ plan: Plan } | Plan>(`/api/v1/plans/code/${planCode}`),
+          apiClient.get<SetupFeeQuote>('/api/v1/subscription/setup-fee', { plan_code: planCode }).catch(() => null),
+        ]);
         const planData: Plan = (resp as any)?.plan ?? resp as Plan;
         setPlan(planData);
+        setFeeQuote(quote);
       } catch {
         setError('Failed to load plan details');
       } finally {
@@ -112,7 +124,8 @@ function SubscribeContent() {
     }
   }, [planCode, status, router, redirectToSSO]);
 
-  const hasTrial = (plan?.freeTrialDays ?? 0) > 0;
+  // A free trial only starts a first subscription; an existing subscriber pays for the upgrade.
+  const hasTrial = (plan?.freeTrialDays ?? 0) > 0 && !feeQuote?.has_subscription;
   const isFree = (plan?.basePrice ?? 0) === 0;
 
   // The plan's billing_cycle (from the DB) is the single source of truth for HOW it is charged.
@@ -128,7 +141,7 @@ function SubscribeContent() {
   const periodMonths = isOneTime ? 1 : period.months;
   const periodLabel = isOneTime ? 'One-time payment' : period.label;
   const effectiveCycle = isOneTime ? 'ONE_TIME' : cycle;
-  const setupFee = plan?.setupFee ?? 0;
+  const setupFee = feeQuote ? feeQuote.setup_fee : plan?.setupFee ?? 0;
   const setupFeeWaived = !isOneTime && setupFee > 0 && period.months >= WAIVER_MONTHS;
   const planSubtotal = (plan?.basePrice ?? 0) * periodMonths;
   // Messaging add-ons are paid in the same payment as a paid plan; a free plan or a trial has

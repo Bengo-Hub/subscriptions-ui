@@ -27,6 +27,7 @@ import type { CreditServiceCode } from '@/lib/api/credits';
 import { AlertCircle, ArrowLeft, ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import { SupportAgreementsPanel } from '@/components/support/SupportAgreementsPanel';
 import { UpgradeTrialTenantPanel } from '@/components/upgrade-trial/UpgradeTrialTenantPanel';
+import { SetupFeeTenantPanel } from '@/components/billing/SetupFeeTenantPanel';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
@@ -220,6 +221,7 @@ export default function TenantDetailPage() {
 
       {/* Upgrade trials: tenant override, running trial, scheduled change, grant */}
       {subData && <UpgradeTrialTenantPanel tenantId={tenantId} paidPlanCode={subData.upgrade_trial?.base_plan_code ?? subData.plan_code} />}
+      <SetupFeeTenantPanel tenantId={tenantId} />
 
       {/* Support agreements: standard hosting and support plus special support */}
       {subData && <SupportAgreementsPanel tenantId={tenantId} isOneTime={subData.billing_mode === 'one_time' || subData.is_perpetual} />}
