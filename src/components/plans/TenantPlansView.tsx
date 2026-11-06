@@ -43,7 +43,8 @@ export function TenantPlansView() {
   const serviceParam = searchParams.get('service');
   const highlight = searchParams.get('plan');
   const [pickedGroup, setPickedGroup] = useState('');
-  const [kind, setKind] = useState<BillingKind>('RECURRING');
+  // Null until the tenant picks: a linked one-time plan (?plan=..._ONE_TIME) opens on licences.
+  const [kind, setKind] = useState<BillingKind | null>(null);
 
   // The tenant's use case decides which plan groups are relevant.
   const { data: tenantBrand } = useQuery({
@@ -79,14 +80,26 @@ export function TenantPlansView() {
   const groups = sortGroups(
     [...new Set(allPlans.map((p) => planGroup(p.planCode)))].filter((g) => !allowed || allowed.includes(g) || g === subscribedGroup),
   );
-  const paramGroup = serviceParam ? planGroup(serviceParam.replace(/-/g, '_').toUpperCase() + '_') : null;
+  // Links arrive with a service tag (?service=pos, from auth-ui and the apps) or a plan-code prefix
+  // (?service=powersuite). A tag resolves through the plans that carry it, so pos opens PowerSuite
+  // and hospital opens Codevertex Afya. A linked plan code decides the group when service is absent.
+  const highlightPlan = highlight ? allPlans.find((p) => p.planCode === highlight) : undefined;
+  const paramGroup = serviceParam
+    ? (() => {
+        const tagged = allPlans.find((p) => p.serviceTag?.toLowerCase() === serviceParam.toLowerCase());
+        return tagged ? planGroup(tagged.planCode) : planGroup(serviceParam.replace(/-/g, '_').toUpperCase() + '_');
+      })()
+    : highlightPlan
+      ? planGroup(highlightPlan.planCode)
+      : null;
   const group = pickedGroup && groups.includes(pickedGroup) ? pickedGroup : paramGroup && groups.includes(paramGroup) ? paramGroup : groups[0] ?? 'ORDERING';
 
   // The plan being paid for, not a trial plan: the trial tier still shows as an upgrade.
   const currentCode = currentSub?.upgrade_trial?.base_plan_code ?? currentSub?.plan_code ?? null;
   const status = currentSub?.status ?? null;
   const hasOneTime = allPlans.some((p) => planGroup(p.planCode) === group && isOneTimePlan(p));
-  const effectiveKind: BillingKind = kind === 'ONE_TIME' && !hasOneTime ? 'RECURRING' : kind;
+  const wantedKind: BillingKind = kind ?? (highlightPlan && isOneTimePlan(highlightPlan) ? 'ONE_TIME' : 'RECURRING');
+  const effectiveKind: BillingKind = wantedKind === 'ONE_TIME' && !hasOneTime ? 'RECURRING' : wantedKind;
   const plans = useMemo(
     () => plansForTenant(allPlans, group, effectiveKind, useCase, currentCode),
     [allPlans, group, effectiveKind, useCase, currentCode],

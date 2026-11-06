@@ -110,6 +110,7 @@ NEXT_PUBLIC_APP_URL=https://pricing.codevertexafrica.com
 |--------|-------|-------|
 | 1 | Foundation: scaffolding, auth, plan catalog, subscription status | Mar 7–14 |
 | 2 | Admin panels, usage dashboard, product management | Mar 14–17 (overlap/polish) |
+| Nov 2026 | Plan links from other apps resolve service tags (`sprints/2026-11-plan-links.md`) | Done |
 
 See `docs/sprints/` for detailed sprint plans.
 
