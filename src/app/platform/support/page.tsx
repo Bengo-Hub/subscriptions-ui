@@ -7,7 +7,8 @@ import type { SupportKind } from '@/lib/api/support';
 import { useAuthStore } from '@/store/auth';
 import { formatCurrency } from '@bengo-hub/shared-ui-lib';
 import { AlertTriangle, Clock, Headset, Search, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useDebouncedSearch } from '@bengo-hub/shared-ui-lib/search';
 
 const VIEWS = [
   { key: 'open', label: 'Open', status: 'PENDING,INVOICED,OVERDUE' },
@@ -26,18 +27,10 @@ export default function PlatformSupportPage() {
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
   const [view, setView] = useState<(typeof VIEWS)[number]['key']>('open');
   const [kind, setKind] = useState<SupportKind | ''>('');
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(25);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchInput]);
+  // Searched once typing pauses (or on Enter), starting again from the first page.
+  const search = useDebouncedSearch({ onTermChange: () => setPage(1) });
 
   const active = VIEWS.find((v) => v.key === view)!;
   const { data, isLoading, isFetching } = useSupportCharges(
@@ -47,7 +40,7 @@ export default function PlatformSupportPage() {
       status: active.status || undefined,
       blocking: 'blocking' in active ? active.blocking : undefined,
       kind: kind || undefined,
-      search,
+      search: search.term,
     },
     !!isPlatformOwner,
   );
@@ -139,8 +132,7 @@ export default function PlatformSupportPage() {
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
+                    {...search.inputProps}
                     placeholder="Tenant name or slug"
                     className="h-9 pl-8 w-56"
                   />

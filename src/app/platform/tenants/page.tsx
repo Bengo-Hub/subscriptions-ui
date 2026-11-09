@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Loader2, RefreshCw, Search, Shield, ShieldCheck, UserX, Zap } from 'lucide-react';
 import { useState } from 'react';
+import { useDebouncedSearch } from '@bengo-hub/shared-ui-lib/search';
 import { toast } from 'sonner';
 
 interface Tenant {
@@ -62,21 +63,28 @@ interface ModalState {
 
 export default function TenantsPage() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // Searched once typing pauses (or on Enter), starting again from the first page.
+  const search = useDebouncedSearch({ onTermChange: () => setPage(1) });
   const [statusFilter, setStatusFilter] = useState('all');
   const [modal, setModal] = useState<ModalState | null>(null);
   const [planSearch, setPlanSearch] = useState('');
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['platform-tenants', page, search, statusFilter],
-    queryFn: () =>
-      apiClient.get<{ data: Tenant[]; total: number }>('/api/v1/admin/tenants', {
-        page,
-        pageSize: 25,
-        search: search || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-      }),
+  const { data, isLoading, refetch } = useQuery<{ data: Tenant[]; total: number }>({
+    queryKey: ['platform-tenants', page, search.term, statusFilter],
+    queryFn: ({ signal }) =>
+      apiClient.get<{ data: Tenant[]; total: number }>(
+        '/api/v1/admin/tenants',
+        {
+          page,
+          pageSize: 25,
+          search: search.term || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+        },
+        { signal },
+      ),
+    // Keep the current rows on screen while the next search or page loads.
+    placeholderData: (prev) => prev,
   });
 
   const { data: plansData } = useQuery({
@@ -171,8 +179,7 @@ export default function TenantsPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            {...search.inputProps}
             placeholder="Search by name or slug..."
             className="pl-9 h-10 rounded-xl"
           />
@@ -289,7 +296,7 @@ export default function TenantsPage() {
             </>
           ) : (
             <div className="py-16 text-center text-sm text-muted-foreground">
-              {search ? 'No tenants match your search.' : 'No tenants found.'}
+              {search.term ? 'No tenants match your search.' : 'No tenants found.'}
             </div>
           )}
         </CardContent>

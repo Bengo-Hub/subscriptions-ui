@@ -27,7 +27,8 @@ export function useTenantSupportAgreements(tenantId?: string) {
 export function useSupportCharges(filters: SupportChargeFilters, enabled = true) {
   return useQuery({
     queryKey: ['support-charges', filters],
-    queryFn: () => listSupportCharges(filters),
+    // The signal cancels the request when a newer search or filter replaces it.
+    queryFn: ({ signal }) => listSupportCharges(filters, signal),
     enabled,
     placeholderData: keepPreviousData,
   })

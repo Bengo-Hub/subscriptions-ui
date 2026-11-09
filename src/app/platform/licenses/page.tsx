@@ -21,6 +21,7 @@ import type { Plan, PlanCreateRequest, PlanUpdateRequest } from '@/types/plan';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Loader2, Pencil, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
+import { useDebouncedSearch } from '@bengo-hub/shared-ui-lib/search';
 import { toast } from 'sonner';
 
 interface Tenant {
@@ -78,7 +79,8 @@ export default function LicensesPage() {
   const [editForm, setEditForm] = useState<PlanUpdateRequest>({});
   const [assignModal, setAssignModal] = useState<{ plan: Plan } | null>(null);
   const [selectedTenantId, setSelectedTenantId] = useState('');
-  const [tenantSearch, setTenantSearch] = useState('');
+  // The tenant list is queried once typing pauses (or on Enter), not on every key.
+  const tenantSearch = useDebouncedSearch();
 
   const { data: plansData } = useQuery({
     queryKey: ['platform-plans'],
@@ -86,12 +88,16 @@ export default function LicensesPage() {
       apiClient.get<{ data: Plan[]; total: number }>('/api/v1/plans', { limit: 500 }).then((r) => r.data ?? []),
   });
 
-  const { data: tenantsData, isLoading: tenantsLoading } = useQuery({
-    queryKey: ['platform-tenants', tenantSearch],
-    queryFn: () =>
-      apiClient.get<{ data: Tenant[]; total: number }>('/api/v1/admin/tenants', {
-        search: tenantSearch || undefined,
-      }),
+  const { data: tenantsData, isLoading: tenantsLoading } = useQuery<{ data: Tenant[]; total: number }>({
+    queryKey: ['platform-tenants', tenantSearch.term],
+    queryFn: ({ signal }) =>
+      apiClient.get<{ data: Tenant[]; total: number }>(
+        '/api/v1/admin/tenants',
+        { search: tenantSearch.term || undefined },
+        { signal },
+      ),
+    // Keep the current list while the next search loads.
+    placeholderData: (prev) => prev,
     enabled: !!assignModal,
   });
 
@@ -116,8 +122,9 @@ export default function LicensesPage() {
     .filter(isLicensePlan)
     .filter((p) => serviceTab === 'All' || planService(p.planCode) === serviceTab);
 
+  const typedTenant = tenantSearch.value;
   const tenants = (tenantsData?.data ?? []).filter(
-    (t) => !tenantSearch || t.name.toLowerCase().includes(tenantSearch.toLowerCase()) || t.slug.includes(tenantSearch)
+    (t) => !typedTenant || t.name.toLowerCase().includes(typedTenant.toLowerCase()) || t.slug.includes(typedTenant)
   );
 
   const openCreate = () => { setEditingId(null); setCreateForm(emptyCreateForm); setShowForm(true); };
@@ -336,7 +343,7 @@ export default function LicensesPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => { setAssignModal({ plan: p }); setSelectedTenantId(''); setTenantSearch(''); }}
+                            onClick={() => { setAssignModal({ plan: p }); setSelectedTenantId(''); tenantSearch.clear(); }}
                             className="h-8 rounded-lg text-xs font-semibold"
                           >
                             <Send className="h-3.5 w-3.5 mr-1.5" /> Assign
@@ -407,7 +414,7 @@ export default function LicensesPage() {
                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Search tenant</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input value={tenantSearch} onChange={(e) => setTenantSearch(e.target.value)} placeholder="Type tenant name or slug..." className="pl-9 h-11 rounded-xl" />
+                  <Input {...tenantSearch.inputProps} placeholder="Type tenant name or slug..." className="pl-9 h-11 rounded-xl" />
                 </div>
               </div>
               {tenantsLoading ? (

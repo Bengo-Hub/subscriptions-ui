@@ -119,7 +119,7 @@ export const createSupportAgreement = (tenantId: string, input: SupportAgreement
 export const updateSupportAgreement = (id: string, input: SupportAgreementInput) =>
   apiClient.put<SupportAgreement>(`/api/v1/admin/support-agreements/${id}`, input)
 
-export const listSupportCharges = (filters: SupportChargeFilters) =>
+export const listSupportCharges = (filters: SupportChargeFilters, signal?: AbortSignal) =>
   apiClient.get<{
     data: SupportCharge[]
     total: number
@@ -127,11 +127,15 @@ export const listSupportCharges = (filters: SupportChargeFilters) =>
     limit: number
     hasMore: boolean
     outstanding: SupportTotals
-  }>('/api/v1/admin/support-fee-cycles', {
-    ...filters,
-    blocking: filters.blocking ? 'true' : undefined,
-    search: filters.search || undefined,
-  })
+  }>(
+    '/api/v1/admin/support-fee-cycles',
+    {
+      ...filters,
+      blocking: filters.blocking ? 'true' : undefined,
+      search: filters.search || undefined,
+    },
+    { signal },
+  )
 
 export const updateSupportCharge = (
   id: string,

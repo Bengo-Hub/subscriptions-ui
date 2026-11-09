@@ -28,6 +28,7 @@ import { PdfPreview, useDocumentPreview } from '@bengo-hub/shared-ui-lib/documen
 import { SupportAgreementsPanel } from '@/components/support/SupportAgreementsPanel';
 import Link from 'next/link';
 import { useState } from 'react';
+import { useDebouncedSearch } from '@bengo-hub/shared-ui-lib/search';
 import { toast } from 'sonner';
 
 interface TenantSubscription {
@@ -81,8 +82,9 @@ export default function PlatformSubscriptionsPage() {
   const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
   const qc = useQueryClient();
 
-  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // Searched once typing pauses (or on Enter), starting again from the first page.
+  const search = useDebouncedSearch({ onTermChange: () => setPage(1) });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editing, setEditing] = useState<TenantSubscription | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
@@ -95,15 +97,21 @@ export default function PlatformSubscriptionsPage() {
     clear_custom_price: false,
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['platform-subscriptions', page, search, statusFilter],
-    queryFn: () =>
-      apiClient.get<PaginatedResponse>('/api/v1/admin/subscriptions', {
-        page,
-        pageSize: 20,
-        search: search || undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-      }),
+  const { data, isLoading } = useQuery<PaginatedResponse>({
+    queryKey: ['platform-subscriptions', page, search.term, statusFilter],
+    queryFn: ({ signal }) =>
+      apiClient.get<PaginatedResponse>(
+        '/api/v1/admin/subscriptions',
+        {
+          page,
+          pageSize: 20,
+          search: search.term || undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+        },
+        { signal },
+      ),
+    // Keep the current rows on screen while the next search or page loads.
+    placeholderData: (prev) => prev,
     enabled: !!isPlatformOwner,
   });
 
@@ -198,8 +206,7 @@ export default function PlatformSubscriptionsPage() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            {...search.inputProps}
             placeholder="Search tenants..."
             className="pl-10"
           />
@@ -355,7 +362,7 @@ export default function PlatformSubscriptionsPage() {
             </>
           ) : (
             <div className="p-8 text-center text-muted-foreground text-sm">
-              {search ? 'No subscriptions match your search.' : 'No subscriptions found.'}
+              {search.term ? 'No subscriptions match your search.' : 'No subscriptions found.'}
             </div>
           )}
         </CardContent>
