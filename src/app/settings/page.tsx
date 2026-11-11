@@ -23,7 +23,7 @@ const PLATFORM_TABS: TabItem<PlatformTab>[] = [
 export default function SettingsPage() {
   const { user } = useMe();
   const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
-  const isPlatformOwner = !!(user?.is_platform_owner || user?.tenant_slug === 'codevertex');
+  const isPlatformOwner = !!user?.is_platform_owner;
   const [tab, setTab] = useState<PlatformTab>('configs');
 
   if (!isPlatformOwner) return <TenantSettingsView />;

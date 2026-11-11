@@ -22,7 +22,7 @@ export function ComingSoonGate({
 }) {
   const { user, isLoading } = useMe();
   if (isLoading) return null;
-  const isPlatformOwner = !!(user?.is_platform_owner || user?.tenant_slug === 'codevertex');
+  const isPlatformOwner = !!user?.is_platform_owner;
   if (!isPlatformOwner) return <ComingSoon title={title} description={description} icon={icon} />;
   return (
     <>

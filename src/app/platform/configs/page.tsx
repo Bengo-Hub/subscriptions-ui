@@ -87,7 +87,7 @@ function KeyDisplay({ configKey }: { configKey: string }) {
 
 export default function ConfigsPage() {
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

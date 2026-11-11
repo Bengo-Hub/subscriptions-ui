@@ -79,7 +79,7 @@ function toLocalDatetime(isoStr?: string): string {
 
 export default function PlatformSubscriptionsPage() {
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
   const qc = useQueryClient();
 
   const [page, setPage] = useState(1);

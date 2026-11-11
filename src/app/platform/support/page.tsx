@@ -24,7 +24,7 @@ const VIEWS = [
  */
 export default function PlatformSupportPage() {
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
   const [view, setView] = useState<(typeof VIEWS)[number]['key']>('open');
   const [kind, setKind] = useState<SupportKind | ''>('');
   const [page, setPage] = useState(1);

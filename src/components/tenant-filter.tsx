@@ -22,7 +22,7 @@ interface TenantItem {
  */
 export function TenantFilter({ className }: { className?: string }) {
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
 
   const { selectedTenant, setSelectedTenant, clearTenant } = useTenantFilterStore();
   const [open, setOpen] = useState(false);

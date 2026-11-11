@@ -68,7 +68,7 @@ export const useAuthStore = create<AuthState>()(
         if (user) {
           localStorage.setItem('tenant_id', user.tenant_id || '');
           localStorage.setItem('tenant_slug', user.tenant_slug || '');
-          localStorage.setItem('is_platform_owner', (user.is_platform_owner || user.tenant_slug === 'codevertex').toString());
+          localStorage.setItem('is_platform_owner', (!!user.is_platform_owner).toString());
         } else {
           localStorage.removeItem('tenant_id');
           localStorage.removeItem('tenant_slug');

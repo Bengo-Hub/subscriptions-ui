@@ -44,7 +44,7 @@ export function useNavRoutes() {
   const pathname = usePathname();
   const { user } = useMe();
   const selectedTenant = useTenantFilterStore((s) => s.selectedTenant);
-  const isPlatformOwner = !!(user?.is_platform_owner || user?.tenant_slug === 'codevertex');
+  const isPlatformOwner = !!user?.is_platform_owner;
   // Tenant pages only make sense for a tenant user, or a platform owner who picked a tenant.
   const showTenantRoutes = !isPlatformOwner || !!selectedTenant;
 

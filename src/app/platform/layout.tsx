@@ -8,7 +8,7 @@ import { ReactNode, useEffect } from 'react';
 export default function PlatformLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { user, isLoading } = useMe();
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
 
   useEffect(() => {
     if (!isLoading && user && !isPlatformOwner) {

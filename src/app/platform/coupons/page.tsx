@@ -45,7 +45,7 @@ function formatValue(c: Coupon) {
 
 export default function CouponsPage() {
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
 
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(undefined);
   const [showForm, setShowForm] = useState(false);

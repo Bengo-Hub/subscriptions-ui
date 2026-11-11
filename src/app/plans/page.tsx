@@ -9,7 +9,7 @@ import { TenantPlansView } from '@/components/plans/TenantPlansView';
 /** Platform owners manage plans; tenants pick, upgrade or downgrade. */
 function PlansContent() {
   const user = useAuthStore((s) => s.user);
-  const isPlatformOwner = user?.is_platform_owner || user?.tenant_slug === 'codevertex';
+  const isPlatformOwner = !!user?.is_platform_owner;
   return isPlatformOwner ? <AdminPlansView /> : <TenantPlansView />;
 }
 
