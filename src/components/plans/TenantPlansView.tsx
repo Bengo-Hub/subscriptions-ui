@@ -236,7 +236,7 @@ export function TenantPlansView() {
       {effectiveKind === 'RECURRING' && !isLoading && plans.length > 0 && (
         <p className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
           Going over a limit? With extra usage switched on you only pay for what you use beyond your plan, at the rates shown above.
-          For larger businesses, <a className="font-semibold text-primary underline-offset-2 hover:underline" href="mailto:info@codevertexafrica.com">contact us</a>.
+          For larger businesses, <a className="font-semibold text-primary underline-offset-2 hover:underline" href="mailto:sales@codevertexafrica.com">contact us</a>.
         </p>
       )}
     </PageContainer>
