@@ -33,6 +33,8 @@ export interface PlanComparison {
   token_price_kes: number;
   covers_estimate: boolean;
   projected_topup_kes: number;
+  /** Monthly fee plus projected top-ups. Optional so an older API response still renders. */
+  projected_total_kes?: number;
 }
 
 export interface TokenEstimateResponse {

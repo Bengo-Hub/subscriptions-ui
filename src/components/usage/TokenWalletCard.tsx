@@ -230,7 +230,12 @@ export function TokenWalletCard() {
                           <span className="text-muted-foreground">
                             {formatCurrency(p.monthly_price_kes)}/mo
                             {!p.covers_estimate && p.projected_topup_kes > 0 && (
-                              <> + {formatCurrency(p.projected_topup_kes)} top-up</>
+                              <>
+                                {' '}+ {formatCurrency(p.projected_topup_kes)} top-up ={' '}
+                                <span className="font-semibold text-foreground">
+                                  {formatCurrency(p.projected_total_kes ?? p.monthly_price_kes + p.projected_topup_kes)}
+                                </span>
+                              </>
                             )}
                           </span>
                         </div>
