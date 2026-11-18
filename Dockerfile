@@ -16,6 +16,10 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL=https://pricingapi.codevertexafrica.com
 ARG NEXT_PUBLIC_SSO_URL=https://sso.codevertexafrica.com
 ARG NEXT_PUBLIC_NOTIFICATIONS_URL=https://notifications.codevertexafrica.com
+# Sign-in keeps tokens out of browser storage on *.codevertexafrica.com (sso cookie session, fleet
+# plan G11); a tenant's custom domain keeps stored tokens. "false" goes back to stored tokens.
+ARG NEXT_PUBLIC_COOKIE_SESSION=true
+ENV NEXT_PUBLIC_COOKIE_SESSION=$NEXT_PUBLIC_COOKIE_SESSION
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_SSO_URL=$NEXT_PUBLIC_SSO_URL
 ENV NEXT_PUBLIC_NOTIFICATIONS_URL=$NEXT_PUBLIC_NOTIFICATIONS_URL

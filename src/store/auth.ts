@@ -8,8 +8,16 @@ import {
     storeState,
     storeVerifier,
 } from '@/lib/auth/pkce';
+import { cookieMode } from '@/lib/auth/session-mode';
+import { scrubStoredSession } from '@bengo-hub/shared-ui-lib/auth';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+
+const AUTH_STORAGE_KEY = 'subscriptions-auth-storage';
+
+// Cookie session (fleet plan G11): tokens an earlier build stored are dropped before the store
+// loads; from here on only the profile is persisted.
+if (cookieMode()) scrubStoredSession(AUTH_STORAGE_KEY);
 
 interface UserProfile {
   id: string;
@@ -77,6 +85,32 @@ export const useAuthStore = create<AuthState>()(
       },
 
       initialize: async () => {
+        if (cookieMode()) {
+          // No token is stored: a known profile gets its first token through the sso cookie.
+          const known = get().user;
+          if (!known) {
+            set({ status: 'unauthenticated' });
+            return;
+          }
+          set({ status: 'loading' });
+          const { getCookieSession } = await import('@/lib/auth/cookie-session');
+          const token = await getCookieSession().getAccessToken();
+          if (!token) {
+            get().syncTenantToStorage(null);
+            set({ status: 'unauthenticated', session: null, user: null, isAuthenticated: false });
+            return;
+          }
+          try {
+            // Same as the stored-token flow: the profile is re-read on every load.
+            const user = await fetchProfile(token);
+            get().syncTenantToStorage(user);
+            set({ user, status: 'authenticated', isAuthenticated: true, lastAuthenticatedAt: Date.now() });
+          } catch {
+            get().syncTenantToStorage(null);
+            set({ status: 'unauthenticated', session: null, user: null, isAuthenticated: false });
+          }
+          return;
+        }
         const { session } = get();
         if (!session) {
           set({ status: 'unauthenticated' });
@@ -151,14 +185,29 @@ export const useAuthStore = create<AuthState>()(
             redirectUri: callbackUrl,
           });
 
-          const session: Session = {
+          let session: Session = {
             accessToken: tokens.access_token,
             refreshToken: tokens.refresh_token || '',
             expiresAt: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
           };
 
-          apiClient.setAccessToken(session.accessToken);
-          set({ session });
+          if (cookieMode()) {
+            // The refresh token goes into auth-api's HttpOnly cookie and is dropped here; the
+            // store holds only the in-memory access token the cookie session hands back.
+            const { getCookieSession } = await import('@/lib/auth/cookie-session');
+            // A new sign-in replaces whoever was stored, so it is not taken for a user switch.
+            set({ user: null, session: null });
+            const started = await getCookieSession().start(tokens.refresh_token || '');
+            const mirrored = useAuthStore.getState().session;
+            if (!('token' in started) || !mirrored) {
+              set({ status: 'error', error: 'Sign-in failed' });
+              return;
+            }
+            session = mirrored;
+          } else {
+            apiClient.setAccessToken(session.accessToken);
+            set({ session });
+          }
 
           let lastErr: unknown;
           for (let attempts = 0; attempts < 5; attempts++) {
@@ -184,14 +233,20 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         // Revoke the backend session (Redis session_token keys + DB sessions)
         // while the access token is still available.
-        const token = get().session?.accessToken;
-        await revokeServerSession(token);
+        if (cookieMode()) {
+          // Revokes the session, clears the sso cookie and signs the other tabs out.
+          const { getCookieSession } = await import('@/lib/auth/cookie-session');
+          await getCookieSession().end();
+        } else {
+          const token = get().session?.accessToken;
+          await revokeServerSession(token);
+        }
 
         get().syncTenantToStorage(null);
         set({ status: 'unauthenticated', user: null, session: null, isAuthenticated: false, subscriptionInfo: undefined, lastAuthenticatedAt: null });
         apiClient.setAccessToken(null);
         if (typeof window !== 'undefined') {
-          try { localStorage.removeItem('subscriptions-auth-storage'); } catch { /* no-op */ }
+          try { localStorage.removeItem(AUTH_STORAGE_KEY); } catch { /* no-op */ }
           try { localStorage.removeItem('tenant_id'); } catch { /* no-op */ }
           try { localStorage.removeItem('tenant_slug'); } catch { /* no-op */ }
           try { localStorage.removeItem('is_platform_owner'); } catch { /* no-op */ }
@@ -218,13 +273,13 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'subscriptions-auth-storage',
+      name: AUTH_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state: AuthState) => ({
-        session: state.session,
-        user: state.user,
-        isAuthenticated: state.isAuthenticated,
-      }),
+      // The cookie session persists the profile only; the access token stays in memory.
+      partialize: (state: AuthState) =>
+        cookieMode()
+          ? { user: state.user, isAuthenticated: state.isAuthenticated }
+          : { session: state.session, user: state.user, isAuthenticated: state.isAuthenticated },
       onRehydrateStorage: () => (state: AuthState | undefined) => {
         if (state?.session?.accessToken) {
           apiClient.setAccessToken(state.session.accessToken);
