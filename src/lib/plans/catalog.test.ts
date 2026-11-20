@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planGroup, planTierLabel, plansForTenant, sortGroups, type Plan } from './catalog';
+import { planGroup, planTierLabel, plansForTenant, sortGroups, visibleGroups, type Plan } from './catalog';
 
 function plan(code: string, over: Partial<Plan> = {}): Plan {
   return {
@@ -53,5 +53,22 @@ describe('plansForTenant', () => {
 
   it('never shows non-public plans', () => {
     expect(plansForTenant(all, 'SUPPORT', 'RECURRING', 'other')).toEqual([]);
+  });
+});
+
+describe('visibleGroups', () => {
+  const groups = ['POS', 'MARKETFLOW', 'ORDERING', 'POS'];
+
+  it('shows only the linked app when the link asks for it, whatever the use case', () => {
+    expect(visibleGroups(groups, { allowed: ['POS'], linked: 'MARKETFLOW', only: true })).toEqual(['MARKETFLOW']);
+  });
+
+  it('keeps every relevant tab without only=1, and falls back when the linked group has no plans', () => {
+    expect(visibleGroups(groups, { allowed: ['POS', 'ORDERING'], linked: 'MARKETFLOW' })).toEqual(['ORDERING', 'POS']);
+    expect(visibleGroups(groups, { linked: 'AFYA', only: true })).toEqual(['ORDERING', 'POS', 'MARKETFLOW']);
+  });
+
+  it('keeps the subscribed group visible outside the use case', () => {
+    expect(visibleGroups(groups, { allowed: ['POS'], subscribed: 'MARKETFLOW' })).toEqual(['POS', 'MARKETFLOW']);
   });
 });

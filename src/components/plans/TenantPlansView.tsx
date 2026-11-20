@@ -21,7 +21,7 @@ import {
   isRecommended,
   planGroup,
   plansForTenant,
-  sortGroups,
+  visibleGroups,
   type BillingKind,
   type CurrentSubscription,
   type Plan,
@@ -42,6 +42,7 @@ export function TenantPlansView() {
   const searchParams = useSearchParams();
   const serviceParam = searchParams.get('service');
   const highlight = searchParams.get('plan');
+  const onlyLinked = searchParams.get('only') === '1';
   const [pickedGroup, setPickedGroup] = useState('');
   // Null until the tenant picks: a linked one-time plan (?plan=..._ONE_TIME) opens on licences.
   const [kind, setKind] = useState<BillingKind | null>(null);
@@ -77,9 +78,6 @@ export function TenantPlansView() {
   // Visible groups: those relevant to the use case, plus whatever the tenant already subscribes to.
   const subscribedGroup = currentSub?.plan_code ? planGroup(currentSub.plan_code) : null;
   const allowed = USECASE_GROUPS[useCase];
-  const groups = sortGroups(
-    [...new Set(allPlans.map((p) => planGroup(p.planCode)))].filter((g) => !allowed || allowed.includes(g) || g === subscribedGroup),
-  );
   // Links arrive with a service tag (?service=pos, from auth-ui and the apps) or a plan-code prefix
   // (?service=powersuite). A tag resolves through the plans that carry it, so pos opens PowerSuite
   // and hospital opens Codevertex Afya. A linked plan code decides the group when service is absent.
@@ -92,6 +90,10 @@ export function TenantPlansView() {
     : highlightPlan
       ? planGroup(highlightPlan.planCode)
       : null;
+  const groups = visibleGroups(
+    allPlans.map((p) => planGroup(p.planCode)),
+    { allowed, subscribed: subscribedGroup, linked: paramGroup, only: onlyLinked },
+  );
   const group = pickedGroup && groups.includes(pickedGroup) ? pickedGroup : paramGroup && groups.includes(paramGroup) ? paramGroup : groups[0] ?? 'ORDERING';
 
   // The plan being paid for, not a trial plan: the trial tier still shows as an upgrade.
@@ -148,6 +150,7 @@ export function TenantPlansView() {
       {/* One toolbar row: product on the left, billing type on the right; scrolls on phones. */}
       <div className="sticky top-16 z-20 -mx-4 border-y border-border bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex flex-wrap items-center gap-3">
+          {groups.length > 1 && (
           <div role="tablist" aria-label="Product" className="flex max-w-full gap-1 overflow-x-auto rounded-2xl border border-border bg-muted/50 p-1 scrollbar-hide">
             {groups.map((g) => (
               <button
@@ -165,6 +168,7 @@ export function TenantPlansView() {
               </button>
             ))}
           </div>
+          )}
 
           {hasOneTime && (
             <div role="tablist" aria-label="Billing type" className="flex gap-1 rounded-2xl border border-border bg-muted/50 p-1">

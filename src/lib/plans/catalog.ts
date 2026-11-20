@@ -89,6 +89,18 @@ export function sortGroups(groups: string[]): string[] {
   })
 }
 
+// The product tabs a tenant sees. A link from one app with ?only=1 (MarketFlow's "See plans")
+// shows that app's group alone. Otherwise the groups relevant to the use case show, plus whatever
+// the tenant already subscribes to.
+export function visibleGroups(
+  planGroups: string[],
+  opts: { allowed?: string[]; subscribed?: string | null; linked?: string | null; only?: boolean },
+): string[] {
+  const all = [...new Set(planGroups)]
+  if (opts.only && opts.linked && all.includes(opts.linked)) return [opts.linked]
+  return sortGroups(all.filter((g) => !opts.allowed || opts.allowed.includes(g) || g === opts.subscribed))
+}
+
 // Tenant use case -> relevant plan groups. Unknown / 'other' -> all groups.
 export const USECASE_GROUPS: Record<string, string[]> = {
   isp: ['ISP', 'POWERSUITE'],
