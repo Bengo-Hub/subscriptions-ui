@@ -67,7 +67,8 @@ function buildSections(plans: Plan[], maps: CatalogMaps): Section[] {
 
 function Cell({ value }: { value: string | boolean | null }) {
   if (value === true) return <Check className="mx-auto h-4 w-4 text-green-700 dark:text-green-400" aria-label="Included" />;
-  if (value === false || value === null) return <Minus className="mx-auto h-4 w-4 text-muted-foreground/40" aria-label="Not included" />;
+  // 70% (not 40%) so "not included" stays readable against the card (icons need 3:1).
+  if (value === false || value === null) return <Minus className="mx-auto h-4 w-4 text-muted-foreground/70" aria-label="Not included" />;
   return <span className={value === 'Unlimited' ? 'font-semibold text-green-700 dark:text-green-400' : 'font-semibold text-foreground'}>{value}</span>;
 }
 
