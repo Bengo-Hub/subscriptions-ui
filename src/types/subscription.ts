@@ -39,6 +39,27 @@ export interface Subscription {
   scheduled_change?: ScheduledChangeInfo
 }
 
+/**
+ * A plan of another service attached to the main plan (GET /subscription `add_ons`). Add-ons are
+ * co-terminous with the main plan: they renew and end with it, are free during the main plan's
+ * trial and are billed with it afterwards. Older API builds omit the list; read it as [].
+ */
+export interface SubscriptionAddOn {
+  product_code: string
+  plan_code: string
+  plan_name: string
+  service_tag: string
+  status: 'active' | 'trial' | 'inactive'
+  price: number
+  currency: string
+  billing_cycle: string
+  trial_ends_at?: string | null
+  current_period_end?: string | null
+  activated_at?: string | null
+  /** Set once the tenant asked to remove it; it stays on until the period ends. Optional in the contract. */
+  cancel_at_period_end?: boolean
+}
+
 export interface SubscriptionSettings {
   autoRenew: boolean
   billingEmail: string

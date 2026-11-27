@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
 import { initiateSubscription } from '@/lib/api/subscriptions';
 import { payTargetFor, type OpenBill } from '@/lib/billing/account-standing';
+import { refreshEntitlements } from '@/lib/auth/token-refresh';
 import { useAuthStore } from '@/store/auth';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 
@@ -132,8 +133,12 @@ export function useBillPayment({ customerEmail }: { customerEmail?: string } = {
         setCheckout(null);
         toast.success('Payment received. Thank you, your account is up to date.');
         refreshAll();
-        // Renewal and invoice settlement land through treasury events a moment later.
-        setTimeout(refreshAll, 4000);
+        // Renewal and invoice settlement land through treasury events a moment later; the token's
+        // service tags are refreshed then too, so a paid add-on shows in the app switcher.
+        setTimeout(() => {
+          refreshAll();
+          void refreshEntitlements();
+        }, 4000);
       }}
       onPaymentFailed={() => {
         setCheckout(null);

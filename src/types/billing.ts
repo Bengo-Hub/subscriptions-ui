@@ -66,6 +66,11 @@ export interface InvoicePreview {
   credits_available_kes: number
   credits_to_apply_kes: number
   estimated_total_kes: number
+  /**
+   * Plan add-ons (other services' plans) on the next bill. Not in the API yet: while it is absent
+   * the estimate covers the main plan only and the page adds the add-ons (lib/billing/addons.ts).
+   */
+  plan_addons_total_kes?: number
 }
 
 export interface CreditTransaction {

@@ -36,3 +36,22 @@ export async function refreshAccessToken(failedToken?: string | null): Promise<s
   const outcome = await refreshSession(failedToken);
   return 'token' in outcome ? outcome.token : null;
 }
+
+/**
+ * Trades the current access token for a fresh one so its plan claims (active_service_tags, read
+ * by the app switcher's "Not in your plan" badge) catch up with a plan or add-on change without a
+ * sign-out. Passing the current token as the "failed" one makes the refresher skip adopting it.
+ * Best effort: on failure the old token stays in use and the next natural refresh catches up.
+ */
+export async function refreshEntitlements(): Promise<void> {
+  try {
+    const current = useAuthStore.getState().session?.accessToken ?? null;
+    const token = await refreshAccessToken(current);
+    if (token) {
+      const { apiClient } = await import('@/lib/api/client');
+      apiClient.setAccessToken(token);
+    }
+  } catch {
+    /* keep the current token */
+  }
+}

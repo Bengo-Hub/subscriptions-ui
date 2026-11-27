@@ -2,18 +2,33 @@
 
 import { TrendingUp } from 'lucide-react';
 import { SectionCard } from '@/components/ui/page-header';
+import { billableAddOns, nextBillTotal } from '@/lib/billing/addons';
 import { fmtDate, fmtMoney } from '@/lib/billing/format';
 import type { BillingInfo, InvoicePreview } from '@/types/billing';
+import type { SubscriptionAddOn } from '@/types/subscription';
 
-/** What the next bill will be, broken into its parts so nothing on it is a surprise. */
-export function NextInvoiceCard({ preview, billing }: { preview?: InvoicePreview; billing?: BillingInfo }) {
+/**
+ * What the next bill will be, broken into its parts so nothing on it is a surprise: the plan,
+ * each paid add-on (they renew with the plan), extra usage, extras and credit.
+ */
+export function NextInvoiceCard({
+  preview,
+  billing,
+  addOns = [],
+}: {
+  preview?: InvoicePreview;
+  billing?: BillingInfo;
+  addOns?: SubscriptionAddOn[];
+}) {
   if (billing?.isPerpetual) return null;
-  const rows: { label: string; value: string; tone?: string }[] = preview
+  const total = nextBillTotal(preview, addOns);
+  const rows: { key: string; label: string; value: string; tone?: string }[] = preview
     ? [
-        { label: 'Plan', value: fmtMoney(preview.base_plan_price_kes) },
-        ...(preview.overage_total_kes > 0 ? [{ label: 'Extra usage', value: `+${fmtMoney(preview.overage_total_kes)}`, tone: 'text-amber-800 dark:text-amber-300' }] : []),
-        ...(preview.addons_total_kes > 0 ? [{ label: 'Add-ons', value: `+${fmtMoney(preview.addons_total_kes)}` }] : []),
-        ...(preview.credits_to_apply_kes > 0 ? [{ label: 'Credit applied', value: `−${fmtMoney(preview.credits_to_apply_kes)}`, tone: 'text-green-700 dark:text-green-400' }] : []),
+        { key: 'plan', label: 'Plan', value: fmtMoney(preview.base_plan_price_kes) },
+        ...billableAddOns(addOns).map((a) => ({ key: `addon-${a.product_code}`, label: a.plan_name, value: `+${fmtMoney(a.price, a.currency || 'KES')}` })),
+        ...(preview.overage_total_kes > 0 ? [{ key: 'overage', label: 'Extra usage', value: `+${fmtMoney(preview.overage_total_kes)}`, tone: 'text-amber-800 dark:text-amber-300' }] : []),
+        ...(preview.addons_total_kes > 0 ? [{ key: 'extras', label: 'Extras', value: `+${fmtMoney(preview.addons_total_kes)}` }] : []),
+        ...(preview.credits_to_apply_kes > 0 ? [{ key: 'credit', label: 'Credit applied', value: `−${fmtMoney(preview.credits_to_apply_kes)}`, tone: 'text-green-700 dark:text-green-400' }] : []),
       ]
     : [];
 
@@ -26,11 +41,11 @@ export function NextInvoiceCard({ preview, billing }: { preview?: InvoicePreview
         </div>
       ) : (
         <>
-          <p className="text-3xl font-bold tabular-nums text-foreground">{fmtMoney(preview.estimated_total_kes)}</p>
+          <p className="text-3xl font-bold tabular-nums text-foreground">{fmtMoney(total)}</p>
           <dl className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm">
             {rows.map((r) => (
-              <div key={r.label} className="flex justify-between gap-3">
-                <dt className="text-muted-foreground">{r.label}</dt>
+              <div key={r.key} className="flex justify-between gap-3">
+                <dt className="min-w-0 truncate text-muted-foreground">{r.label}</dt>
                 <dd className={r.tone ?? 'text-foreground'}>{r.value}</dd>
               </div>
             ))}

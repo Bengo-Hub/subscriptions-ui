@@ -37,6 +37,35 @@ export const createSubscription = (
     billing_cycle: opts?.billingCycle,
   })
 
+/**
+ * What POST /subscription answers when it attaches another service's plan as an add-on: the
+ * subscription, and for a paid add-on outside a trial something to pay, either a payment intent
+ * (the /subscription/initiate shape) or an invoice that then shows on the billing page.
+ */
+export interface AddOnResult {
+  intent_id?: string
+  initiate_url?: string
+  authorization_url?: string
+  amount?: string | number
+  currency?: string
+  invoice_id?: string
+  invoice_number?: string
+  amount_due?: number
+  invoice?: { id?: string; invoice_number?: string; amount_due?: number; total?: number } | null
+}
+
+/** Attaches a plan of another service to the main plan (co-terminous add-on). Same POST as a first subscribe. */
+export const addPlanToSubscription = (planCode: string, terms: { version: string }) =>
+  apiClient.post<AddOnResult>('/api/v1/subscription', {
+    plan_code: planCode,
+    terms_version: terms.version,
+    terms_accepted: true,
+  })
+
+/** Removes an add-on at the end of the current period (it stays on until then). */
+export const removeAddOn = (productCode: string) =>
+  apiClient.delete<unknown>(`/api/v1/subscription/add-ons/${encodeURIComponent(productCode)}`)
+
 // Switch the billing period (MONTHLY/SEMI_ANNUAL/ANNUAL) effective next renewal.
 // 6+ month periods waive the one-time setup fee if it has not been charged yet.
 export const updateBillingCycle = (billingCycle: string) =>

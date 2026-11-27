@@ -4,14 +4,21 @@ import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Info, Layers, Package } from 'lucide-react';
-import { apiClient } from '@/lib/api/client';
+import { toast } from 'sonner';
 import { listFeatureCatalog } from '@/lib/api/feature-catalog';
+import { getTerms } from '@/lib/api/subscriptions';
 import { fetchTenantBySlug } from '@/lib/tenant-api';
 import { cn } from '@/lib/utils';
 import { PageContainer, PageHeader } from '@/components/ui/page-header';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PlanCard, type PlanBadge, type PlanCta } from '@/components/plans/PlanCard';
 import { PlanComparison } from '@/components/plans/PlanComparison';
+import { useBillPayment } from '@/components/billing/use-bill-payment';
 import { useAllPlans } from '@/hooks/usePlans';
+import { useAddPlanToSubscription, useCurrentSubscription } from '@/hooks/useSubscription';
+import { useAuthStore } from '@/store/auth';
+import { addOnRuleNote, breakdownLines, parseAddPlanResult, subscriptionAddOns, type AddPlanResult } from '@/lib/billing/addons';
+import { fmtMoney } from '@/lib/billing/format';
 import {
   EMPTY_CATALOG_MAPS,
   USECASE_GROUPS,
@@ -19,11 +26,12 @@ import {
   groupLabel,
   isOneTimePlan,
   isRecommended,
+  planAction,
   planGroup,
   plansForTenant,
+  previousTier,
   visibleGroups,
   type BillingKind,
-  type CurrentSubscription,
   type Plan,
 } from '@/lib/plans/catalog';
 
@@ -58,12 +66,16 @@ export function TenantPlansView() {
   });
   const useCase = (tenantBrand?.useCase ?? 'other').toLowerCase();
 
-  const { data: currentSub } = useQuery({
-    queryKey: ['current-subscription'],
-    queryFn: () => apiClient.get<CurrentSubscription>('/api/v1/subscription').catch(() => null),
-    staleTime: 60_000,
-    retry: 1,
-  });
+  const { data: currentSub } = useCurrentSubscription();
+  const addOns = useMemo(() => subscriptionAddOns(currentSub), [currentSub]);
+  const { data: terms } = useQuery({ queryKey: ['terms'], queryFn: getTerms, staleTime: 10 * 60_000, enabled: !!currentSub });
+  const addPlan = useAddPlanToSubscription();
+  const email = useAuthStore((s) => s.user?.email);
+  const pay = useBillPayment({ customerEmail: email });
+  // The add-on being confirmed, the terms box, and the API's answer when it asks for payment.
+  const [adding, setAdding] = useState<Plan | null>(null);
+  const [termsOk, setTermsOk] = useState(false);
+  const [charge, setCharge] = useState<{ plan: Plan; result: AddPlanResult } | null>(null);
   const { data: plansData, isLoading } = useAllPlans();
   const { data: catalog } = useQuery({
     queryKey: ['feature-catalog'],
@@ -116,14 +128,79 @@ export function TenantPlansView() {
 
   const ctaFor = (p: Plan, badge: PlanBadge): PlanCta => {
     const go = (path: string) => () => router.push(`${path}?plan=${p.planCode}`);
-    if (badge === 'current') return { label: 'Your current plan', disabled: true, tone: 'current' };
-    if (badge === 'expired') return { label: 'Renew this plan', onClick: go('/subscribe'), tone: 'danger' };
-    if (!currentSub || !currentPlan || planGroup(p.planCode) !== planGroup(currentCode)) {
-      return { label: currentSub ? 'Subscribe' : 'Get started', onClick: go('/subscribe'), tone: badge === 'recommended' ? 'primary' : 'outline' };
+    const action = planAction(p, {
+      currentCode,
+      currentPlan,
+      status,
+      isPerpetual: currentSub?.is_perpetual,
+      addOns,
+      hasSubscription: !!currentSub,
+    });
+    switch (action) {
+      case 'current':
+        return { label: 'Your current plan', disabled: true, tone: 'current' };
+      case 'expired':
+        return { label: 'Renew this plan', onClick: go('/subscribe'), tone: 'danger' };
+      case 'added':
+        return { label: 'On your plan', disabled: true, tone: 'current', note: 'Added to your plan. Manage it on the billing page.' };
+      case 'add_on':
+        return {
+          label: 'Add to my plan',
+          onClick: () => {
+            setTermsOk(false);
+            setAdding(p);
+          },
+          tone: 'primary',
+          note: addOnRuleNote(p, currentSub ?? { status: null }),
+        };
+      case 'upgrade':
+        return { label: 'Upgrade', onClick: go('/upgrade'), tone: 'primary' };
+      case 'downgrade':
+        return { label: 'Downgrade', onClick: go('/downgrade'), tone: 'outline' };
+      default:
+        return { label: currentSub ? 'Subscribe' : 'Get started', onClick: go('/subscribe'), tone: badge === 'recommended' ? 'primary' : 'outline' };
     }
-    if (p.tierOrder > currentPlan.tierOrder) return { label: 'Upgrade', onClick: go('/upgrade'), tone: 'primary' };
-    return { label: 'Downgrade', onClick: go('/downgrade'), tone: 'outline' };
   };
+
+  const confirmAdd = () => {
+    const plan = adding;
+    if (!plan || !terms?.version) return;
+    addPlan.mutate(
+      { planCode: plan.planCode, termsVersion: terms.version },
+      {
+        onSuccess: (res) => {
+          setAdding(null);
+          const result = parseAddPlanResult(res);
+          if (result.payment.kind === 'none') {
+            toast.success(result.outcome === 'main_plan' ? `${plan.name} is now your main plan.` : `${plan.name} is on your plan.`);
+            return;
+          }
+          // Something to pay: show the API's own breakdown first, then take the payment.
+          setCharge({ plan, result });
+        },
+        // A 409 ("already covered by your plan") is an answer, not a failure: the hook shows the
+        // API's message and refreshes the page, so the dialog closes.
+        onError: (e: any) => {
+          if (e?.response?.status === 409) setAdding(null);
+        },
+      },
+    );
+  };
+
+  const payCharge = () => {
+    if (!charge) return;
+    const { plan, result } = charge;
+    setCharge(null);
+    if (result.payment.kind === 'intent') {
+      pay.openIntent({ intentId: result.payment.intentId, initiateUrl: result.payment.initiateUrl, amount: result.payment.amount, label: plan.name, referenceType: 'subscription' });
+    } else if (result.payment.kind === 'redirect') {
+      window.location.href = result.payment.url;
+    } else {
+      router.push('/billing');
+    }
+  };
+  const chargeAmount =
+    charge && (charge.result.payment.kind === 'intent' ? charge.result.payment.amount : charge.result.payment.kind === 'invoice' ? charge.result.payment.amount : charge.result.breakdown?.charged);
 
   return (
     <PageContainer>
@@ -223,7 +300,7 @@ export function TenantPlansView() {
               <PlanCard
                 key={p.id}
                 plan={p}
-                prevPlan={i > 0 ? plans[i - 1] : undefined}
+                prevPlan={previousTier(plans, i)}
                 group={group}
                 kind={effectiveKind}
                 badge={badge}
@@ -243,6 +320,82 @@ export function TenantPlansView() {
           For larger businesses, <a className="font-semibold text-primary underline-offset-2 hover:underline" href="mailto:sales@codevertexafrica.com">contact us</a>.
         </p>
       )}
+
+      <ConfirmDialog
+        open={!!adding}
+        variant="info"
+        title={`Add ${adding?.name ?? 'this plan'} to your plan?`}
+        description={adding ? addOnRuleNote(adding, currentSub ?? { status: null }) : undefined}
+        confirmLabel="Add to my plan"
+        pending={addPlan.isPending}
+        confirmDisabled={!termsOk || !terms?.version}
+        onCancel={() => setAdding(null)}
+        onConfirm={confirmAdd}
+      >
+        <div className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            It renews and ends with {currentSub?.plan_name ?? 'your plan'} and appears on the same bill. If it includes
+            everything your plan has, it becomes your main plan instead. If your plan already has some of its features,
+            you pay only for the new ones. You see the exact amount before you pay anything.
+          </p>
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border border-border p-3 text-foreground">
+            <input
+              type="checkbox"
+              checked={termsOk}
+              onChange={(e) => setTermsOk(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
+            />
+            <span>I accept the subscription Terms and Conditions{terms?.version ? ` (version ${terms.version})` : ''}.</span>
+          </label>
+        </div>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!charge}
+        variant="info"
+        title={
+          charge?.result.outcome === 'main_plan'
+            ? `${charge.plan.name} becomes your main plan`
+            : `Pay for ${charge?.plan.name ?? 'your add-on'}`
+        }
+        description={
+          charge?.result.outcome === 'main_plan'
+            ? 'It includes everything in your current plan, so it replaces it. You pay the difference for the days to your renewal date.'
+            : charge?.result.breakdown && charge.result.breakdown.covered > 0
+              ? 'Your plan already has some of its features, so you pay only for the new ones.'
+              : 'Charged for the days to your renewal date, then it renews with your plan.'
+        }
+        confirmLabel={
+          charge?.result.payment.kind === 'invoice'
+            ? 'Go to billing to pay'
+            : chargeAmount != null
+              ? `Pay ${fmtMoney(chargeAmount, charge?.result.breakdown?.currency ?? 'KES')}`
+              : 'Continue to payment'
+        }
+        cancelLabel="Pay later"
+        onCancel={() => {
+          setCharge(null);
+          toast.message('Not paid yet. Anything due shows on your billing page.');
+        }}
+        onConfirm={payCharge}
+      >
+        {charge?.result.breakdown ? (
+          <dl className="space-y-1.5 rounded-xl border border-border p-3 text-sm">
+            {breakdownLines(charge.result.breakdown).map((l) => (
+              <div key={l.label} className="flex justify-between gap-3">
+                <dt className="text-muted-foreground">{l.label}</dt>
+                <dd className="font-medium tabular-nums text-foreground">{l.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : chargeAmount != null ? (
+          <p className="text-sm text-foreground">
+            Amount due now: <span className="font-semibold tabular-nums">{fmtMoney(chargeAmount)}</span>
+          </p>
+        ) : null}
+      </ConfirmDialog>
+
+      {pay.modal}
     </PageContainer>
   );
 }

@@ -17,12 +17,21 @@ export function usePlans(params?: { serviceTag?: string }) {
 
 /**
  * Every plan (public and hidden), as the plan picker and the platform plan editor need them.
- * GET /plans returns { data, total }; limit 500 covers the whole catalogue in one call.
+ * GET /plans returns { data, total, hasMore } and caps limit at 100 (shared pagination MaxLimit),
+ * so a larger limit silently returned only the first 100; this reads every page.
  */
 export function useAllPlans() {
   return useQuery({
     queryKey: ['plans', 'all'],
-    queryFn: () => apiClient.get<{ data: CatalogPlan[]; total: number }>('/api/v1/plans', { limit: 500 }).then((r) => r?.data ?? []),
+    queryFn: async () => {
+      const all: CatalogPlan[] = []
+      for (let page = 1; page <= 20; page++) {
+        const r = await apiClient.get<{ data: CatalogPlan[]; total: number; hasMore?: boolean }>('/api/v1/plans', { limit: 100, page })
+        all.push(...(r?.data ?? []))
+        if (!r?.hasMore || !r.data?.length) break
+      }
+      return all
+    },
     staleTime: 5 * 60_000,
   })
 }

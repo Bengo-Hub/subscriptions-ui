@@ -29,8 +29,10 @@ import {
   useSetupPaymentMethod,
   useUndoCancelSubscription,
 } from '@/hooks/useBilling';
-import { useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
+import { useCurrentSubscription, useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
+import { PlanAddOnsCard } from '@/components/billing/PlanAddOnsCard';
 import { accountStanding, type OpenBill } from '@/lib/billing/account-standing';
+import { nextBillTotal, subscriptionAddOns } from '@/lib/billing/addons';
 import { useAuthStore } from '@/store/auth';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 import type { Invoice } from '@/types/billing';
@@ -51,6 +53,8 @@ export default function BillingPage() {
   const { data: billing, isLoading } = useBilling();
   const { data: preview } = useInvoicePreview();
   const { data: wallet } = useCreditWallet();
+  const { data: currentSub } = useCurrentSubscription();
+  const addOns = useMemo(() => subscriptionAddOns(currentSub), [currentSub]);
   const { data: settings } = useSubscriptionSettings();
   const updateSettings = useUpdateSubscriptionSettings();
   const setDefault = useSetDefaultPaymentMethod();
@@ -126,7 +130,7 @@ export default function BillingPage() {
           <BillingStatusHero
             standing={standing}
             billing={billing}
-            nextBillAmount={preview?.estimated_total_kes}
+            nextBillAmount={nextBillTotal(preview, addOns)}
             onPay={pay.payBill}
             onRenew={renew}
             onKeepSubscription={() => undoCancel.mutate()}
@@ -145,12 +149,15 @@ export default function BillingPage() {
               onView={(inv) => viewPdf(inv.pdfUrl, inv.description || inv.id, `invoice-${inv.id}.pdf`)}
               onPay={payInvoice}
             />
+            {currentSub && !currentSub.is_perpetual && (
+              <PlanAddOnsCard addOns={addOns} mainTrialEndsAt={currentSub.trial_ends_at} />
+            )}
             <MessagingSection onCheckout={(a) => pay.openIntent({ ...a, referenceType: 'credit_purchase' })} />
             <AddonsSection preview={preview} />
             <SupportChargesCard agreements={billing?.supportAgreements} charges={billing?.supportCharges} blocked={billing?.supportBlocked} showCharges={false} />
           </div>
           <aside className="space-y-6">
-            <NextInvoiceCard preview={preview} billing={billing} />
+            <NextInvoiceCard preview={preview} billing={billing} addOns={addOns} />
             <AutoPaySection
               key={standing.kind}
               billing={billing}

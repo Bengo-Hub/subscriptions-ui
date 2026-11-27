@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Check, ChevronRight, Star } from 'lucide-react';
 import { Button } from '@/components/ui/base';
 import { cn } from '@/lib/utils';
@@ -13,6 +14,8 @@ export interface PlanCta {
   onClick?: () => void;
   disabled?: boolean;
   tone: 'primary' | 'outline' | 'danger' | 'current';
+  /** A short line under the button (the add-on rule and price), read out with it. */
+  note?: string;
 }
 
 interface Props {
@@ -37,6 +40,7 @@ const BADGE: Record<Exclude<PlanBadge, null>, { text: string; className: string 
  * pill under it, so it never wraps into the price and is never hidden.
  */
 export function PlanCard({ plan, prevPlan, group, kind, badge, cta, limitInfo }: Props) {
+  const noteId = useId();
   const name = planTierLabel(plan.planCode, group);
   const setupFee = plan.setupFee ?? 0;
   const limits = Object.entries(plan.tierLimits ?? {}).filter(([k]) => !limitInfo[k]?.isOverage);
@@ -122,6 +126,7 @@ export function PlanCard({ plan, prevPlan, group, kind, badge, cta, limitInfo }:
       <Button
         onClick={cta.onClick}
         disabled={cta.disabled}
+        aria-describedby={cta.note ? noteId : undefined}
         variant={cta.tone === 'outline' ? 'outline' : cta.tone === 'danger' ? 'destructive' : 'primary'}
         className={cn(
           'mt-6 h-11 w-full rounded-xl font-semibold',
@@ -131,6 +136,11 @@ export function PlanCard({ plan, prevPlan, group, kind, badge, cta, limitInfo }:
         {cta.label}
         {!cta.disabled && <ChevronRight className="h-4 w-4" aria-hidden />}
       </Button>
+      {cta.note && (
+        <p id={noteId} className="mt-2 text-xs text-muted-foreground">
+          {cta.note}
+        </p>
+      )}
     </article>
   );
 }

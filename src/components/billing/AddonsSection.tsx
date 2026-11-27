@@ -41,7 +41,7 @@ export function AddonsSection({ preview }: { preview?: InvoicePreview }) {
       )}
 
       {active.length > 0 && (
-        <SectionCard title="Your add-ons" icon={Package} bodyClassName="p-0 sm:p-0">
+        <SectionCard title="Extras on your bill" icon={Package} bodyClassName="p-0 sm:p-0">
           <DataTable<AddonLine> columns={activeColumns} rows={active} rowKey={(a) => `${a.name}-${a.service_code ?? ''}`} gridLines="rows" dense maxBodyHeight={false} />
         </SectionCard>
       )}

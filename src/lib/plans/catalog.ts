@@ -1,4 +1,5 @@
 import type { FeatureDefinition } from '@/types/feature-catalog'
+import type { SubscriptionAddOn } from '@/types/subscription'
 
 // Plan shapes and the pure helpers both the tenant plan picker and the platform plan editor use.
 
@@ -46,9 +47,13 @@ export interface CurrentSubscription {
   plan_name: string
   status: string // ACTIVE, TRIAL, EXPIRED, CANCELLED
   trial_ends_at: string | null
+  current_period_start?: string
   current_period_end: string
+  is_perpetual?: boolean
   // While an upgrade trial runs plan_code is the trial plan; base_plan_code is the plan paid for.
   upgrade_trial?: { plan_code: string; base_plan_code: string }
+  // Plans of other services attached to this one. Absent on older API builds.
+  add_ons?: SubscriptionAddOn[]
 }
 
 /** The billing period (Monthly / 6 / 12 months) is chosen at checkout; the page only splits recurring from one-time. */
@@ -154,9 +159,13 @@ export function isRecommended(code: string | null | undefined): boolean {
 export const cycleLabel: Record<string, string> = { MONTHLY: 'Monthly', ANNUAL: 'Annual', ONE_TIME: 'One-time' }
 
 /**
- * The plans a tenant should see for one group and billing kind: public plans only, scoped to the
- * tenant's vertical (the tenant's own current plan always stays visible), legacy annual rows
- * dropped, cheapest tier first.
+ * The plans a tenant should see for one group and billing kind: public plans only, legacy annual
+ * rows dropped, cheapest tier first.
+ *
+ * A group with a family for the tenant's vertical (POWERSUITE_DUKA_* for retail) shows that family
+ * plus plans for any vertical; the tenant's own current plan always stays visible. A tenant whose
+ * vertical has no family in the group (gift_registry, property, services or other on PowerSuite,
+ * where every plan is DUKA, HOSP or DAWA) sees every family, grouped by family, instead of none.
  */
 export function plansForTenant(
   all: Plan[],
@@ -165,15 +174,59 @@ export function plansForTenant(
   useCase: string,
   currentPlanCode?: string | null,
 ): Plan[] {
-  return all
-    .filter((p) => p.isPublic !== false)
-    .filter(
-      (p) =>
-        planGroup(p.planCode) === group &&
-        (!p.useCase || useCase === 'other' || p.useCase.toLowerCase() === useCase || p.planCode === currentPlanCode),
-    )
+  const uc = (useCase || 'other').toLowerCase()
+  const inGroup = all.filter((p) => p.isPublic !== false && planGroup(p.planCode) === group)
+  const hasOwnFamily = uc !== 'other' && inGroup.some((p) => p.useCase?.toLowerCase() === uc)
+  const shown = inGroup
+    .filter((p) => !hasOwnFamily || !p.useCase || p.useCase.toLowerCase() === uc || p.planCode === currentPlanCode)
     .filter((p) => (kind === 'ONE_TIME' ? isOneTimePlan(p) : !isLegacyAnnualPlan(p) && !isOneTimePlan(p)))
-    .sort((a, b) => a.tierOrder - b.tierOrder)
+  const families = new Set(shown.map((p) => p.useCase?.toLowerCase()).filter(Boolean))
+  return shown.sort((a, b) =>
+    families.size > 1
+      ? (a.useCase ?? '').localeCompare(b.useCase ?? '') || a.tierOrder - b.tierOrder
+      : a.tierOrder - b.tierOrder,
+  )
+}
+
+/** The plan to compare a card against ("Everything in X, plus"): the previous tier of the same family only. */
+export function previousTier(plans: Plan[], index: number): Plan | undefined {
+  const prev = index > 0 ? plans[index - 1] : undefined
+  if (!prev) return undefined
+  return (prev.useCase ?? '').toLowerCase() === (plans[index].useCase ?? '').toLowerCase() ? prev : undefined
+}
+
+/** A plan's service tag, falling back to its code group when the row has none. */
+export function planService(p: Pick<Plan, 'planCode' | 'serviceTag'>): string {
+  return (p.serviceTag || planGroup(p.planCode)).toLowerCase()
+}
+
+export type PlanAction = 'current' | 'expired' | 'subscribe' | 'add_on' | 'added' | 'upgrade' | 'downgrade'
+
+/**
+ * What the card's button does. A plan of the main plan's service is a plan change (upgrade or
+ * downgrade). A recurring plan of another service is an add-on to a running main plan
+ * (POST /subscription attaches it, co-terminous with the main plan). Anything else subscribes.
+ */
+export function planAction(
+  p: Plan,
+  ctx: {
+    currentCode: string | null
+    currentPlan?: Plan
+    status: string | null
+    isPerpetual?: boolean
+    addOns?: SubscriptionAddOn[]
+    hasSubscription: boolean
+  },
+): PlanAction {
+  if (p.planCode === ctx.currentCode) return ctx.status === 'EXPIRED' ? 'expired' : 'current'
+  if (!ctx.hasSubscription || !ctx.currentPlan) return 'subscribe'
+  if (planService(p) === planService(ctx.currentPlan)) {
+    return p.tierOrder > ctx.currentPlan.tierOrder ? 'upgrade' : 'downgrade'
+  }
+  if ((ctx.addOns ?? []).some((a) => a.plan_code === p.planCode && a.status !== 'inactive')) return 'added'
+  const running = ctx.status === 'ACTIVE' || ctx.status === 'TRIAL'
+  if (running && !ctx.isPerpetual && !isOneTimePlan(p)) return 'add_on'
+  return 'subscribe'
 }
 
 // Catalog-derived feature and limit registry. GET /api/v1/features/catalog is the single source of
