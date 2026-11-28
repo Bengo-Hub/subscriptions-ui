@@ -33,7 +33,7 @@ import {
 import { useCurrentSubscription, useSubscriptionSettings, useUpdateSubscriptionSettings } from '@/hooks/useSubscription';
 import { PlanAddOnsCard } from '@/components/billing/PlanAddOnsCard';
 import { accountStanding, type OpenBill } from '@/lib/billing/account-standing';
-import { nextBillTotal, subscriptionAddOns } from '@/lib/billing/addons';
+import { bundledServices, nextBillTotal, subscriptionAddOns } from '@/lib/billing/addons';
 import { useAuthStore } from '@/store/auth';
 import { useTenantFilterStore } from '@/store/tenant-filter';
 import type { Invoice } from '@/types/billing';
@@ -156,7 +156,12 @@ export default function BillingPage() {
               onPay={payInvoice}
             />
             {currentSub && !currentSub.is_perpetual && (
-              <PlanAddOnsCard addOns={addOns} mainTrialEndsAt={currentSub.trial_ends_at} />
+              <PlanAddOnsCard
+                addOns={addOns}
+                mainTrialEndsAt={currentSub.trial_ends_at}
+                mainPlanName={currentSub.plan_name ?? billing?.planName}
+                includedServices={bundledServices(currentSub)}
+              />
             )}
             <MessagingSection onCheckout={(a) => pay.openIntent({ ...a, referenceType: 'credit_purchase' })} />
             <AddonsSection preview={preview} />

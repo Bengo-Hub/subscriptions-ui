@@ -27,9 +27,19 @@ const STATUS: Record<SubscriptionAddOn['status'], { text: string; variant: 'succ
  * They renew and end with the main plan, so each row says when, and removal takes effect at the
  * end of the period already paid for.
  */
-export function PlanAddOnsCard({ addOns, mainTrialEndsAt }: { addOns: SubscriptionAddOn[]; mainTrialEndsAt?: string | null }) {
+export function PlanAddOnsCard({ addOns, mainTrialEndsAt, includedServices = [], mainPlanName }: {
+  addOns: SubscriptionAddOn[];
+  mainTrialEndsAt?: string | null;
+  /** Other apps the main plan itself includes (bundled, such as MarketFlow Starter in Treasury). */
+  includedServices?: string[];
+  mainPlanName?: string | null;
+}) {
   const remove = useRemoveAddOn();
   const [confirming, setConfirming] = useState<SubscriptionAddOn | null>(null);
+  // Bundled apps are listed too (owner, 2026-11-28: "No other apps" read as missing when MarketFlow
+  // came with the plan); an app that is also an add-on shows once, as the add-on.
+  const bundled = includedServices.filter((tag) => !addOns.some((a) => (a.service_tag || '').toLowerCase() === tag));
+  const empty = addOns.length === 0 && bundled.length === 0;
 
   return (
     <SectionCard
@@ -44,12 +54,23 @@ export function PlanAddOnsCard({ addOns, mainTrialEndsAt }: { addOns: Subscripti
           Add an app
         </Link>
       }
-      bodyClassName={addOns.length ? 'p-0 sm:p-0' : undefined}
+      bodyClassName={empty ? undefined : 'p-0 sm:p-0'}
     >
-      {addOns.length === 0 ? (
+      {empty ? (
         <p className="text-sm text-muted-foreground">No other apps on your plan yet.</p>
       ) : (
         <ul className="divide-y divide-border" aria-label="Add-ons on your plan">
+          {bundled.map((tag) => (
+            <li key={`bundled-${tag}`} className="flex flex-col gap-1 px-4 py-4 sm:px-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-foreground">{serviceLabel(tag)}</p>
+                <Badge variant="success">Included</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Comes with {mainPlanName || 'your plan'} at no extra cost. Add a higher {serviceLabel(tag)} plan to get more.
+              </p>
+            </li>
+          ))}
           {addOns.map((a) => {
             const status = a.cancel_at_period_end ? { text: 'Ending', variant: 'outline' as const } : STATUS[a.status] ?? STATUS.inactive;
             return (

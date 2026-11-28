@@ -119,6 +119,10 @@ export function TenantPlansView() {
     [allPlans, group, effectiveKind, useCase, currentCode],
   );
   const currentPlan = allPlans.find((p) => p.planCode === currentCode);
+  const addOnPlans = useMemo(
+    () => addOns.filter((a) => a.status !== 'inactive').map((a) => allPlans.find((p) => p.planCode === a.plan_code)).filter((p): p is Plan => !!p),
+    [addOns, allPlans],
+  );
 
   const badgeFor = (p: Plan): PlanBadge => {
     if (p.planCode === currentCode) return status === 'EXPIRED' ? 'expired' : 'current';
@@ -135,6 +139,7 @@ export function TenantPlansView() {
       isPerpetual: currentSub?.is_perpetual,
       addOns,
       hasSubscription: !!currentSub,
+      addOnPlans,
     });
     switch (action) {
       case 'current':
@@ -143,6 +148,8 @@ export function TenantPlansView() {
         return { label: 'Renew this plan', onClick: go('/subscribe'), tone: 'danger' };
       case 'added':
         return { label: 'On your plan', disabled: true, tone: 'current', note: 'Added to your plan. Manage it on the billing page.' };
+      case 'covered':
+        return { label: 'Already in your plan', disabled: true, tone: 'current', note: `Your ${currentPlan?.name ?? 'plan'} already includes everything in this plan.` };
       case 'add_on':
         return {
           label: 'Add to my plan',

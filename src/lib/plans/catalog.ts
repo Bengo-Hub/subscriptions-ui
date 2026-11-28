@@ -200,7 +200,35 @@ export function planService(p: Pick<Plan, 'planCode' | 'serviceTag'>): string {
   return (p.serviceTag || planGroup(p.planCode)).toLowerCase()
 }
 
-export type PlanAction = 'current' | 'expired' | 'subscribe' | 'add_on' | 'added' | 'upgrade' | 'downgrade'
+export type PlanAction = 'current' | 'expired' | 'subscribe' | 'add_on' | 'added' | 'covered' | 'upgrade' | 'downgrade'
+
+/** A limit value as a number to compare; -1 (unlimited) is the largest. */
+function limitRank(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return null
+  return n === -1 ? Number.POSITIVE_INFINITY : n
+}
+
+/**
+ * True when the plans the tenant already has (main plan and add-ons) include everything p offers:
+ * every included feature and at least every limit (owner, 2026-11-28: MarketFlow Starter, bundled
+ * in Treasury Growth, still offered "Add to my plan", which the API refuses as a subset). A plan
+ * with nothing listed is never treated as covered.
+ */
+export function planCoveredBy(p: Plan, have: Plan[]): boolean {
+  if (!have.length) return false
+  const features = (p.features ?? []).filter((f) => f.isIncluded).map((f) => f.featureCode)
+  const limits = Object.entries(p.tierLimits ?? {})
+  if (!features.length && !limits.length) return false
+  const owned = new Set(have.flatMap((h) => (h.features ?? []).filter((f) => f.isIncluded).map((f) => f.featureCode)))
+  if (!features.every((code) => owned.has(code))) return false
+  return limits.every(([key, value]) => {
+    const want = limitRank(value)
+    if (want === null || want === 0) return true
+    const best = Math.max(...have.map((h) => limitRank((h.tierLimits ?? {})[key]) ?? Number.NEGATIVE_INFINITY))
+    return best >= want
+  })
+}
 
 /**
  * What the card's button does. A plan of the main plan's service is a plan change (upgrade or
@@ -216,6 +244,8 @@ export function planAction(
     isPerpetual?: boolean
     addOns?: SubscriptionAddOn[]
     hasSubscription: boolean
+    /** The add-on plans the tenant has, to tell a plan its plans already cover. */
+    addOnPlans?: Plan[]
   },
 ): PlanAction {
   if (p.planCode === ctx.currentCode) return ctx.status === 'EXPIRED' ? 'expired' : 'current'
@@ -224,6 +254,8 @@ export function planAction(
     return p.tierOrder > ctx.currentPlan.tierOrder ? 'upgrade' : 'downgrade'
   }
   if ((ctx.addOns ?? []).some((a) => a.plan_code === p.planCode && a.status !== 'inactive')) return 'added'
+  // Everything this plan offers is already in the main plan or an add-on: nothing to add.
+  if (ctx.status !== 'EXPIRED' && planCoveredBy(p, [ctx.currentPlan, ...(ctx.addOnPlans ?? [])])) return 'covered'
   const running = ctx.status === 'ACTIVE' || ctx.status === 'TRIAL'
   if (running && !ctx.isPerpetual && !isOneTimePlan(p)) return 'add_on'
   return 'subscribe'

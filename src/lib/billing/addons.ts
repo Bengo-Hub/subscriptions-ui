@@ -18,6 +18,18 @@ const CYCLE_SUFFIX: Record<string, string> = {
 }
 
 /** The add-on list from GET /subscription; older API builds have none. */
+/**
+ * The other apps the main plan itself includes (bundled, such as MarketFlow Starter in Treasury
+ * Growth): the subscription's active service tags minus the main plan's own app. Platform plumbing
+ * tags (auth, notifications, subscription) are never apps an owner buys.
+ */
+export function bundledServices(sub?: { plan_code?: string | null; active_service_tags?: string[] | null } | null): string[] {
+  const main = (sub?.plan_code || '').split('_')[0].toLowerCase()
+  const plumbing = new Set(['auth', 'notifications', 'subscription', 'subscriptions', 'whatsapp_messaging'])
+  const tags = Array.isArray(sub?.active_service_tags) ? sub!.active_service_tags! : []
+  return [...new Set(tags.map((t) => t.toLowerCase()))].filter((t) => t && t !== main && !plumbing.has(t))
+}
+
 export function subscriptionAddOns(sub?: { add_ons?: SubscriptionAddOn[] | null } | null): SubscriptionAddOn[] {
   const list = sub?.add_ons
   return Array.isArray(list) ? list : []

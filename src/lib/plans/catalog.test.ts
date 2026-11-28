@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planAction, planGroup, planTierLabel, plansForTenant, previousTier, sortGroups, visibleGroups, type Plan } from './catalog';
+import { planAction, planCoveredBy, planGroup, planTierLabel, plansForTenant, previousTier, sortGroups, visibleGroups, type Plan } from './catalog';
 
 function plan(code: string, over: Partial<Plan> = {}): Plan {
   return {
@@ -110,5 +110,32 @@ describe('visibleGroups', () => {
 
   it('keeps the subscribed group visible outside the use case', () => {
     expect(visibleGroups(groups, { allowed: ['POS'], subscribed: 'MARKETFLOW' })).toEqual(['POS', 'MARKETFLOW']);
+  });
+});
+
+// A plan the tenant's main plan (and add-ons) already includes is shown as "Already in your plan",
+// not "Add to my plan" (owner, 2026-11-28: MarketFlow Starter bundled in Treasury Growth).
+describe('planCoveredBy and the covered action', () => {
+  const f = (codes: string[]) => codes.map((featureCode) => ({ featureCode, isIncluded: true, overageUnitPrice: 0 }));
+  const treasury = plan('TREASURY_GROWTH', { serviceTag: 'treasury', features: f(['payouts', 'mf_profile', 'mf_leads']), tierLimits: { crm_contacts: 200, campaigns: 1 } });
+  const starter = plan('MARKETFLOW_STARTER', { serviceTag: 'marketflow', features: f(['mf_profile', 'mf_leads']), tierLimits: { crm_contacts: 200, campaigns: 1 } });
+  const lite = plan('MARKETFLOW_LITE', { serviceTag: 'marketflow', tierOrder: 2, features: f(['mf_profile', 'mf_leads', 'mf_funnels']), tierLimits: { crm_contacts: 2000, campaigns: 3 } });
+  const ctx = { currentCode: 'TREASURY_GROWTH', currentPlan: treasury, status: 'ACTIVE', hasSubscription: true };
+
+  it('covers a plan whose features and limits the main plan already has', () => {
+    expect(planCoveredBy(starter, [treasury])).toBe(true);
+    expect(planAction(starter, ctx)).toBe('covered');
+  });
+
+  it('still offers a plan with more features or higher limits', () => {
+    expect(planCoveredBy(lite, [treasury])).toBe(false);
+    expect(planAction(lite, ctx)).toBe('add_on');
+  });
+
+  it('counts add-ons, treats unlimited as the most, and never covers an empty plan', () => {
+    expect(planCoveredBy(starter, [treasury, lite])).toBe(true);
+    const unlimited = plan('X', { features: f(['payouts']), tierLimits: { crm_contacts: -1 } });
+    expect(planCoveredBy(plan('Y', { features: f(['payouts']), tierLimits: { crm_contacts: 5000 } }), [unlimited])).toBe(true);
+    expect(planCoveredBy(plan('EMPTY'), [treasury])).toBe(false);
   });
 });
