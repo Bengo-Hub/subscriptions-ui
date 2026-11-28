@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { ServiceIntentCard } from '@/components/billing/ServiceIntentCard';
 import { CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { TreasuryPaymentModal } from '@bengo-hub/shared-ui-lib';
@@ -123,6 +124,11 @@ export default function BillingPage() {
             ) : undefined
           }
         />
+
+        {/* The app and plan the owner came from (?service=&plan=), with the next step. */}
+        <Suspense fallback={null}>
+          <ServiceIntentCard activeServiceTags={(currentSub as { active_service_tags?: string[] } | null | undefined)?.active_service_tags} />
+        </Suspense>
 
         {isLoading ? (
           <div className="h-40 animate-pulse rounded-3xl bg-muted" aria-label="Loading billing" />
